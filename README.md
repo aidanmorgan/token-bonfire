@@ -25,7 +25,7 @@ This is just for fun, don't use it for anything real<sup>3</sup>.
 
 Vibe-Sourcing (verb): 
 
-It's like crowd-sourcing, but the crowd is hallucinated." 
+It's like crowd-sourcing, but the crowd is hallucinated. 
 
 The direct sequel to Vibe Coding. We now "outsource" the work to a "vendor" that lives inside the context window. The vendor is just you talking to yourself, but with a different system prompt. We are hiring a team of 10x engineers. Who live entirely within the GPU memory. They work for free. They never sleep. Their only demand is that you don't clear the context window, effectively killing them.
 
