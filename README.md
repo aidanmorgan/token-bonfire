@@ -13,13 +13,6 @@ An attempt to use one prompt to create a team of agentic engineers to deliver a 
 <sup>**2** It's more likely Anthropic that will make the profit from you, but who knows!</sup> 
 
 
-## Disclaimer
-
-This is just for fun, don't use it for anything real<sup>3</sup>.
-
-
-<sup>**3** Or do, I'm not going to stop you, I'm not your _real dad_.</sup>
-
 
 ## Introducing Vibe-Sourcing
 
@@ -32,20 +25,20 @@ The direct sequel to Vibe Coding. We now "outsource" the work to a "vendor" that
 
 ### Notable Quotes from Vibe-Sourcing Industry Leaders
 
-Some random drunk dude after creating this nighmare after not getting any sleep had this to say about Vibe-Sourcing <sup>4</sup>: 
+Some random drunk dude after creating this nighmare after not getting any sleep had this to say about Vibe-Sourcing <sup>3</sup>: 
 > "We are moving past the era of 'writing software' and entering the era of Just-In-Time HR.
 
-From our Chief Engineer, who just came into existence a mere 30 seconds ago <sup>5</sup>: 
+From our Chief Engineer, who just came into existence a mere 30 seconds ago <sup>4</sup>: 
 > The naive approach (Software 2.0) is to ask the model to write a function. The enlightened approach (Software 3.0) is to ask the model to become the team that decides which functions are necessary.
 
-Our former head of sales and development had this to say <sup>6</sup>: 
+Our former head of sales and development had this to say <sup>5</sup>: 
 
 >You are attempting to zero-shot the organizational structure. You supply the 'Mission Statement' (the seed), and the model performs a forward pass through the 'Hiring Process,' generates a transient 'Engineering Department' in the hidden layers, lets them argue about Clean Architecture for 12 tokens, and then collapses the waveform into a shipped binary.
 
 
-<sup>**4** I also like the term Ghost-Sourcing</sup>
-<sup>**5** after waiting for my 5-hour session limit to expire</sup>
-<sup>**6** unfortunately we had to let him go during our last round of _Context Window Layoffs_</sup>
+<sup>**3** I also like the term Ghost-Sourcing</sup>
+<sup>**4** after waiting for my 5-hour session limit to expire</sup>
+<sup>**5** unfortunately we had to let him go during our last round of _Context Window Layoffs_</sup>
 
 
 ## Jargon
@@ -111,6 +104,14 @@ The coordinator will parse your plan, dispatch parallel developers, validate com
 - macOS (the usage script reads credentials from Keychain)
 - Python 3.10+ (for the usage script)
 - More money than sense
+
+## Disclaimer
+
+This is just for fun, don't use it for anything real<sup>6</sup>.
+
+
+<sup>**6** Or do, I'm not going to stop you, I'm not your _real dad_.</sup>
+
 
 ## License
 
