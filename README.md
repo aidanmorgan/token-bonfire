@@ -2,10 +2,14 @@
 
 An attempt to use one prompt to create a team of agentic engineers to deliver a software product. Asking the question that nobody asked - can we zero-shot zero-shot?
 
-Copy to your project directory, launch `claude --dangerously-skip-permissions` <sup>1</sup>, run `/fuck-it-we-ball paragraph_1.txt.md`, ??, profit!<sup>2</sup>
+1. Copy to your project directory
+2. launch `claude --dangerously-skip-permissions` <sup>1</sup> 
+3. run `/fuck-it-we-ball paragraph_1.txt.md`
+4. ??
+5. profit!<sup>2</sup>
+
 
 <sup>**1** It's 2026, nobody approves changes any more.</sup> 
-
 <sup>**2** It's more likely Anthropic that will make the profit from you, but who knows!</sup> 
 
 
@@ -40,9 +44,7 @@ Our former head of sales and development had this to say <sup>6</sup>:
 
 
 <sup>**4** I also like the term Ghost-Sourcing</sup>
-
 <sup>**5** after waiting for my 5-hour session limit to expire</sup>
-
 <sup>**6** unfortunately we had to let him go during our last round of _Context Window Layoffs_</sup>
 
 
