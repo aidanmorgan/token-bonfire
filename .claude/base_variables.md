@@ -2,15 +2,48 @@
 
 Configuration variables for the whole project, consistent between creating teams to implement plans.
 
+## Directory Structure
+
+All plan-related files are organized under `.claude/surrogate_activities/[plan]/`:
+
+```
+.claude/surrogate_activities/[plan]/
+├── state.json              # Coordinator state persistence
+├── event-log.jsonl         # Event store for all operations
+├── .trash/                 # Deleted files (recoverable)
+│   └── [uuid]-[original-name]
+│       ├── content         # Original file content
+│       └── metadata.json   # Recovery metadata
+├── .scratch/               # Agent scratch files (temporary work)
+└── .artefacts/             # Inter-agent artifact transfer
+```
+
 ## Core Files
 
-| Variable | Value | Description |
-|----------|-------|-------------|
-| `PLAN_FILE` | *(derived from skill parameter)* | Set by `/fuck-it-we-ball <plan_file>` |
-| `STATE_FILE` | `.claude/surrogate_activities/[stub]/state.json` | Derived from plan file name (e.g., `comprehensive-implementation-plan-state.json`) |
-| `EVENT_LOG_FILE` | `.claude/surrogate_activities/[stub]/event-log.jsonl` | Derived from plan file name (e.g., `comprehensive-implementation-plan-event-log.jsonl`) |
-| `USAGE_SCRIPT` | `.claude/scripts/get-claude-usage.py` | Session usage monitoring |
-| `WORKING_DIR` | `.tmp` | Directory for agent temporary files |
+| Variable | Value | Description                                                             |
+|----------|-------|-------------------------------------------------------------------------|
+| `PLAN_FILE` | *(derived from skill parameter)* | Set by `/fiwb <plan_file>`                                              |
+| `PLAN_DIR` | `.claude/surrogate_activities/[plan]/` | Base directory for all plan-related files (derived from plan file name) |
+| `STATE_FILE` | `{{PLAN_DIR}}/state.json` | Coordinator state persistence                                           |
+| `EVENT_LOG_FILE` | `{{PLAN_DIR}}/event-log.jsonl` | Event store for all coordinator operations and agent results            |
+| `USAGE_SCRIPT` | `.claude/scripts/get-claude-usage.py` | Session usage monitoring                                                |
+| `TRASH_DIR` | `{{PLAN_DIR}}/.trash/` | Deleted files storage (recoverable via metadata)                        |
+| `SCRATCH_DIR` | `{{PLAN_DIR}}/.scratch/` | Agent scratch files for temporary work                                  |
+| `ARTEFACTS_DIR` | `{{PLAN_DIR}}/.artefacts/` | Inter-agent artifact transfer directory                                 |
+
+## Directory Derivation
+
+The `[plan]` component is derived from the plan file name:
+
+```python
+def derive_plan_directory(plan_file):
+    """Derive plan directory from plan file path."""
+    # Example: COMPREHENSIVE_IMPLEMENTATION_PLAN.md -> comprehensive-implementation-plan
+    basename = os.path.basename(plan_file)
+    name_without_ext = os.path.splitext(basename)[0]
+    slug = name_without_ext.lower().replace('_', '-')
+    return f".claude/surrogate_activities/{slug}/"
+```
 
 ## Thresholds
 
@@ -27,6 +60,7 @@ Configuration variables for the whole project, consistent between creating teams
 | `ACTIVE_DEVELOPERS` | `5` | Maximum parallel developer agents |
 | `REMEDIATION_ATTEMPTS` | `10` | Maximum remediation cycles before failure |
 | `TASK_FAILURE_LIMIT` | `3` | Maximum audit failures per task before abort |
+| `AGENT_TIMEOUT` | `900000` | Agent timeout in milliseconds (15 minutes) - tracked internally |
 
 ## Agent Models
 
@@ -56,35 +90,27 @@ Configuration variables for the whole project, consistent between creating teams
 
 | Pattern | Agent       | Environment | Must Read | Purpose                                                                          |
 |---------|-------------|-------------|------|----------------------------------------------------------------------------------|
-| `design/rules.md` |             | | Y | Rust development standards and compliance requirements that all code must follow |
+| `design/rules.md` |             | | Y | Python development standards and compliance requirements that all code must follow |
 | `design/architecture.md` | | | | System architecture showing component relationships and boundaries               |
-| `design/ARCHITECTURE.md` | | | | High-level component overview and module structure                               |
+| `ARCHITECTURE.md` | | | | High-level component overview and module structure                               |
+| `design/testing-guide.md` | developer | | Y | Test writing standards and patterns |
 
 ### Developer Commands
 
 | Task | Environment | Command | Purpose |
 |------|-------------|---------|---------|
-| Build Rust |  | `RUSTFLAGS="-D warnings" cargo build --all` | Catch compilation errors and warnings early before they compound into harder-to-debug problems |
-| Fix Rust Lints |  | `cargo clippy --fix --all --all-targets --all-features` | Eliminate mechanical corrections that waste developer time on fixes automation can handle |
-| Format Rust |  | `cargo fmt --all` | Prevent merge conflicts and readability issues caused by inconsistent formatting |
-| Run Rust Tests |  | `cargo test --all --all-features` | Provide evidence that implementation meets requirements before claiming completion |
-| Build C |  | `cmake -DCMAKE_C_FLAGS="-Wall -Wextra -Werror -pedantic" .. && make` | Catch C compilation errors and warnings before they propagate to dependent code |
-| Format C |  | `clang-format -i src/**/*.c src/**/*.h` | Prevent merge conflicts and readability issues in C code |
-| Fix Python Lints |  | `ruff check --fix scripts/ tests/` | Eliminate Python lint issues that waste reviewer time on mechanical corrections |
-| Format Python |  | `ruff format scripts/ tests/` | Prevent merge conflicts in Python scripts and test files |
+| Sync Dependencies |  | `uv sync` | Ensure all dependencies are installed and lockfile is up to date |
+| Fix Lints |  | `uv run ruff check --fix .` | Eliminate mechanical corrections that waste developer time on fixes automation can handle |
+| Format |  | `uv run ruff format .` | Prevent merge conflicts and readability issues caused by inconsistent formatting |
+| Run Tests |  | `uv run pytest` | Provide evidence that implementation meets requirements before claiming completion |
 
 ### Verification Commands
 
 | Check | Environment | Command | Exit Code | Purpose |
 |-------|-------------|---------|-----------|---------|
-| Rust Build |  | `RUSTFLAGS="-D warnings" cargo build --all` | 0 | Compilation errors or warnings prevent deployment and indicate incomplete work |
-| Rust Clippy |  | `cargo clippy --all --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic` | 0 | Clippy warnings indicate potential bugs or non-idiomatic code that causes maintenance issues |
-| Rust Format |  | `cargo fmt --all -- --check` | 0 | Formatting inconsistencies cause merge conflicts and reduce code readability |
-| Rust Tests |  | `cargo test --all --all-features` | 0 | Failing tests indicate broken functionality that blocks downstream work |
-| C Build |  | `cmake -DCMAKE_C_FLAGS="-Wall -Wextra -Werror -pedantic" .. && make` | 0 | C compilation errors or warnings indicate incomplete or incorrect implementation |
-| C Clang-Tidy |  | `clang-tidy -p build --warnings-as-errors=* src/**/*.c` | 0 | Static analysis catches bugs and security issues before they reach production |
-| C Format |  | `clang-format --dry-run --Werror src/**/*.c src/**/*.h` | 0 | Formatting inconsistencies in C code cause merge conflicts and readability issues |
-| Python Ruff |  | `ruff check scripts/ tests/` | 0 | Lint violations indicate potential bugs that cause test or script failures |
-| Python Format |  | `ruff format --check scripts/ tests/` | 0 | Formatting inconsistencies in Python cause merge conflicts |
-| Shell Check |  | `shellcheck -e SC1091 scripts/*.sh` | 0 | Shell script issues cause silent failures in CI/CD pipelines |
-| TOML Check |  | `taplo check Cargo.toml */Cargo.toml` | 0 | Invalid TOML breaks cargo and prevents builds |
+| Type Check |  | `uv run pyright` | 0 | Type errors indicate incorrect assumptions about data flow that cause runtime failures |
+| Unit Tests |  | `uv run pytest tests/unit -v` | 0 | Failing unit tests indicate broken functionality that blocks downstream work |
+| Integration Tests |  | `uv run pytest tests/integration -v` | 0 | Component interaction failures cause production bugs that are expensive to diagnose |
+| E2E Tests |  | `uv run pytest tests/e2e -v` | 0 | End-to-end failures reveal broken user workflows that unit tests miss |
+| Lint Check |  | `uv run ruff check .` | 0 | Lint violations indicate potential bugs or non-idiomatic code that causes maintenance issues |
+| Format Check |  | `uv run ruff format --check .` | 0 | Formatting inconsistencies cause merge conflicts and reduce code readability |
