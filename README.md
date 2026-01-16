@@ -1,9 +1,10 @@
 # Token Bonfire
 
-**Vibe-source** a whole startup's worth of vibe-engineers to build your product in just a few keystrokes.
+**Vibe-source** a whole vibe-startup's worth of vibe-engineers to vibe-code your vibe-product in just a few vibe-keystrokes, for the vibes.
 
-An attempt to use one prompt to automatically create a team of agentic engineers to deliver a software product. Asking
-what nobody asked – can we zero-shot zero-shot (or zero-shot<sup>2</sup>)?
+Or more seriously - an experiment to use one prompt to automatically create a team of agentic engineers to deliver a software product.
+
+Asking what nobody asked – can we zero-shot zero-shot (or zero-shot<sup>2</sup>)?
 
 You don't need to define agents, just provide `token-bonfire` a plan file and it will do the rest, including:
 
