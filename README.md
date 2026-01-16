@@ -18,8 +18,8 @@ You don't need to define agents, just provide `token-bonfire` a plan file and it
 ## I'm sold! I'm going to be a billionaire!
 
 1. Checkout
-2. Copy the .claude directory into your project
-3. Update the .claude/base_variables.md with your project details
+2. Copy the `.claude` directory into your project
+3. Update the `.claude/base_variables.md` with your project details
 2. launch `claude --dangerously-skip-permissions` <sup>1</sup>
 3. run `/fiwb paragraph_1.txt.md`
 4. ??
