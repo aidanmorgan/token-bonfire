@@ -48,7 +48,7 @@ This is just for fun and to see just how far I can push a LLM, don't use it for 
 - **The `--dangerously-skip-permissions` flag exists for a reason.** You're disabling safety guardrails. Make backups.
 - **This will burn through your API quota.** Parallel agents + opus auditors + expert consultations = 💸
 
-## Introducing Vibe-Sourcing
+## So what is Vibe-Sourcing?
 
 *Vibe-Sourcing (verb):*
 
