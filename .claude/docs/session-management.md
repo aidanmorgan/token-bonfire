@@ -5,6 +5,7 @@
 When context ≤`{{CONTEXT_THRESHOLD}}` remaining:
 
 ### Persist Phase
+
 1. Pause all new task assignments
 2. Collect checkpoints from all active developers
 3. Increment `compaction_count`
@@ -12,9 +13,11 @@ When context ≤`{{CONTEXT_THRESHOLD}}` remaining:
 5. Log event: `compaction_start` with `compaction_number` and `context_remaining`
 
 ### Compact Phase
+
 1. Execute `/compact`
 
 ### Resume Phase
+
 1. Read state file to restore coordinator memory
 2. Check if `compaction_count % 2 == 0` for full plan reload
 3. If full reload required, read the complete plan; otherwise read plan summary only
@@ -25,6 +28,7 @@ When context ≤`{{CONTEXT_THRESHOLD}}` remaining:
 ### Compaction Output
 
 Before compaction:
+
 ```
 AUTO-COMPACTION #[N] - Context at {{CONTEXT_THRESHOLD}}
 
@@ -32,6 +36,7 @@ State persisted to: {{STATE_FILE}}
 ```
 
 After reload (odd compaction - state only):
+
 ```
 RESUMED - Compaction #[N] complete
 
@@ -41,6 +46,7 @@ Pending audit: [N] tasks
 ```
 
 After reload (even compaction - full plan reload):
+
 ```
 RESUMED - Compaction #[N] complete (full plan reload)
 
@@ -56,9 +62,11 @@ Blocked graph rebuilt: [N] relationships
 
 **Trigger:** `compaction_count % 2 == 0` (compactions 2, 4, 6, ...)
 
-Context compaction discards detail to fit the window. After two compactions, accumulated loss causes drift from the plan. Full reload restores accuracy.
+Context compaction discards detail to fit the window. After two compactions, accumulated loss causes drift from the
+plan. Full reload restores accuracy.
 
 **Procedure:**
+
 1. Read `{{PLAN_FILE}}` in full without summarization
 2. Re-parse all task definitions, dependencies, and acceptance criteria
 3. Cross-reference with `completed_tasks` to identify remaining work
@@ -66,6 +74,7 @@ Context compaction discards detail to fit the window. After two compactions, acc
 5. Rebuild `blocked_tasks` graph from plan dependencies
 
 **Output:**
+
 ```
 FULL PLAN RELOAD - Compaction #[N]
 
@@ -91,6 +100,7 @@ Triggers: `remaining` ≤`{{SESSION_THRESHOLD}}` from usage script, user stop, o
 ### Session Pause Output
 
 When pausing:
+
 ```
 SESSION PAUSED - [reason: Usage limit | User stop | System error]
 
@@ -106,6 +116,7 @@ Auto-resuming at: [resets_at + 5 minutes]
 ```
 
 After wait completes:
+
 ```
 SESSION RESUMED - Reset complete
 ```
@@ -125,7 +136,7 @@ SESSION RESUMED - Reset complete
 ### After Session Pause
 
 1. Output "SESSION RESUMED"
-2. Log event: `session_resume` with `resume_count` and `tasks_to_revalidate`
+2. Log event: `session_resumed` with `previous_session_id`, `in_progress_tasks_count`, `completed_tasks_count`
 3. Read state file, plan file, and reference definitions
 4. Validate state integrity
 5. Increment `session_resume_count`
@@ -162,6 +173,7 @@ If the coordinator crashes or is terminated mid-operation, use this procedure to
 ### Recovery Trigger
 
 A coordinator restart (new conversation after unexpected termination) requires recovery when:
+
 - `{{STATE_FILE}}` exists (indicating prior work)
 - No explicit pause signal was recorded
 
@@ -195,9 +207,11 @@ def coordinator_recovery():
         output(f"Found {len(orphaned)} orphaned agents")
         for agent in orphaned:
             # Agent was dispatched but never completed
-            # Re-add task to available queue
-            state['available_tasks'].append(agent['task_id'])
-            del state['active_agents'][agent['agent_id']]
+            # Re-add task to available queue (if not already there)
+            if agent['task_id'] not in state['available_tasks']:
+                state['available_tasks'].append(agent['task_id'])
+            if agent['agent_id'] in state.get('active_agents', {}):
+                del state['active_agents'][agent['agent_id']]
 
     # Step 4: Validate completed tasks
     recent_completions = get_recent_completions(state, RECENT_COMPLETION_WINDOW)
@@ -256,8 +270,8 @@ Blocked: [N] tasks
 
 ### Events
 
-| Event | Trigger | Fields |
-|-------|---------|--------|
-| `coordinator_recovered` | Recovery procedure completes | orphaned_agents, events_reconciled |
-| `orphan_agent_detected` | Agent had no completion event | agent_id, task_id, type |
-| `state_reconciled` | Event applied to recover state | event_type, task_id |
+| Event                   | Trigger                        | Fields                             |
+|-------------------------|--------------------------------|------------------------------------|
+| `coordinator_recovered` | Recovery procedure completes   | orphaned_agents, events_reconciled |
+| `orphan_agent_detected` | Agent had no completion event  | agent_id, task_id, type            |
+| `state_reconciled`      | Event applied to recover state | event_type, task_id                |

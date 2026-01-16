@@ -1,299 +1,523 @@
 # Coordinator State Tracking
 
-Track these fields to coordinate parallel work and resume after interruption:
+Track these fields to coordinate parallel work and resume after interruption.
+
+See [State Schema](orchestrator/state-schema.md) for complete state file format.
+See [Event Schema](orchestrator/event-schema.md) for event log format.
+
+---
 
 ## State Fields
 
-- **Active developers**: Maps agent ID to task ID
-- **Active auditors**: Maps agent ID to task ID
-- **Active actor count**: Computed as `len(active_developers) + len(active_auditors)`. Must equal `{{ACTIVE_DEVELOPERS}}` when work is available
-- **Active remediation**: Agent ID if infrastructure remediation is in progress, null otherwise
-- **Infrastructure blocked**: Boolean indicating assignments are halted for remediation
-- **Remediation attempt count**: Integer 0-`{{REMEDIATION_ATTEMPTS}}` tracking current remediation loop iteration
-- **Pending audit**: Task IDs awaiting audit after developer completion
-- **Completed tasks**: Task IDs that passed audit
-- **Blocked tasks**: Maps task ID to blocking task IDs
-- **Available tasks**: Unblocked tasks ready for assignment
-- **Compaction count**: Integer tracking compactions since session start
-- **Plan complete**: Boolean for termination condition
-- **Validation complete**: Boolean indicating session-start validation finished
-- **Last usage check**: Timestamp of most recent usage script execution
-- **Session utilisation**: Integer percentage from last usage check
-- **Session remaining**: Integer percentage from last usage check
-- **Session resets at**: ISO-8601 timestamp from last usage check
-- **Pending divine questions**: Queue of questions awaiting God's response
-- **Task quality assessed**: Boolean indicating whether initial task quality assessment has completed
-- **Pending expansions**: Task IDs currently being expanded by business analyst agents. Maps task_id to agent_id
-- **Active business analysts**: Maps agent ID to task ID being expanded
-- **Expanded tasks**: Task specifications that have been expanded. Maps task_id to the expanded specification object
-- **Supporting agents**: Registry of plan-derived supporting agents (domain experts, advisors, task executors, quality reviewers, pattern specialists) with capabilities and keyword triggers
-- **Active supporting agents**: Maps supporting agent ID to delegating agent ID, task ID, and request details
-- **Pending delegation requests**: Queue of delegation requests waiting for agent availability
-- **Supporting agent stats**: Maps agent_id to detailed usage metrics
+### Session Tracking
 
-## State Update Triggers
+| Field                  | Type     | Description                                    |
+|------------------------|----------|------------------------------------------------|
+| `session_id`           | UUID     | Generated at start, used for event correlation |
+| `session_started_at`   | ISO-8601 | When this session began                        |
+| `previous_session_id`  | UUID     | Previous session ID if resuming                |
+| `session_resume_count` | Integer  | How many times coordinator has resumed         |
+| `compaction_count`     | Integer  | Compactions since session start                |
 
-Update coordinator state, persist to `{{STATE_FILE}}`, and append to `{{EVENT_LOG_FILE}}` at these events.
+### Task Tracking
 
-### On developer agent dispatch
-1. Add task to `in_progress_tasks` with agent ID, task ID, status "implementing", and empty checkpoint
-2. Remove task from `available_tasks`
-3. Update `blocked_tasks` to remove this task from any blocking lists
-4. Save state to `{{STATE_FILE}}` immediately
-5. Log event: `developer_dispatched`
+| Field               | Type     | Description                                        |
+|---------------------|----------|----------------------------------------------------|
+| `in_progress_tasks` | object[] | Tasks currently being worked (see state-schema.md) |
+| `active_developers` | object   | Maps agent ID → {task_id, dispatched_at}           |
+| `active_auditors`   | object   | Maps agent ID → {task_id, dispatched_at}           |
+| `active_critics`    | object   | Maps agent ID → {task_id, dispatched_at}           |
+| `pending_audit`     | string[] | Task IDs awaiting auditor verification             |
+| `pending_critique`  | string[] | Task IDs awaiting critic review                    |
+| `completed_tasks`   | string[] | Task IDs that passed audit                         |
+| `blocked_tasks`     | object   | Maps task ID → array of blocking task IDs          |
+| `available_tasks`   | string[] | Unblocked tasks ready for assignment               |
+| `audit_failures`    | object   | Maps task ID → failure count                       |
+| `critique_failures` | object   | Maps task ID → critic failure count                |
+| `critic_timeouts`   | object   | Maps task ID → timeout count                       |
 
-### On remediation agent dispatch
-1. Set `infrastructure_blocked` to true
-2. Set `active_remediation` to the agent ID
-3. Record `infrastructure_issue` with the specific problem
-4. Save state to `{{STATE_FILE}}` immediately
-5. Log event: `remediation_dispatched`
+### Infrastructure Tracking
 
-### On developer signals ready for audit
-1. Update task status in `in_progress_tasks` to "awaiting-audit"
-2. Add task to `pending_audit` queue
-3. Save state to `{{STATE_FILE}}`
-4. Log event: `developer_ready_for_audit`
+| Field                       | Type    | Description                              |
+|-----------------------------|---------|------------------------------------------|
+| `infrastructure_blocked`    | Boolean | Assignments halted for remediation       |
+| `infrastructure_issue`      | Object  | Details of blocking issue                |
+| `active_remediation`        | String  | Agent ID if remediation in progress      |
+| `remediation_attempt_count` | Integer | Current remediation loop iteration (0-3) |
 
-**Note**: The task is NOT complete at this point. Only the auditor can mark a task complete.
+### Expert Tracking
 
-### On auditor agent PASS (TASK COMPLETE)
-**This is the ONLY point where a task becomes complete.**
+| Field                         | Type  | Description                                            |
+|-------------------------------|-------|--------------------------------------------------------|
+| `experts`                     | Array | Registry of plan-derived experts (see structure below) |
+| `active_experts`              | Map   | Expert ID → delegation details                         |
+| `paused_agents`               | Map   | Agent ID → pause state for delegation waits            |
+| `pending_delegation_requests` | Array | Queue of delegation requests waiting                   |
+| `expert_stats`                | Map   | Agent ID → usage metrics                               |
 
-1. Remove task from `pending_audit`
-2. Remove task from `in_progress_tasks`
-3. Add task to `completed_tasks` ← **Task is now officially complete**
-4. Recalculate `blocked_tasks` to unblock dependent tasks
-5. Recalculate `available_tasks` to include newly unblocked tasks
-6. Save state to `{{STATE_FILE}}`
-7. Log event: `task_complete` with `task_id`, `agent_id`, `evidence_summary`
-
-### On auditor agent FAIL (task-specific)
-1. Update task status in `in_progress_tasks` to "implementing" for rework
-2. Remove task from `pending_audit`
-3. Increment failure count in `failed_audits`
-4. Save state to `{{STATE_FILE}}`
-5. Log event: `auditor_fail`
-
-### On auditor agent BLOCKED (pre-existing failures)
-1. Set `infrastructure_blocked` to true
-2. Record `infrastructure_issue` with the pre-existing failures
-3. Save state to `{{STATE_FILE}}`
-4. Log event: `auditor_blocked`
-5. Log event: `infrastructure_blocked`
-
-### On health auditor HEALTHY
-1. Set `infrastructure_blocked` to false
-2. Set `active_remediation` to null
-3. Set `infrastructure_issue` to null
-4. Reset `remediation_attempt_count` to 0
-5. Save state to `{{STATE_FILE}}`
-6. Log event: `health_audit_pass`
-7. Log event: `infrastructure_restored`
-
-### On health auditor UNHEALTHY
-1. Increment `remediation_attempt_count`
-2. Save state to `{{STATE_FILE}}`
-3. Log event: `health_audit_fail`
-
-### On checkpoint request
-1. Collect checkpoints from all active developers and update `last_checkpoint`
-2. Save state to `{{STATE_FILE}}`
-3. Log event: `developer_checkpoint` for each active developer
-
-### On agent seeks divine clarification
-1. Parse the "SEEKING DIVINE CLARIFICATION" signal
-2. Update agent status to "awaiting-divine-guidance"
-3. Add entry to `pending_divine_questions`
-4. Save state to `{{STATE_FILE}}`
-5. Log event: `agent_seeks_guidance`
-
-### On divine response received
-1. Record God's response in the pending question entry
-2. Log event: `divine_response_received`
-3. Deliver the divine response to the waiting agent
-4. Update agent status to "implementing"
-5. Remove the answered question from `pending_divine_questions`
-6. Save state to `{{STATE_FILE}}`
-7. Log event: `agent_resumes_with_guidance`
-
-### On task quality assessment complete
-1. Set `task_quality_assessed` to true
-2. Update `available_tasks` with only `IMPLEMENTABLE` tasks
-3. Update `pending_expansions` with tasks classified as `NEEDS_EXPANSION`
-4. Save state to `{{STATE_FILE}}`
-5. Log event: `task_quality_assessment`
-
-### On business analyst dispatch
-1. Add entry to `active_business_analysts` mapping agent_id to task_id
-2. Add task_id to `pending_expansions`
-3. Save state to `{{STATE_FILE}}`
-4. Log event: `business_analyst_dispatched`
-
-### On business analyst completion (HIGH/MEDIUM confidence)
-1. Store expanded specification in `expanded_tasks` under task_id
-2. Remove task from `pending_expansions`
-3. Remove agent from `active_business_analysts`
-4. Add task to `available_tasks`
-5. Save state to `{{STATE_FILE}}`
-6. Log event: `task_expanded`
-
-### On business analyst completion (LOW confidence)
-1. Extract clarification questions from BA output
-2. Add entry to `pending_divine_questions`
-3. Keep task in `pending_expansions` with status "awaiting-clarification"
-4. Remove agent from `active_business_analysts`
-5. Save state to `{{STATE_FILE}}`
-6. Log event: `expansion_needs_clarification`
-7. Invoke divine intervention protocol
-
-### On supporting agent delegation request
-1. Check agent availability (MAX_CONCURRENT_PER_AGENT = 2)
-2. If available:
-   - Add entry to `active_supporting_agents` with delegating agent, task, request details, timestamp
-   - Increment `delegations` count in `supporting_agent_stats`
-   - Spawn supporting agent using its creation prompt
-   - Log event: `supporting_agent_delegated`
-3. If busy:
-   - Add entry to `pending_delegation_requests`
-   - Notify baseline agent of queue position
-   - Log event: `delegation_queued`
-4. Save state to `{{STATE_FILE}}`
-
-### On supporting agent completion
-1. Parse agent output for deliverables (look for `AGENT COMPLETE` signal)
-2. Remove entry from `active_supporting_agents`
-3. Update `supporting_agent_stats` with completion, duration, and confidence level
-4. Check `pending_delegation_requests` for queued work for same agent
-5. If queued work exists, dispatch next request
-6. Deliver results to delegating baseline agent
-7. Save state to `{{STATE_FILE}}`
-8. Log event: `supporting_agent_complete`
-
-### On supporting agent error/timeout
-1. Remove entry from `active_supporting_agents`
-2. Notify delegating baseline agent of failure
-3. Log event: `supporting_agent_failed`
-4. Save state to `{{STATE_FILE}}`
-
-### On supporting agent out-of-scope signal
-1. Parse `OUT_OF_SCOPE` signal for suggested alternative
-2. Log event: `supporting_agent_out_of_scope`
-3. If alternative agent exists, route to that agent
-4. Otherwise, return to delegating agent with guidance
-5. Save state to `{{STATE_FILE}}`
-
-## State File Format
+**Expert Object Structure** (required fields for each expert in `experts` array):
 
 ```json
 {
-  "saved_at": "ISO-8601",
-  "save_reason": "compaction | session_pause | infrastructure_blocked",
-  "tokens_remaining_percent": 9,
-  "compaction_count": 3,
-  "session_resume_count": 1,
-  "plan_file": "{{PLAN_FILE}}",
-  "total_tasks": 25,
-  "completed_tasks": ["task-1", "task-2"],
-  "in_progress_tasks": [
-    {
-      "task_id": "task-3",
-      "developer_id": "dev-agent-1",
-      "status": "implementing",
-      "last_checkpoint": "unit tests written"
-    }
+  "name": "crypto-expert",
+  "domain": "Cryptography",
+  "file": ".claude/agents/experts/crypto-expert.md",
+  "tasks": ["task-2-1", "task-2-3"],
+  "requesting_agents": ["developer", "auditor"],
+  "capabilities": [
+    "Verify cryptographic algorithm correctness",
+    "Review key management practices",
+    "Assess secure random number generation"
   ],
-  "pending_audit": ["task-4"],
-  "blocked_tasks": {"task-5": ["task-3", "task-4"]},
-  "failed_audits": {"task-6": 2},
-  "next_available_tasks": ["task-7", "task-8"],
-  "infrastructure_blocked": false,
-  "infrastructure_issue": null,
-  "active_remediation": null,
-  "remediation_attempt_count": 0,
-  "last_usage_check": "ISO-8601 timestamp",
-  "session_utilisation": 85,
-  "session_remaining": 15,
-  "session_resets_at": "ISO-8601 timestamp",
-  "pending_divine_questions": [],
-  "supporting_agents": [
-    {
-      "agent_id": "db-expert-1",
-      "agent_type": "domain_expert",
-      "name": "Database Expert",
-      "domain": "Database design and optimization",
-      "capabilities": ["schema design", "query optimization", "migration scripts"],
-      "applicable_tasks": ["task-3", "task-7", "task-12"],
-      "keyword_triggers": ["migration", "schema", "index", "query", "database"],
-      "request_types": ["task", "advice"],
-      "creation_prompt": "...",
-      "created_at": "ISO-8601"
-    },
-    {
-      "agent_id": "security-reviewer-1",
-      "agent_type": "quality_reviewer",
-      "name": "Security Reviewer",
-      "domain": "Application security",
-      "capabilities": ["auth review", "input validation", "OWASP checks"],
-      "applicable_tasks": ["task-2", "task-5", "task-9"],
-      "keyword_triggers": ["auth", "password", "token", "input", "sanitize"],
-      "request_types": ["review"],
-      "creation_prompt": "...",
-      "created_at": "ISO-8601"
-    }
-  ],
-  "active_supporting_agents": {
-    "supporting-agent-run-1": {
-      "agent_id": "db-expert-1",
-      "delegating_agent": "dev-agent-2",
-      "task_id": "task-7",
-      "request_type": "task",
-      "request_summary": "Design optimal index strategy for user queries",
-      "dispatched_at": "ISO-8601"
-    }
+  "delegation_triggers": {
+    "developer": "When implementing encryption, hashing, or key derivation",
+    "auditor": "When verifying cryptographic implementations"
   },
-  "pending_delegation_requests": [
-    {
-      "request_id": "req-1",
-      "agent_id": "db-expert-1",
-      "delegating_agent": "dev-agent-3",
-      "task_id": "task-12",
-      "request_type": "task",
-      "request_summary": "Write migration script for new schema",
-      "queued_at": "ISO-8601"
-    }
-  ],
-  "supporting_agent_stats": {
-    "db-expert-1": {
-      "delegations": 5,
-      "completions": 4,
-      "failures": 0,
-      "out_of_scope": 1,
-      "avg_duration_seconds": 120,
-      "avg_confidence": "HIGH",
-      "tasks_benefited": ["task-3", "task-7"]
+  "created_at": "2025-01-16T10:00:00Z"
+}
+```
+
+### File Conflict Tracking
+
+| Field                      | Type  | Description                                        |
+|----------------------------|-------|----------------------------------------------------|
+| `queued_for_file_conflict` | Array | Tasks queued waiting for file availability         |
+| `queue_retry_tracker`      | Map   | Task ID → retry count (persisted across sessions)  |
+| `queue_timeout_context`    | Map   | Task ID → coordination context for timed-out tasks |
+
+### Divine Intervention
+
+| Field                      | Type    | Description                          |
+|----------------------------|---------|--------------------------------------|
+| `pending_divine_questions` | Array   | Questions awaiting human response    |
+| `task_quality_assessed`    | Boolean | Whether initial assessment completed |
+| `pending_expansions`       | Map     | Task ID → agent ID being expanded    |
+
+---
+
+## Attempt Tracking
+
+Track attempts across agent crashes and session restarts to enforce escalation paths.
+
+### Attempt Tracking Structure
+
+```json
+{
+  "task_attempts": {
+    "task-3-1-1": {
+      "self_solve_attempts": 2,
+      "delegation_attempts": 1,
+      "audit_failures": 1,
+      "critic_failures": 0,
+      "critic_timeouts": 0,
+      "incomplete_count": 0,
+      "signal_rejections": 1,
+      "last_attempt_at": "2025-01-16T10:30:00Z",
+      "escalation_level": "delegation",
+      "last_blocker": null,
+      "history": [...]
     }
   }
 }
 ```
 
+### Escalation Thresholds
+
+| Attempt Type          | Threshold | Escalation Action                      |
+|-----------------------|-----------|----------------------------------------|
+| `self_solve_attempts` | 3         | Escalate to delegation                 |
+| `delegation_attempts` | 3         | Escalate to divine intervention        |
+| `audit_failures`      | 3         | Halt task, require human review        |
+| `critic_failures`     | 3         | Halt task, require human review        |
+| `critic_timeouts`     | 3         | Re-dispatch critic with same task      |
+| `incomplete_count`    | 3         | Escalate to divine intervention        |
+| `signal_rejections`   | 5         | Notify coordinator of persistent issue |
+
+---
+
+## State Update Triggers
+
+Update state, persist to `{{STATE_FILE}}`, and append to `{{EVENT_LOG_FILE}}` at these events.
+
+### Developer Dispatch
+
+1. Add task to `in_progress_tasks` with agent ID, status "implementing"
+2. Remove task from `available_tasks`
+3. Update `blocked_tasks` to remove this task
+4. Save state immediately
+5. Log event: `developer_dispatched`
+
+### Developer Ready for Review
+
+1. Update task status to "awaiting-review"
+2. Add task to `pending_critique` queue
+3. Save state
+4. Log event: `developer_ready_for_review`
+
+### Developer TASK_INCOMPLETE
+
+When developer signals TASK_INCOMPLETE (blocked, missing info, etc.):
+
+1. Parse blocker details from signal (blocker, attempted, needed)
+2. Increment `incomplete_count` for this task in attempt tracking
+3. Update task status to "blocked"
+4. Route based on blocker category (see below)
+5. Save state
+6. Fill actor slots with other available tasks
+
+**Blocker Categories and Handlers**:
+
+| Category                | Action                       | Escalation              |
+|-------------------------|------------------------------|-------------------------|
+| `missing_info`          | Escalate immediately         | Divine clarification    |
+| `blocked_by_dependency` | Add to `blocked_tasks`, wait | After 3 attempts        |
+| `infrastructure`        | Enter remediation loop       | After remediation limit |
+| `out_of_scope`          | Escalate immediately         | Divine clarification    |
+
+**Handler: `blocked_by_dependency`**
+
+```python
+def handle_blocked_by_dependency(task_id, blocker_task_id, incomplete_count):
+    """Handle task blocked by another task's completion."""
+
+    if blocker_task_id in completed_tasks:
+        # Dependency already complete - retry immediately
+        log_event("developer_incomplete",
+                  task_id=task_id,
+                  blocker="blocked_by_dependency",
+                  blocker_task=blocker_task_id,
+                  note="Dependency was already complete, retrying")
+        available_tasks.append(task_id)
+        return
+
+    if incomplete_count >= 3:
+        # Same dependency blocked 3 times - escalate
+        log_event("developer_incomplete",
+                  task_id=task_id,
+                  blocker="blocked_by_dependency",
+                  blocker_task=blocker_task_id,
+                  escalate=True)
+        escalate_to_divine(
+            task_id=task_id,
+            question=f"Task {task_id} blocked by {blocker_task_id} after 3 attempts",
+            options=["Wait longer", "Re-prioritize blocker", "Restructure tasks"]
+        )
+        return
+
+    # Add to blocked_tasks - will auto-unblock when dependency completes
+    if task_id not in blocked_tasks:
+        blocked_tasks[task_id] = []
+    if blocker_task_id not in blocked_tasks[task_id]:
+        blocked_tasks[task_id].append(blocker_task_id)
+
+    # Remove from available (if present) and in_progress
+    if task_id in available_tasks:
+        available_tasks.remove(task_id)
+    remove_from_in_progress(task_id)
+
+    log_event("developer_incomplete",
+              task_id=task_id,
+              blocker="blocked_by_dependency",
+              blocker_task=blocker_task_id,
+              action="added_to_blocked_tasks")
+```
+
+**Handler: `missing_info` / `out_of_scope`**
+
+```python
+def handle_missing_info_or_out_of_scope(task_id, blocker_category, details):
+    """Handle tasks that need divine guidance immediately."""
+
+    log_event("developer_incomplete",
+              task_id=task_id,
+              blocker=blocker_category,
+              details=details,
+              escalate=True)
+
+    escalate_to_divine(
+        task_id=task_id,
+        question=f"Task {task_id}: {blocker_category}",
+        context=details,
+        options=["Provide clarification", "Restructure task", "Remove from plan"]
+    )
+```
+
+**Handler: `infrastructure`**
+
+```python
+def handle_infrastructure_blocker(task_id, issue_details):
+    """Handle infrastructure blockers by entering remediation."""
+
+    log_event("developer_incomplete",
+              task_id=task_id,
+              blocker="infrastructure",
+              issue=issue_details)
+
+    # Enter remediation loop (same as INFRA_BLOCKED signal)
+    handle_infrastructure_block(issue_details, reporter_id=task_id)
+```
+
+### Critic Review Complete
+
+**REVIEW_PASSED:**
+
+1. Remove task from `pending_critique`
+2. Update task status to "awaiting-audit"
+3. Add task to `pending_audit` queue
+4. Save state
+5. Log event: `critic_pass`
+
+**REVIEW_FAILED:**
+
+1. Remove task from `pending_critique`
+2. Update task status to "implementing" for rework
+3. Increment failure count in `critique_failures`
+4. Save state
+5. Log event: `critic_fail`
+
+### Critic Timeout
+
+When a Critic agent times out (no response within timeout period):
+
+1. Increment `critic_timeouts` for this task
+2. If `critic_timeouts` < 3:
+    - Log event: `critic_timeout` with attempt number
+    - Re-dispatch fresh Critic with same task context
+    - Task remains in `pending_critique`
+3. If `critic_timeouts` >= 3:
+    - Log event: `critic_timeout` with `escalate: true`
+    - **Skip Critic and proceed to Auditor** (task was already implemented, only review timed out)
+    - **Remove task from `pending_critique`** (explicit removal FIRST)
+    - Add task to `pending_audit`
+    - Update task status to `awaiting-audit`
+    - Log event: `critic_bypassed` with reason `timeout_limit_exceeded`
+    - Dispatch Auditor immediately
+
+   ```python
+   # Explicit state transition
+   if task_id in pending_critique:
+       pending_critique.remove(task_id)
+   pending_audit.append(task_id)
+   update_task_status(task_id, "awaiting-audit")
+   ```
+
+   **Note**: Do NOT move back to developer - the implementation is complete, only critic review failed. Auditor will
+   verify if implementation meets acceptance criteria regardless of code quality review.
+4. Save state
+
+**Rationale**: Critic timeouts are typically transient (context exhaustion, network issues). Retry with a fresh agent
+before penalizing the developer's work.
+
+**Quality Gate Tradeoff**: When critic is bypassed after 3 timeouts, the code quality review is skipped but the Auditor
+still verifies acceptance criteria. This is an intentional tradeoff:
+
+- **Pros**: Progress is not blocked indefinitely by transient issues
+- **Cons**: Code quality issues that don't affect functionality may ship
+- **Mitigation**: Auditor failure will catch functional issues; quality issues can be addressed in subsequent
+  refactoring tasks
+- **Alternative**: If stricter quality control is required, change this to escalate to divine intervention instead of
+  bypassing
+
+### Auditor PASS (Task Complete)
+
+**This is the ONLY point where a task becomes complete.**
+
+1. Remove task from `pending_audit`
+2. Remove task from `in_progress_tasks`
+3. Add task to `completed_tasks` ← **Task officially complete**
+4. Unblock dependent tasks (see below)
+5. Save state
+6. Log event: `task_complete`
+
+**Step 4: Unblock Dependents**
+
+```python
+def unblock_dependents(completed_task_id):
+    """Unblock tasks that were waiting for this task to complete."""
+
+    newly_available = []
+
+    for blocked_task_id, blockers in list(blocked_tasks.items()):
+        if completed_task_id in blockers:
+            blockers.remove(completed_task_id)
+
+            if not blockers:
+                # All blockers cleared - task is now available
+                del blocked_tasks[blocked_task_id]
+                available_tasks.append(blocked_task_id)
+                newly_available.append(blocked_task_id)
+
+                log_event("task_unblocked",
+                          task_id=blocked_task_id,
+                          unblocked_by=completed_task_id)
+
+    return newly_available
+```
+
+**IMPORTANT**: This handles both:
+
+- Static `blocked_by` dependencies from the plan
+- Dynamic blockers added via TASK_INCOMPLETE `blocked_by_dependency`
+
+### Auditor FAIL
+
+1. Update task status to "implementing" for rework
+2. Remove task from `pending_audit`
+3. Increment failure count in `audit_failures`
+4. Update attempt tracking: increment `audit_failures`
+5. Check escalation threshold (3 failures = halt)
+6. Save state
+7. Log event: `auditor_fail`
+
+### Auditor BLOCKED
+
+1. Set `infrastructure_blocked` to true
+2. Record `infrastructure_issue` with failure details
+3. Compare against baseline (pre-existing vs task-introduced)
+4. Record blocked task state for resume
+5. Save state
+6. Log events: `auditor_blocked`, `infrastructure_blocked`
+
+### Remediation/Health Audit
+
+**Constants:**
+
+```python
+REMEDIATION_ATTEMPTS_LIMIT = 3  # Max remediation cycles before escalation
+```
+
+**Handler: DISPATCH_HEALTH_AUDITOR** (on REMEDIATION_COMPLETE signal)
+
+1. Dispatch Health Auditor agent
+2. Log event: `health_audit_dispatched`
+
+**Handler: EXIT_REMEDIATION** (on HEALTH_AUDIT: HEALTHY signal)
+
+1. Set `infrastructure_blocked` to false
+2. Clear `active_remediation` and `infrastructure_issue`
+3. Reset `remediation_attempt_count` to 0
+4. Resume any blocked tasks
+5. Save state
+6. Log events: `health_audit_pass`, `infrastructure_restored`
+
+**Handler: RETRY_REMEDIATION** (on HEALTH_AUDIT: UNHEALTHY signal)
+
+1. Increment `remediation_attempt_count`
+2. If `remediation_attempt_count` >= `REMEDIATION_ATTEMPTS_LIMIT`:
+    - Log event: `remediation_exhausted`
+    - Signal `SEEKING_DIVINE_CLARIFICATION` with infrastructure details
+    - Add to `pending_divine_questions`
+3. Else:
+    - Dispatch Remediation agent with updated context
+    - Log event: `remediation_dispatched`
+4. Save state
+5. Log event: `health_audit_fail`
+
+### Divine Intervention
+
+**Handler: AWAIT_DIVINE_RESPONSE** (on SEEKING_DIVINE_CLARIFICATION signal)
+
+1. Parse question details from agent output
+2. Update agent status to "awaiting-divine-guidance" in `in_progress_tasks`
+3. Add question to `pending_divine_questions`:
+   ```python
+   pending_divine_questions.append({
+       'agent_id': agent_id,
+       'task_id': task_id,
+       'question': parsed_question,
+       'options': parsed_options,
+       'context': parsed_context,
+       'timestamp': datetime.now().isoformat(),
+       'response': None
+   })
+   ```
+4. Save state
+5. Log event: `agent_seeks_guidance`
+6. Invoke `AskUserQuestion` tool with question and options
+7. Block task progress until response received
+
+**Divine response received:**
+
+1. Record response in pending question entry
+2. Format response for agent consumption
+3. Resume agent with divine guidance prompt
+4. Update agent status to "implementing"
+5. Remove from `pending_divine_questions`
+6. Save state
+7. Log event: `divine_response_received`
+
+### Expert Delegation
+
+**Request accepted:**
+
+1. Add to `active_experts`
+2. Increment `delegations` count in `expert_stats`
+3. Spawn expert
+4. Log event: `expert_delegated`
+
+**Request queued (agent busy):**
+
+1. Add to `pending_delegation_requests`
+2. Notify baseline agent of position
+3. Log event: `delegation_queued`
+
+**Expert complete:**
+
+1. Parse output for deliverables
+2. Remove from `active_experts`
+3. Update `expert_stats`
+4. **Process delegation queue** (see below)
+5. Deliver results to delegating agent
+6. Save state
+7. Log event: `expert_complete`
+
+```python
+def process_delegation_queue(completed_expert_id):
+    """Check queue and dispatch next pending request for this expert type."""
+
+    completed_expert_type = expert_stats[completed_expert_id]['type']
+
+    # Find next queued request for this expert type
+    for i, request in enumerate(pending_delegation_requests):
+        if request['target_expert'] == completed_expert_type:
+            # Found a waiting request - dispatch it
+            pending_delegation_requests.pop(i)
+
+            # Dispatch the expert
+            active_experts[generate_expert_id()] = {
+                'type': completed_expert_type,
+                'requesting_agent': request['requesting_agent'],
+                'task_id': request['task_id'],
+                'dispatched_at': datetime.now().isoformat()
+            }
+
+            log_event("delegation_dequeued",
+                      expert_type=completed_expert_type,
+                      requesting_agent=request['requesting_agent'],
+                      waited_since=request['queued_at'])
+
+            # Dispatch the expert agent
+            dispatch_expert(completed_expert_type, request)
+            break  # Only dispatch one at a time
+```
+
+---
+
 ## Atomic State Updates
 
-State mutations must be atomic to survive coordinator crashes:
+State mutations must be atomic to survive coordinator crashes.
 
 ### Write Procedure
 
 ```python
 def save_state_atomic(state):
-    """Write state atomically to survive crashes."""
-
     temp_path = f"{STATE_FILE}.tmp"
 
-    # 1. Write to temp file
+    # 1. Write to temp file with fsync
     with open(temp_path, 'w') as f:
         json.dump(state, f, indent=2)
         f.flush()
-        os.fsync(f.fileno())  # Ensure data reaches disk
+        os.fsync(f.fileno())
 
     # 2. Atomic rename (POSIX guarantees atomicity)
     os.rename(temp_path, STATE_FILE)
@@ -303,50 +527,28 @@ def save_state_atomic(state):
 
 ```python
 def load_state_with_recovery():
-    """Load state, recovering from incomplete writes if needed."""
-
     temp_path = f"{STATE_FILE}.tmp"
 
     # Check for incomplete write
     if os.path.exists(temp_path):
-        log_event("state_recovery_needed", reason="temp_file_exists")
-        os.remove(temp_path)  # Discard incomplete write
-        # Fall through to load from last good state
+        os.remove(temp_path)  # Discard incomplete
 
     if os.path.exists(STATE_FILE):
-        with open(STATE_FILE) as f:
-            return json.load(f)
+        return json.load(open(STATE_FILE))
 
-    # No state file - reconstruct from event log if possible
+    # Reconstruct from event log if no state file
     if os.path.exists(EVENT_LOG_FILE):
         return reconstruct_state_from_events()
 
     return None  # Fresh start
 ```
 
-### Event Log as Backup
-
-The append-only event log serves as a backup for state reconstruction:
-
-```python
-def reconstruct_state_from_events():
-    """Rebuild state by replaying event log."""
-
-    state = create_empty_state()
-
-    with open(EVENT_LOG_FILE) as f:
-        for line in f:
-            event = json.loads(line)
-            apply_event_to_state(state, event)
-
-    log_event("state_reconstructed", events_replayed=count)
-    return state
-```
+---
 
 ## Task Selection Priority
 
 1. Select tasks that unblock the most downstream tasks
-2. Among equals, select the task with highest priority in the plan
+2. Among equals, select task with highest priority in plan
 3. Among equals, select first in document order
 
 ---
@@ -357,133 +559,28 @@ Track commit SHAs per task to enable rollback if issues are discovered after com
 
 ### Commit Tracking
 
-When a task passes audit, record the commit:
-
-```python
-def record_task_commit(task_id, auditor_result):
-    """Record commit SHA associated with completed task."""
-
-    # Get current HEAD after task completion
-    commit_sha = get_current_commit_sha()  # git rev-parse HEAD
-
-    task_commits[task_id] = {
-        'commit_sha': commit_sha,
-        'completed_at': datetime.now().isoformat(),
-        'files_modified': auditor_result['files_modified'],
-        'branch': get_current_branch()
-    }
-
-    log_event("task_commit_recorded",
-              task_id=task_id,
-              commit_sha=commit_sha)
-
-    save_state()
-```
-
-### State Tracking
-
-Add to `{{STATE_FILE}}`:
-
 ```json
 {
   "task_commits": {
     "task-1": {
       "commit_sha": "abc123",
       "completed_at": "ISO-8601",
-      "files_modified": ["src/auth.py", "tests/test_auth.py"],
-      "branch": "main"
-    },
-    "task-2": {
-      "commit_sha": "def456",
-      "completed_at": "ISO-8601",
-      "files_modified": ["src/user.py"],
+      "files_modified": [
+        "src/auth.py",
+        "tests/test_auth.py"
+      ],
       "branch": "main"
     }
   }
 }
 ```
 
-### Rollback Procedure
+### Rollback Rules
 
-If issues are discovered after task completion:
-
-```python
-def rollback_task(task_id):
-    """Rollback a completed task's changes."""
-
-    if task_id not in task_commits:
-        log_event("rollback_failed", task_id=task_id, reason="no_commit_recorded")
-        return False
-
-    task_commit = task_commits[task_id]
-
-    # Check if safe to rollback (no dependent tasks completed after)
-    dependent_tasks = get_tasks_blocked_by(task_id)
-    completed_dependents = [t for t in dependent_tasks if t in completed_tasks]
-
-    if completed_dependents:
-        log_event("rollback_blocked", task_id=task_id,
-                  reason="dependent_tasks_completed",
-                  dependents=completed_dependents)
-        output(f"Cannot rollback {task_id}: dependent tasks completed: {completed_dependents}")
-        return False
-
-    # Perform rollback
-    parent_sha = get_parent_commit(task_commit['commit_sha'])
-    revert_to_commit(parent_sha)
-
-    # Update state
-    completed_tasks.remove(task_id)
-    available_tasks.append(task_id)
-    del task_commits[task_id]
-
-    log_event("task_rolled_back",
-              task_id=task_id,
-              from_sha=task_commit['commit_sha'],
-              to_sha=parent_sha)
-
-    save_state()
-    return True
-```
-
-### Rollback Signal
-
-If coordinator needs to rollback (e.g., discovered breaking change):
-
-```
-ROLLBACK REQUIRED: [task ID]
-
-Reason: [why rollback is needed]
-Commit: [sha to revert]
-Files Affected: [list]
-
-Proceeding with rollback...
-```
-
-### Post-Rollback Actions
-
-After successful rollback:
-
-1. Task returns to `available_tasks`
-2. Any dependent tasks that were in-progress are aborted
-3. Plan re-evaluation triggered
-4. Event logged for audit trail
-
-```python
-def handle_post_rollback(task_id):
-    """Clean up after rollback."""
-
-    # Abort dependent tasks
-    for task in in_progress_tasks:
-        if task_id in get_task_dependencies(task['task_id']):
-            abort_task(task['task_id'], reason="dependency_rolled_back")
-            available_tasks.append(task['task_id'])
-
-    # Re-evaluate plan
-    recalculate_available_tasks()
-
-    output(f"Rollback complete. {task_id} returned to available queue.")
-```
+1. Cannot rollback if dependent tasks have completed
+2. Task returns to `available_tasks` after rollback
+3. In-progress dependent tasks are aborted
+4. Plan re-evaluation triggered
 
 ---
 
@@ -498,116 +595,26 @@ Track failure patterns to improve future development cycles.
   "failure_patterns": {
     "type_errors": {
       "count": 5,
-      "tasks": ["task-3", "task-7"],
-      "common_causes": ["Missing type annotation", "Wrong return type"],
+      "tasks": [
+        "task-3",
+        "task-7"
+      ],
+      "common_causes": [
+        "Missing type annotation"
+      ],
       "suggested_prevention": "Run pyright before signaling completion"
-    },
-    "test_failures": {
-      "count": 12,
-      "tasks": ["task-2", "task-5", "task-8"],
-      "common_causes": ["Missing fixture", "Assertion wrong"],
-      "suggested_prevention": "Review test output carefully"
-    },
-    "environment_disagreement": {
-      "count": 3,
-      "tasks": ["task-4"],
-      "common_causes": ["Path separator", "Case sensitivity"],
-      "suggested_prevention": "Test in all environments before completion"
     }
   }
 }
 ```
 
-### Recording Failures
-
-```python
-def record_failure_pattern(task_id, failure_type, details):
-    """Record failure for pattern analysis."""
-
-    if failure_type not in failure_patterns:
-        failure_patterns[failure_type] = {
-            'count': 0,
-            'tasks': [],
-            'common_causes': [],
-            'suggested_prevention': None
-        }
-
-    pattern = failure_patterns[failure_type]
-    pattern['count'] += 1
-    pattern['tasks'].append(task_id)
-
-    # Extract cause if identifiable
-    cause = identify_failure_cause(details)
-    if cause and cause not in pattern['common_causes']:
-        pattern['common_causes'].append(cause)
-
-    save_state()
-
-    # Log for analysis
-    log_event("failure_pattern_recorded",
-              failure_type=failure_type,
-              task_id=task_id,
-              total_occurrences=pattern['count'])
-```
-
 ### Using Failure Patterns
 
-Include relevant patterns in developer prompts:
-
-```python
-def get_relevant_failure_warnings(task):
-    """Get warnings based on past failures for similar work."""
-
-    warnings = []
-
-    # Check if task keywords match past failure patterns
-    task_keywords = extract_task_keywords(task)
-
-    for pattern_type, pattern in failure_patterns.items():
-        if pattern['count'] >= 3:  # Only warn on recurring issues
-            # Check if pattern is relevant to this task
-            if is_pattern_relevant(pattern, task_keywords):
-                warnings.append({
-                    'type': pattern_type,
-                    'message': f"Previous tasks had {pattern_type} issues",
-                    'prevention': pattern.get('suggested_prevention'),
-                    'occurrence_count': pattern['count']
-                })
-
-    return warnings
-```
-
-### Developer Prompt Enhancement
-
-When dispatching developers, include failure warnings:
-
-```markdown
-{{#if failure_warnings}}
-COMMON ISSUES TO AVOID:
-Based on patterns from previous tasks, watch out for:
-
-{{#each failure_warnings}}
-- **{{this.type}}** (occurred {{this.occurrence_count}} times)
-  Prevention: {{this.prevention}}
-{{/each}}
-
-Taking care to avoid these issues will reduce audit failures.
-{{/if}}
-```
-
-### Pattern Analysis Events
-
-| Event | Trigger | Data |
-|-------|---------|------|
-| `failure_pattern_recorded` | Audit failure categorized | failure_type, task_id, count |
-| `failure_pattern_prevention_added` | Prevention suggestion added | failure_type, prevention |
-| `failure_warning_issued` | Warning included in prompt | task_id, warnings |
+Include relevant patterns in developer prompts when dispatching similar tasks.
 
 ---
 
 ## Parallel Agent Tracking
-
-The coordinator manages multiple concurrent agents. Track each agent's lifecycle:
 
 ### Agent Tracking Structure
 
@@ -619,63 +626,16 @@ The coordinator manages multiple concurrent agents. Track each agent's lifecycle
       "task_id": "1-1-1",
       "dispatched_at": "2025-01-16T10:00:00Z",
       "timeout_at": "2025-01-16T10:15:00Z",
-      "last_checkpoint": null,
-      "checkpoint_count": 0
-    },
-    "agent-uuid-2": {
-      "type": "auditor",
-      "task_id": "1-1-2",
-      "dispatched_at": "2025-01-16T10:02:00Z",
-      "timeout_at": "2025-01-16T10:17:00Z",
-      "last_checkpoint": null,
-      "checkpoint_count": 0
-    },
-    "agent-uuid-3": {
-      "type": "business_analyst",
-      "task_id": "1-2-1",
-      "dispatched_at": "2025-01-16T10:03:00Z",
-      "timeout_at": "2025-01-16T10:18:00Z",
-      "last_checkpoint": null,
-      "checkpoint_count": 0
+      "last_checkpoint": null
     }
   }
 }
 ```
 
-### Timeout Monitoring
-
-```python
-def check_agent_timeouts():
-    """Check for timed-out agents on each loop iteration."""
-
-    now = datetime.now()
-    timed_out = []
-
-    for agent_id, agent in active_agents.items():
-        timeout_at = datetime.fromisoformat(agent['timeout_at'])
-        if now > timeout_at:
-            timed_out.append(agent_id)
-
-    for agent_id in timed_out:
-        handle_agent_timeout(agent_id)
-
-    return timed_out
-```
-
 ### Slot Management
 
 ```python
-def count_active_actors():
-    """Count current developer + auditor agents."""
-    return sum(1 for a in active_agents.values()
-               if a['type'] in ('developer', 'auditor'))
-
-def get_empty_slots():
-    """Calculate how many more actors can be dispatched."""
-    return ACTIVE_DEVELOPERS - count_active_actors()
-
 def fill_actor_slots():
-    """Fill all empty actor slots with available work."""
     while get_empty_slots() > 0 and available_tasks:
         if infrastructure_blocked:
             break
@@ -688,10 +648,20 @@ def fill_actor_slots():
 
 ### Agent Lifecycle Events
 
-| Event | When | State Change |
-|-------|------|--------------|
-| `agent_dispatched` | Task tool called | Add to `active_agents` |
-| `agent_checkpoint` | Checkpoint received | Update `last_checkpoint` |
-| `agent_timeout` | Timeout exceeded | Remove, re-dispatch if under limit |
-| `agent_complete` | Signal received | Remove, route based on signal |
-| `agent_crashed` | Task tool error | Remove, re-dispatch if under limit |
+| Event              | When                | State Change                       |
+|--------------------|---------------------|------------------------------------|
+| `agent_dispatched` | Task tool called    | Add to `active_agents`             |
+| `agent_checkpoint` | Checkpoint received | Update `last_checkpoint`           |
+| `agent_timeout`    | Timeout exceeded    | Remove, re-dispatch if under limit |
+| `agent_complete`   | Signal received     | Remove, route based on signal      |
+| `agent_crashed`    | Task tool error     | Remove, re-dispatch if under limit |
+
+---
+
+## Related Documentation
+
+- [State Schema](orchestrator/state-schema.md) - Complete state file format
+- [Event Schema](orchestrator/event-schema.md) - Event log format
+- [Recovery Procedures](recovery-procedures.md) - Error recovery
+- [Session Management](session-management.md) - Pause/resume protocols
+- [Task Delivery Loop](task-delivery-loop.md) - Main execution loop

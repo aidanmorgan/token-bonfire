@@ -12,7 +12,8 @@ When a developer or auditor reports any of these conditions, the coordinator mus
 
 ## Remediation Procedure
 
-1. Pause all new task assignments immediately. In-progress developers may continue implementation but cannot complete until infrastructure is restored.
+1. Pause all new task assignments immediately. In-progress developers may continue implementation but cannot complete
+   until infrastructure is restored.
 
 2. Spawn a remediation agent:
 
@@ -98,11 +99,13 @@ Log event: `health_audit_dispatched` with `attempt_number`.
 
 ## Remediation Loop Limit
 
-Maximum `{{REMEDIATION_ATTEMPTS}}` attempts. Each developer-then-auditor cycle counts as one attempt. The counter resets to 0 when the codebase becomes healthy.
+Maximum `{{REMEDIATION_ATTEMPTS}}` attempts. Each developer-then-auditor cycle counts as one attempt. The counter resets
+to 0 when the codebase becomes healthy.
 
 ## Output Formats
 
 **Infrastructure block:**
+
 ```
 INFRASTRUCTURE BLOCKED
 
@@ -115,6 +118,7 @@ All new assignments paused until infrastructure restored.
 ```
 
 **Remediation attempt:**
+
 ```
 REMEDIATION ATTEMPT [N]/{{REMEDIATION_ATTEMPTS}}
 
@@ -123,8 +127,9 @@ Spawning health auditor...
 ```
 
 **Health audit failure:**
+
 ```
-HEALTH AUDIT FAILED - Attempt [N]/{{REMEDIATION_ATTEMPTS}}
+HEALTH_AUDIT: UNHEALTHY - Attempt [N]/{{REMEDIATION_ATTEMPTS}}
 
 Failures:
 - [specific failure]
@@ -134,6 +139,7 @@ Spawning remediation agent for attempt [N+1]...
 ```
 
 **Infrastructure restored:**
+
 ```
 INFRASTRUCTURE RESTORED
 
@@ -149,6 +155,7 @@ Resuming normal operation with {{ACTIVE_DEVELOPERS}} parallel developers.
 ```
 
 **Remediation failure:**
+
 ```
 WORKFLOW FAILED - REMEDIATION LIMIT EXCEEDED
 

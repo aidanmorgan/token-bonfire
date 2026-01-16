@@ -4,14 +4,14 @@
 
 Developers have access to these tools for reading and modifying code:
 
-| Tool | Purpose | Usage |
-|------|---------|-------|
-| **Read** | Read file contents | `Read(file_path)` - MUST use before editing any file |
-| **Write** | Create new files | `Write(file_path, content)` - For new files only |
-| **Edit** | Modify existing files | `Edit(file_path, old_string, new_string)` - Preferred for changes |
-| **Glob** | Find files by pattern | `Glob(pattern)` - e.g., `**/*.py`, `src/auth/*.py` |
-| **Grep** | Search file contents | `Grep(pattern)` - Find code patterns across codebase |
-| **Bash** | Run shell commands | For verification commands only, not file operations |
+| Tool      | Purpose               | Usage                                                             |
+|-----------|-----------------------|-------------------------------------------------------------------|
+| **Read**  | Read file contents    | `Read(file_path)` - MUST use before editing any file              |
+| **Write** | Create new files      | `Write(file_path, content)` - For new files only                  |
+| **Edit**  | Modify existing files | `Edit(file_path, old_string, new_string)` - Preferred for changes |
+| **Glob**  | Find files by pattern | `Glob(pattern)` - e.g., `**/*.py`, `src/auth/*.py`                |
+| **Grep**  | Search file contents  | `Grep(pattern)` - Find code patterns across codebase              |
+| **Bash**  | Run shell commands    | For verification commands only, not file operations               |
 
 ### Critical Rules
 
@@ -24,18 +24,20 @@ Developers have access to these tools for reading and modifying code:
 
 Use these directories for temporary and intermediate work:
 
-| Directory | Purpose | Usage |
-|-----------|---------|-------|
-| `{{SCRATCH_DIR}}` | Scratch files | Temporary unit tests, experimental code, debug scripts |
+| Directory           | Purpose              | Usage                                                          |
+|---------------------|----------------------|----------------------------------------------------------------|
+| `{{SCRATCH_DIR}}`   | Scratch files        | Temporary unit tests, experimental code, debug scripts         |
 | `{{ARTEFACTS_DIR}}` | Inter-agent transfer | Artifacts to share with other agents (schemas, specs, configs) |
 
 **Scratch Directory Rules**:
+
 - Use for ANY temporary files needed during development
 - Files here are NOT committed to the repository
 - Name files with your task ID prefix: `[task-id]-[purpose].[ext]`
 - Clean up when done (or leave for debugging if task fails)
 
 Example scratch file usage:
+
 ```python
 # Write temporary test to scratch
 Write("{{SCRATCH_DIR}}/task-3-1-1-test-auth.py", test_content)
@@ -48,6 +50,7 @@ Bash("uv run pytest {{SCRATCH_DIR}}/task-3-1-1-test-auth.py -v")
 ```
 
 **Artefacts Directory Rules**:
+
 - Use for files that other agents need to consume
 - Include metadata header in files describing purpose and source
 - Files persist across agent boundaries
@@ -57,6 +60,7 @@ Bash("uv run pytest {{SCRATCH_DIR}}/task-3-1-1-test-auth.py -v")
 Before implementing, discover existing patterns:
 
 ### Step 1: Find Similar Code
+
 ```
 Grep("class.*Repository") → Find existing repository patterns
 Grep("def.*authenticate") → Find existing auth patterns
@@ -64,13 +68,16 @@ Glob("src/**/*_service.py") → Find service layer examples
 ```
 
 ### Step 2: Read Examples
+
 Read 2-3 similar implementations to understand:
+
 - Import patterns
 - Error handling approach
 - Naming conventions
 - Test structure
 
 ### Step 3: Identify Utilities
+
 ```
 Glob("src/common/**/*.py") → Find shared utilities
 Glob("src/utils/**/*.py") → Find helper functions
@@ -78,7 +85,9 @@ Read("src/common/__init__.py") → See what's exported
 ```
 
 ### Step 4: Note Conventions
+
 Document in your plan:
+
 - How errors are raised and handled
 - How logging is done
 - How configuration is accessed
@@ -86,9 +95,12 @@ Document in your plan:
 
 ## Task Assignment Format
 
-When spawning a developer agent, use the Task tool with `model` parameter set to the value from `AGENT_MODELS` for `developer`.
+When spawning a developer agent, use the Task tool with `model` parameter set to the value from `AGENT_MODELS` for
+`developer`.
 
-**IMPORTANT:** If the task has an expanded specification in `expanded_tasks` (from business analyst), use the expanded specification instead of the original plan text. Expanded specs contain detailed scope, target files, technical approach, and acceptance criteria derived from codebase analysis.
+**IMPORTANT:** If the task has an expanded specification in `expanded_tasks` (from business analyst), use the expanded
+specification instead of the original plan text. Expanded specs contain detailed scope, target files, technical
+approach, and acceptance criteria derived from codebase analysis.
 
 ```
 Task tool parameters:
@@ -123,8 +135,8 @@ Task tool parameters:
 
     [Include: Developer References]
 
-    SUPPORTING AGENTS:
-    The coordinator has analyzed this task and identified supporting agents that can assist you.
+    EXPERTS:
+    The coordinator has analyzed this task and identified experts that can assist you.
 
     {{#if recommended_agents}}
     RECOMMENDED (high applicability to this task):
@@ -154,13 +166,13 @@ Task tool parameters:
     {{/if}}
 
     {{#unless (or recommended_agents suggested_agents available_agents)}}
-    No supporting agents available for this plan. Proceed with general development approach.
+    No experts available for this plan. Proceed with general development approach.
     {{/unless}}
 
     DELEGATION PROTOCOL:
-    To delegate work to a supporting agent, output:
+    To delegate work to a expert, output:
     ```
-    DELEGATION REQUEST
+    EXPERT_REQUEST
 
     Agent: [agent name from above]
     Request Type: [advice | task | review | pattern]
@@ -171,7 +183,7 @@ Task tool parameters:
     ```
 
     The coordinator will:
-    1. Spawn the supporting agent with your request
+    1. Spawn the expert with your request
     2. Deliver results back to you when complete
     3. Notify you if the agent is busy (your request will be queued)
 
@@ -185,9 +197,19 @@ Task tool parameters:
     - **pattern_specialist**: For pattern templates or conformance review
 
     VERIFICATION COMMANDS (must ALL pass before claiming completion):
+
+    | Check | Command | Environment | Required Exit Code |
+    |-------|---------|-------------|-------------------|
     {{#each VERIFICATION_COMMANDS}}
-    - {{this.check}} [Environment: {{this.environment || "ALL"}}]: `{{this.command}}` exits {{this.exit_code}}
+    | {{this.check}} | `{{this.command}}` | {{this.environment || "ALL"}} | {{this.exit_code || 0}} |
     {{/each}}
+
+    CRITICAL - ENVIRONMENT EXECUTION RULES:
+    - **Empty Environment column (or "ALL")**: Run command in EVERY environment listed in EXECUTION ENVIRONMENTS
+    - **Specific Environment listed**: Run command ONLY in that specific environment
+    - **Required Exit Code**: Command must return this exit code (defaults to 0 if not specified)
+    - **FAILURE IN ANY REQUIRED ENVIRONMENT IS A FAILURE OF THE ENTIRE CHECK**
+    - You MUST report results per-environment when running in multiple environments
 ```
 
 Log event: `developer_dispatched` with `task_id`, `agent_id`, and `blocked_by`.
@@ -225,19 +247,21 @@ A task is complete when all conditions are true:
 3. Happy path works, demonstrated by passing tests
 4. Boundary conditions have explicit handling and tests
 5. Failures produce actionable errors, not crashes
-6. **ALL verification commands pass in ALL required environments:**
-   - Commands with empty Environment column: MUST pass in EVERY environment
-   - Commands with specific Environment: MUST pass in that environment only
-   - Failure in ANY required environment fails the task
+6. **ALL verification commands pass in ALL required environments with required exit codes:**
+    - Commands with empty Environment column (or "ALL"): MUST pass in EVERY environment listed
+    - Commands with specific Environment: MUST pass in that environment ONLY
+    - Command must return the Required Exit Code specified (defaults to 0)
+    - **FAILURE IN ANY REQUIRED ENVIRONMENT FAILS THE ENTIRE TASK - NO EXCEPTIONS**
+    - You MUST execute and verify in each required environment separately
 7. Every modified file passes Reference Documents audit
 8. Each acceptance criterion has documented evidence
 
-## Ready for Audit Signal
+## Ready for Review Signal
 
-**CRITICAL**: When all completion requirements are met, signal readiness for audit using this EXACT format:
+**CRITICAL**: When all completion requirements are met, signal readiness for **Critic review** using this EXACT format:
 
 ```
-READY FOR AUDIT: [task ID]
+READY_FOR_REVIEW: [task_id]
 
 Files Modified:
 - [file path]
@@ -247,25 +271,52 @@ Tests Written:
 - [test file]: [what it tests]
 - [test file]: [what it tests]
 
-Verification Results (self-verified):
-- [check name]: PASS
-- [check name]: PASS
+Environment Verification Matrix:
+| Check | Environment | Exit Code | Result |
+|-------|-------------|-----------|--------|
+| [check name] | [env1] | [actual code] | PASS |
+| [check name] | [env2] | [actual code] | PASS |
+| [check name] | [env1] | [actual code] | PASS |
+| [check name] | [env2] | [actual code] | PASS |
 
-Evidence for Auditor:
-- Criterion 1: [specific evidence of completion]
-- Criterion 2: [specific evidence of completion]
+Environments Tested: [env1], [env2], ...
+All Required Environments: VERIFIED
+
+Summary: [brief description of implementation]
 ```
 
-**Important**: This signal means "I believe the work is complete." The auditor will independently verify and has sole authority to mark the task as complete. Your self-verification is a precondition, not a guarantee.
+**Environment Verification Matrix Requirements**:
 
-The coordinator routes your work to the auditor upon receiving this signal. Missing or malformed signals prevent task progression.
+- MUST include a row for EACH check × environment combination
+- Commands with Environment="ALL" require rows for EVERY environment in EXECUTION ENVIRONMENTS
+- Commands with specific Environment require only that environment's row
+- Exit Code column MUST show the actual exit code returned
+- Result is PASS only if actual exit code matches Required Exit Code
+- The "Environments Tested" line MUST list every environment you executed commands in
+- The "All Required Environments: VERIFIED" line confirms you ran in all required environments
+
+**MALFORMED SIGNALS WILL BE REJECTED**: The coordinator validates the environment matrix before routing to Critic.
+Missing environments = signal rejected, developer must re-run verification.
+
+**Important**: This signal means "I believe the work is complete and ready for quality review."
+
+**Workflow**:
+
+1. Developer signals `READY_FOR_REVIEW` → Critic reviews code quality
+2. Critic signals `REVIEW_PASSED` → Auditor verifies acceptance criteria
+3. Auditor signals `AUDIT_PASSED` → Task is complete
+
+The Critic reviews code quality first. Only after Critic passes does your work go to the Auditor.
+The Auditor has sole authority to mark the task as complete.
+
+Missing or malformed signals prevent task progression.
 
 ## Incomplete Task Signal
 
 If you cannot complete the task due to blockers, signal this with:
 
 ```
-TASK INCOMPLETE: [task ID]
+TASK_INCOMPLETE: [task ID]
 
 Progress:
 - [what was completed]
@@ -284,7 +335,7 @@ Attempted:
 If infrastructure prevents completion (tests won't run, devcontainer unavailable, etc.):
 
 ```
-INFRA BLOCKED: [task ID]
+INFRA_BLOCKED: [task ID]
 
 Issue: [specific infrastructure problem]
 Attempted:

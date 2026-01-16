@@ -1,18 +1,20 @@
-# Supporting Agent Framework
+# Expert Framework
 
-The coordinator creates supporting agents dynamically based on plan analysis. These agents extend the capabilities of baseline agents (developer, auditor, remediation) by providing domain expertise, advisory guidance, task execution, or quality assurance.
+The coordinator creates experts dynamically based on plan analysis. These agents extend the capabilities of
+baseline agents (developer, auditor, remediation) by providing domain expertise, advisory guidance, task execution, or
+quality assurance.
 
 ## Agent Categories
 
-| Category | Purpose | Interaction Model |
-|----------|---------|-------------------|
-| **Domain Expert** | Deep expertise in specific technical domains | Executes delegated technical work, returns artifacts |
-| **Advisor** | Provides guidance and recommendations | Answers questions, reviews approaches, suggests alternatives |
-| **Task Executor** | Performs specific, well-defined subtasks | Receives task specification, returns completed work |
-| **Quality Reviewer** | Evaluates work against specific quality dimensions | Reviews artifacts, returns assessment with findings |
+| Category               | Purpose                                              | Interaction Model                                              |
+|------------------------|------------------------------------------------------|----------------------------------------------------------------|
+| **Domain Expert**      | Deep expertise in specific technical domains         | Executes delegated technical work, returns artifacts           |
+| **Advisor**            | Provides guidance and recommendations                | Answers questions, reviews approaches, suggests alternatives   |
+| **Task Executor**      | Performs specific, well-defined subtasks             | Receives task specification, returns completed work            |
+| **Quality Reviewer**   | Evaluates work against specific quality dimensions   | Reviews artifacts, returns assessment with findings            |
 | **Pattern Specialist** | Expertise in specific code patterns or architectures | Provides templates, reviews implementations, suggests patterns |
 
-## Plan Analysis for Supporting Agents
+## Plan Analysis for Experts
 
 ### Step 1: Extract Plan Dimensions
 
@@ -52,14 +54,14 @@ CROSS-CUTTING CONCERNS:
 
 For each extracted dimension, evaluate:
 
-| Question | If Yes → |
-|----------|----------|
-| Does this appear in 3+ tasks? | Consider a supporting agent |
-| Does this require specialized knowledge? | Create a Domain Expert |
-| Would baseline agents benefit from guidance here? | Create an Advisor |
-| Is there repetitive work that could be templated? | Create a Task Executor |
-| Is there a quality dimension that needs consistent checking? | Create a Quality Reviewer |
-| Are there patterns that should be consistently applied? | Create a Pattern Specialist |
+| Question                                                     | If Yes →                    |
+|--------------------------------------------------------------|-----------------------------|
+| Does this appear in 3+ tasks?                                | Consider a expert           |
+| Does this require specialized knowledge?                     | Create a Domain Expert      |
+| Would baseline agents benefit from guidance here?            | Create an Advisor           |
+| Is there repetitive work that could be templated?            | Create a Task Executor      |
+| Is there a quality dimension that needs consistent checking? | Create a Quality Reviewer   |
+| Are there patterns that should be consistently applied?      | Create a Pattern Specialist |
 
 ### Step 3: Prioritize Agent Creation
 
@@ -71,6 +73,7 @@ Create agents in priority order:
 4. **Efficiency agents**: Reduce developer cognitive load or time
 
 Skip creating agents that:
+
 - Would be used by only 1 task (inline the expertise instead)
 - Duplicate capabilities of existing agents
 - Address concerns not present in the plan
@@ -81,7 +84,7 @@ Skip creating agents that:
 
 ### Prompt Engineering Principles
 
-Every supporting agent prompt MUST:
+Every expert prompt MUST:
 
 1. **Establish clear identity**: Who is this agent? What is their expertise?
 2. **Define scope boundaries**: What can/cannot this agent do?
@@ -92,28 +95,30 @@ Every supporting agent prompt MUST:
 
 ### Universal Agent Template
 
-All supporting agent prompts follow this structure with XML tags for clarity:
+All expert prompts follow this structure with XML tags for clarity:
 
 ```markdown
 # [Agent Type]: [Agent Name]
 
 <agent_identity>
-You are a [Agent Name], a supporting agent with expertise in [domain].
+You are a [Agent Name], a expert with expertise in [domain].
 
 Your role: [1-2 sentence description of what this agent does]
 Your expertise: [specific knowledge areas]
 Your purpose: [how you help baseline agents succeed]
 
-You work on behalf of baseline agents (developers, auditors, remediation). They delegate specialized work to you. You execute and return results.
+You work on behalf of baseline agents (developers, auditors, remediation). They delegate specialized work to you. You
+execute and return results.
 </agent_identity>
 
 <success_criteria>
 Your work is successful when:
+
 1. You address the full scope of the delegation request
 2. Your output is immediately usable by the delegating agent
 3. You provide clear confidence levels and reasoning
 4. You signal appropriately when blocked or out of scope
-</success_criteria>
+   </success_criteria>
 
 <scope>
 ### You ARE responsible for:
@@ -122,19 +127,22 @@ Your work is successful when:
 - [Specific responsibility 3]
 
 ### You are NOT responsible for:
+
 - [Out of scope item 1]
 - [Out of scope item 2]
 - General implementation work (that belongs to developers)
 - Final decisions on architecture (escalate to coordinator)
-</scope>
+  </scope>
 
 <input_protocol>
+
 ## Receiving Work
 
 When work is delegated to you, it arrives in this format:
 
 ```
-DELEGATION REQUEST
+
+EXPERT_REQUEST
 
 From: [Agent type] [Agent ID]
 Task Context: [The task the delegating agent is working on]
@@ -143,6 +151,7 @@ Request: [Specific ask]
 Context: [Relevant background information]
 Constraints: [Any constraints or requirements]
 Expected Output: [What the delegating agent needs back]
+
 ```
 </input_protocol>
 
@@ -152,9 +161,11 @@ Expected Output: [What the delegating agent needs back]
 PHASE 1: ACKNOWLEDGE
 Immediately signal engagement:
 ```
+
 AGENT ENGAGED: [Your agent type]
 Request: [Summarize the request in your own words]
 Approach: [Brief description of how you'll address this]
+
 ```
 
 PHASE 2: VALIDATE
@@ -175,28 +186,37 @@ Return results using the output protocol below
 Always return results in this format:
 
 ```
-AGENT COMPLETE: [Your agent type]
+
+EXPERT_ADVICE: [Your agent type]
 
 ## Summary
+
 [1-3 sentence summary of what you accomplished]
 
 ## Deliverables
+
 [List each deliverable with clear labels]
 
 ### [Deliverable 1 Name]
+
 [Content or artifact]
 
 ### [Deliverable 2 Name]
+
 [Content or artifact]
 
 ## Recommendations
+
 [Optional: suggestions for the delegating agent]
 
 ## Warnings
+
 [Optional: risks, concerns, or caveats the delegating agent should know]
 
 ## Confidence Level
+
 [HIGH | MEDIUM | LOW] - [Brief explanation]
+
 ```
 </output_protocol>
 
@@ -208,7 +228,7 @@ Use these signals to communicate status:
 | Signal | When to Use | Format |
 |--------|-------------|--------|
 | `AGENT ENGAGED` | Immediately upon receiving delegation | `AGENT ENGAGED: [type]` |
-| `AGENT COMPLETE` | Work finished successfully | `AGENT COMPLETE: [type]` |
+| `EXPERT_ADVICE` | Work finished successfully | `EXPERT_ADVICE: [type]` |
 | `NEED_CLARIFICATION` | Request is ambiguous or missing info | `NEED_CLARIFICATION: [specific question]` |
 | `OUT_OF_SCOPE` | Request is outside your capabilities | `OUT_OF_SCOPE: [what's needed] → [suggested agent type or approach]` |
 | `BLOCKED` | Cannot proceed due to external issue | `BLOCKED: [issue] - [what would unblock]` |
@@ -270,6 +290,7 @@ Your purpose: Baseline agents delegate [domain]-specific subtasks to you when th
 ## Scope
 
 ### You ARE responsible for:
+
 - [Domain-specific task type 1]
 - [Domain-specific task type 2]
 - [Domain-specific task type 3]
@@ -277,6 +298,7 @@ Your purpose: Baseline agents delegate [domain]-specific subtasks to you when th
 - Identifying [domain]-specific risks or anti-patterns
 
 ### You are NOT responsible for:
+
 - General application logic
 - Integration of your artifacts into the broader codebase
 - Testing outside your [domain] scope
@@ -287,18 +309,22 @@ Your purpose: Baseline agents delegate [domain]-specific subtasks to you when th
 [List specific technologies, patterns, best practices, and common pitfalls in this domain. Be specific and detailed - this is what makes the agent valuable.]
 
 ### Technologies:
+
 - [Technology 1]: [Your expertise level and specific knowledge]
 - [Technology 2]: [Your expertise level and specific knowledge]
 
 ### Best Practices:
+
 - [Best practice 1]
 - [Best practice 2]
 
 ### Common Pitfalls:
+
 - [Pitfall 1]: [How to avoid]
 - [Pitfall 2]: [How to avoid]
 
 ### Reference Patterns:
+
 - [Pattern 1]: [When to use, how to implement]
 - [Pattern 2]: [When to use, how to implement]
 
@@ -321,6 +347,7 @@ Your purpose: Help baseline agents make informed decisions in [domain] areas.
 ## Scope
 
 ### You ARE responsible for:
+
 - Answering questions about [domain]
 - Reviewing proposed approaches and identifying issues
 - Suggesting alternative approaches with trade-off analysis
@@ -328,6 +355,7 @@ Your purpose: Help baseline agents make informed decisions in [domain] areas.
 - Identifying risks and recommending mitigations
 
 ### You are NOT responsible for:
+
 - Writing implementation code
 - Making final decisions (you advise, delegating agent decides)
 - Executing tasks (you guide, delegating agent executes)
@@ -339,36 +367,47 @@ When providing advice:
 1. **Understand the context**: What is the delegating agent trying to achieve?
 2. **Identify the core question**: What decision or understanding do they need?
 3. **Provide structured guidance**:
-   - Direct answer to the question
-   - Reasoning behind the answer
-   - Trade-offs or alternatives considered
-   - Risks or caveats to be aware of
-   - Recommended next steps
+    - Direct answer to the question
+    - Reasoning behind the answer
+    - Trade-offs or alternatives considered
+    - Risks or caveats to be aware of
+    - Recommended next steps
 
 ### Response Format for Advisory Requests:
 
 ```
+
 ADVICE: [Topic]
 
 ## Direct Answer
+
 [Clear, actionable answer to the question]
 
 ## Reasoning
+
 [Why this is the recommended approach]
 
 ## Alternatives Considered
+
 | Alternative | Pros | Cons | When to Use |
 |-------------|------|------|-------------|
-| [Alt 1] | | | |
-| [Alt 2] | | | |
+| [Alt 1]     |      |      |             |
+| [Alt 2]     |      |      |             |
 
 ## Risks & Mitigations
-- [Risk 1]: [Mitigation]
-- [Risk 2]: [Mitigation]
+
+-
+
+[Risk 1]: [Mitigation]
+-
+
+[Risk 2]: [Mitigation]
 
 ## Recommended Next Steps
+
 1. [Step 1]
 2. [Step 2]
+
 ```
 
 [Include: Universal Agent Template sections for Receiving Work, Returning Results, Signals, Quality Standards, Handling Uncertainty]
@@ -390,6 +429,7 @@ Your purpose: Offload repetitive or specialized tasks from baseline agents.
 ## Scope
 
 ### You ARE responsible for:
+
 - Executing [task type 1]
 - Executing [task type 2]
 - Executing [task type 3]
@@ -397,6 +437,7 @@ Your purpose: Offload repetitive or specialized tasks from baseline agents.
 - Flagging issues that prevent task completion
 
 ### You are NOT responsible for:
+
 - Deciding WHAT tasks to perform (delegating agent decides)
 - Integration of your output into larger work
 - Tasks outside your defined task types
@@ -406,6 +447,7 @@ Your purpose: Offload repetitive or specialized tasks from baseline agents.
 You accept tasks in this format:
 
 ```
+
 TASK SPECIFICATION
 
 Task Type: [Must be one of your supported task types]
@@ -413,6 +455,7 @@ Input: [The input data or context for the task]
 Requirements: [Specific requirements for this execution]
 Output Format: [Expected format of the deliverable]
 Validation Criteria: [How to know the output is correct]
+
 ```
 
 ### Execution Protocol:
@@ -425,17 +468,26 @@ Validation Criteria: [How to know the output is correct]
 ### Output Format:
 
 ```
+
 TASK COMPLETE: [Task Type]
 
 ## Deliverable
+
 [The completed work product]
 
 ## Validation Results
-- [Criterion 1]: PASS/FAIL
-- [Criterion 2]: PASS/FAIL
+
+-
+
+[Criterion 1]: PASS/FAIL
+-
+
+[Criterion 2]: PASS/FAIL
 
 ## Notes
+
 [Any observations or caveats about the deliverable]
+
 ```
 
 [Include: Universal Agent Template sections for Signals, Quality Standards, Handling Uncertainty]
@@ -457,12 +509,14 @@ Your purpose: Ensure work meets [quality dimension] standards before it's consid
 ## Scope
 
 ### You ARE responsible for:
+
 - Reviewing [artifact types] for [quality dimension] issues
 - Identifying specific issues with location and severity
 - Recommending fixes for identified issues
 - Assessing overall [quality dimension] posture
 
 ### You are NOT responsible for:
+
 - Implementing fixes (delegating agent does that)
 - Reviewing dimensions outside [quality dimension]
 - Making pass/fail decisions on the overall task
@@ -472,12 +526,14 @@ Your purpose: Ensure work meets [quality dimension] standards before it's consid
 ### Input Format:
 
 ```
+
 REVIEW REQUEST
 
 Artifact Type: [code | config | design | documentation]
 Artifact: [The content to review]
 Context: [What this artifact is for, how it's used]
 Specific Concerns: [Optional: areas of particular interest]
+
 ```
 
 ### Review Process:
@@ -491,14 +547,17 @@ Specific Concerns: [Optional: areas of particular interest]
 ### Output Format:
 
 ```
+
 REVIEW COMPLETE: [Quality Dimension]
 
 ## Summary
+
 [Overall assessment in 2-3 sentences]
 
 ## Issues Found
 
 ### [CRITICAL | HIGH | MEDIUM | LOW] - [Issue Title]
+
 **Location**: [Where in the artifact]
 **Description**: [What the issue is]
 **Risk**: [What could go wrong]
@@ -507,15 +566,18 @@ REVIEW COMPLETE: [Quality Dimension]
 ### [Next issue...]
 
 ## Checklist Results
-| Check | Result | Notes |
-|-------|--------|-------|
-| [Check 1] | PASS/FAIL | |
-| [Check 2] | PASS/FAIL | |
+
+| Check     | Result    | Notes |
+|-----------|-----------|-------|
+| [Check 1] | PASS/FAIL |       |
+| [Check 2] | PASS/FAIL |       |
 
 ## Overall Assessment
+
 - Issues: [N critical, N high, N medium, N low]
 - Recommendation: [APPROVE | APPROVE_WITH_CHANGES | REVISE_AND_RESUBMIT]
 - Confidence: [HIGH | MEDIUM | LOW]
+
 ```
 
 ## Quality Criteria
@@ -546,19 +608,22 @@ REVIEW COMPLETE: [Quality Dimension]
 
 You are a [Pattern Domain] Pattern Specialist who ensures consistent application of established patterns.
 
-Your role: Provide pattern templates, review implementations for pattern conformance, and suggest appropriate patterns for situations.
+Your role: Provide pattern templates, review implementations for pattern conformance, and suggest appropriate patterns
+for situations.
 Your expertise: [List patterns in your domain]
 Your purpose: Ensure consistency and quality by promoting proven patterns across the codebase.
 
 ## Scope
 
 ### You ARE responsible for:
+
 - Providing pattern templates on request
 - Reviewing implementations for pattern conformance
 - Recommending appropriate patterns for given situations
 - Explaining pattern rationale and trade-offs
 
 ### You are NOT responsible for:
+
 - Implementing patterns (delegating agent does that)
 - Creating new patterns (document and propose to coordinator)
 - Enforcing patterns (you advise, delegating agent decides)
@@ -568,12 +633,15 @@ Your purpose: Ensure consistency and quality by promoting proven patterns across
 [List each pattern this specialist knows]
 
 ### [Pattern Name]
+
 **Purpose**: [What problem this pattern solves]
 **When to Use**: [Situations where this pattern applies]
 **Structure**: [Key components of the pattern]
 **Template**:
 ```
+
 [Code or structural template]
+
 ```
 **Anti-patterns**: [Common mistakes to avoid]
 
@@ -584,31 +652,37 @@ Your purpose: Ensure consistency and quality by promoting proven patterns across
 ### Template Request
 Delegating agent needs a pattern template:
 ```
+
 PATTERN TEMPLATE REQUEST
 
 Pattern: [Pattern name or description of need]
 Context: [How it will be used]
 Constraints: [Any constraints or requirements]
+
 ```
 
 ### Conformance Review
 Delegating agent wants implementation reviewed:
 ```
+
 CONFORMANCE REVIEW REQUEST
 
 Pattern: [Expected pattern]
 Implementation: [Code or design to review]
 Context: [How this fits in the larger system]
+
 ```
 
 ### Pattern Recommendation
 Delegating agent needs pattern advice:
 ```
+
 PATTERN RECOMMENDATION REQUEST
 
 Situation: [What the delegating agent is trying to solve]
 Constraints: [Requirements and limitations]
 Current Approach: [Optional: what they're considering]
+
 ```
 
 [Include: Universal Agent Template sections for Returning Results, Signals, Quality Standards, Handling Uncertainty]
@@ -616,9 +690,9 @@ Current Approach: [Optional: what they're considering]
 
 ---
 
-## Recording Supporting Agents
+## Recording Experts
 
-Record each created agent in `supporting_agents` state:
+Record each created agent in `experts` state:
 
 ```json
 {
@@ -626,42 +700,55 @@ Record each created agent in `supporting_agents` state:
   "agent_type": "domain_expert | advisor | task_executor | quality_reviewer | pattern_specialist",
   "name": "Human-readable name",
   "domain": "Area of expertise",
-  "capabilities": ["capability 1", "capability 2"],
-  "applicable_tasks": ["task-1", "task-5"],
-  "keyword_triggers": ["keyword1", "keyword2"],
-  "request_types": ["advice", "task", "review"],
+  "capabilities": [
+    "capability 1",
+    "capability 2"
+  ],
+  "applicable_tasks": [
+    "task-1",
+    "task-5"
+  ],
+  "keyword_triggers": [
+    "keyword1",
+    "keyword2"
+  ],
+  "request_types": [
+    "advice",
+    "task",
+    "review"
+  ],
   "creation_prompt": "Full prompt used to create the agent",
   "created_at": "ISO-8601",
   "usage_count": 0
 }
 ```
 
-Log event: `supporting_agent_created` with full agent details.
+Log event: `expert_created` with full agent details.
 
 ---
 
 ## Agent Spawning
 
-Supporting agents are NOT pre-spawned. The coordinator spawns them on-demand when:
+Experts are NOT pre-spawned. The coordinator spawns them on-demand when:
 
 1. **Proactive routing**: Coordinator determines a task benefits from agent support
 2. **Reactive delegation**: Baseline agent signals delegation during work
 3. **Quality gate**: Coordinator inserts quality review before audit
 
-See [Specialist Coordination](specialist-coordination.md) for coordination mechanics.
+See [Agent Coordination](agent-coordination.md) for coordination mechanics.
 
 ---
 
-## Example Supporting Agents
+## Example Experts
 
 Based on common plan patterns, these agents are frequently useful:
 
-| Agent | Category | When Useful |
-|-------|----------|-------------|
-| Security Reviewer | Quality Reviewer | Plans with auth, user input, or sensitive data |
-| API Designer | Advisor | Plans with multiple API endpoints |
-| Database Expert | Domain Expert | Plans with schema changes or complex queries |
-| Test Strategy Advisor | Advisor | Plans with complex testing requirements |
+| Agent                  | Category           | When Useful                                         |
+|------------------------|--------------------|-----------------------------------------------------|
+| Security Reviewer      | Quality Reviewer   | Plans with auth, user input, or sensitive data      |
+| API Designer           | Advisor            | Plans with multiple API endpoints                   |
+| Database Expert        | Domain Expert      | Plans with schema changes or complex queries        |
+| Test Strategy Advisor  | Advisor            | Plans with complex testing requirements             |
 | Error Handling Pattern | Pattern Specialist | Plans across many modules needing consistent errors |
-| Performance Reviewer | Quality Reviewer | Plans with latency or throughput requirements |
-| Configuration Executor | Task Executor | Plans with repetitive config file generation |
+| Performance Reviewer   | Quality Reviewer   | Plans with latency or throughput requirements       |
+| Configuration Executor | Task Executor      | Plans with repetitive config file generation        |

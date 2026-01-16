@@ -44,6 +44,7 @@ The `{{PLAN_FILE}}` must follow this format for the coordinator to parse and exe
 Task IDs must be unique and follow the pattern: `[phase]-[section]-[number]`
 
 Examples:
+
 - `1-1-1` (Phase 1, Section 1, Task 1)
 - `2-3-4` (Phase 2, Section 3, Task 4)
 - `1-auth-1` (Phase 1, Auth Section, Task 1)
@@ -53,12 +54,14 @@ Examples:
 ### Work Field
 
 The work description must include:
+
 - What to create, modify, or delete
 - Expected behavior
 - Integration points with existing code
 - Any constraints or requirements
 
 **Good Example**:
+
 ```markdown
 **Work**:
 Create a new `UserAuthenticator` class in `src/auth/authenticator.py` that:
@@ -72,6 +75,7 @@ Follow the existing pattern in `src/auth/token_validator.py` for error handling.
 ```
 
 **Bad Example**:
+
 ```markdown
 **Work**:
 Implement user authentication.
@@ -81,12 +85,12 @@ Implement user authentication.
 
 Each criterion must be:
 
-| Requirement | Why |
-|-------------|-----|
-| Testable | Can run a command or check to verify |
-| Specific | No ambiguity about what "done" means |
-| Observable | Result can be seen or measured |
-| Independent | Can be verified in isolation |
+| Requirement | Why                                  |
+|-------------|--------------------------------------|
+| Testable    | Can run a command or check to verify |
+| Specific    | No ambiguity about what "done" means |
+| Observable  | Result can be seen or measured       |
+| Independent | Can be verified in isolation         |
 
 **Valid Criteria Patterns**:
 
@@ -102,13 +106,13 @@ Each criterion must be:
 
 **Invalid Criteria**:
 
-| Criterion | Problem |
-|-----------|---------|
-| "Code should be clean" | Subjective, not testable |
-| "Implement the feature" | Not specific |
-| "Handle errors appropriately" | Ambiguous |
-| "Should be fast" | Not measurable without numbers |
-| "Follow best practices" | Vague |
+| Criterion                     | Problem                        |
+|-------------------------------|--------------------------------|
+| "Code should be clean"        | Subjective, not testable       |
+| "Implement the feature"       | Not specific                   |
+| "Handle errors appropriately" | Ambiguous                      |
+| "Should be fast"              | Not measurable without numbers |
+| "Follow best practices"       | Vague                          |
 
 ### Blocked By Field
 
@@ -119,6 +123,7 @@ Specify task IDs that must complete before this task can start.
 ```
 
 Or if no dependencies:
+
 ```markdown
 **Blocked By**: none
 ```
@@ -135,6 +140,7 @@ Files the developer must read before starting work.
 ```
 
 Supports glob patterns:
+
 ```markdown
 **Required Reading**:
 - src/auth/**/*.py
@@ -150,6 +156,7 @@ Restrict task to specific environment. Omit for all environments.
 ```
 
 Valid values:
+
 - `Mac` - macOS only
 - `Devcontainer` - Linux container only
 - (blank) - Must pass in ALL environments
@@ -328,14 +335,14 @@ state = {
 
 The coordinator must validate the plan before execution:
 
-| Check | Action on Failure |
-|-------|-------------------|
-| All task IDs unique | Reject plan |
-| All blocked_by references exist | Reject plan |
-| No circular dependencies | Reject plan |
-| All acceptance criteria testable | Warn, ask for clarification |
-| At least one task with no blockers | Reject plan (can't start) |
-| Required reading files exist | Warn (may be created during execution) |
+| Check                              | Action on Failure                      |
+|------------------------------------|----------------------------------------|
+| All task IDs unique                | Reject plan                            |
+| All blocked_by references exist    | Reject plan                            |
+| No circular dependencies           | Reject plan                            |
+| All acceptance criteria testable   | Warn, ask for clarification            |
+| At least one task with no blockers | Reject plan (can't start)              |
+| Required reading files exist       | Warn (may be created during execution) |
 
 ### Acceptance Criteria Quality Validation
 
@@ -395,6 +402,7 @@ def validate_acceptance_criteria(criteria_list):
 ```
 
 **On validation failure:**
+
 ```python
 if issues:
     output("ACCEPTANCE CRITERIA VALIDATION ISSUES")
@@ -404,7 +412,7 @@ if issues:
         output(f"    Reason: {issue['reason']}")
 
     # Seek divine clarification
-    output("SEEKING DIVINE CLARIFICATION")
+    output("SEEKING_DIVINE_CLARIFICATION")
     output("The following acceptance criteria need clarification:")
     for issue in issues:
         output(f"  - {issue['criterion']}")

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Generate orchestrator prompt from template and base variables.
 
+This exists because asking claude to do this is so damn slow and I am impatient.
+
 Usage:
     python generate-orchestrator.py <plan_file>
 
@@ -8,8 +10,8 @@ Example:
     python generate-orchestrator.py COMPREHENSIVE_IMPLEMENTATION_PLAN.md
 
 Creates:
-    .claude/plans/<slug>.md - The processed orchestrator prompt
-    .claude/plans/<slug>/ - Directory for state and event log
+    .claude/surrogate_activities/<slug>-orchestrator.md - The processed orchestrator prompt
+    .claude/surrogate_activities/<slug>/ - Directory for state, event log, scratch, artefacts
 """
 
 from __future__ import annotations
@@ -39,21 +41,14 @@ class FilePath(str, Enum):
 
     BASE_VARIABLES = ".claude/base_variables.md"
     TEMPLATE = ".claude/prompts/industrial_society_and_its_prompts.md"
-    PLANS_DIR = ".claude/plans"
-
-
-class FilePathTemplate(str, Enum):
-    """File path templates with placeholders."""
-
-    STATE_FILE = ".claude/plans/{slug}/coordination-state.json"
-    EVENT_LOG = ".claude/plans/{slug}/event-log.jsonl"
-    OUTPUT_FILE = ".claude/plans/{slug}.md"
+    SURROGATE_DIR = ".claude/surrogate_activities"
 
 
 class SectionHeader(str, Enum):
     """Markdown section headers in base_variables.md."""
 
     CORE_FILES = "## Core Files"
+    DIRECTORY_DERIVATION = "## Directory Derivation"
     THRESHOLDS = "## Thresholds"
     PARALLEL_LIMITS = "## Parallel Execution Limits"
     AGENT_MODELS = "## Agent Models"
@@ -61,21 +56,41 @@ class SectionHeader(str, Enum):
     AGENT_DOCS = "## Agent Reference Documents"
     DEVELOPER_COMMANDS = "### Developer Commands"
     VERIFICATION_COMMANDS = "### Verification Commands"
+    MCP_SERVERS = "## MCP Servers"
 
 
 class VariableKey(str, Enum):
     """Known variable keys used in templates."""
 
+    # Core file variables
     PLAN_FILE = "PLAN_FILE"
+    PLAN_NAME = "PLAN_NAME"
+    PLAN_DIR = "PLAN_DIR"
     STATE_FILE = "STATE_FILE"
     EVENT_LOG_FILE = "EVENT_LOG_FILE"
     USAGE_SCRIPT = "USAGE_SCRIPT"
-    WORKING_DIR = "WORKING_DIR"
+    TRASH_DIR = "TRASH_DIR"
+    SCRATCH_DIR = "SCRATCH_DIR"
+    ARTEFACTS_DIR = "ARTEFACTS_DIR"
+
+    # Threshold variables
+    CONTEXT_THRESHOLD = "CONTEXT_THRESHOLD"
+    SESSION_THRESHOLD = "SESSION_THRESHOLD"
+    RECENT_COMPLETION_WINDOW = "RECENT_COMPLETION_WINDOW"
+
+    # Parallel limit variables
+    ACTIVE_DEVELOPERS = "ACTIVE_DEVELOPERS"
+    REMEDIATION_ATTEMPTS = "REMEDIATION_ATTEMPTS"
+    TASK_FAILURE_LIMIT = "TASK_FAILURE_LIMIT"
+    AGENT_TIMEOUT = "AGENT_TIMEOUT"
+
+    # Table variables
     AGENT_MODELS = "AGENT_MODELS"
     ENVIRONMENTS = "ENVIRONMENTS"
     AGENT_DOCS = "AGENT_DOCS"
     DEVELOPER_COMMANDS = "DEVELOPER_COMMANDS"
     VERIFICATION_COMMANDS = "VERIFICATION_COMMANDS"
+    MCP_SERVERS = "MCP_SERVERS"
 
 
 class ColumnName(str, Enum):
@@ -97,6 +112,11 @@ class ColumnName(str, Enum):
     COMMAND = "Command"
     CHECK = "Check"
     EXIT_CODE = "Exit Code"
+    # MCP table columns
+    SERVER = "Server"
+    FUNCTION = "Function"
+    EXAMPLE = "Example"
+    USE_WHEN = "Use When"
 
 
 class RowKey(str, Enum):
@@ -118,14 +138,6 @@ class ParseState(Enum):
 # =============================================================================
 # Named Tuples (Immutable Configuration)
 # =============================================================================
-
-
-class CoreFileDefinition(NamedTuple):
-    """Definition of a core file variable."""
-
-    variable: VariableKey
-    default_value: str
-    description: str
 
 
 class ColumnSet(NamedTuple):
@@ -168,15 +180,19 @@ class ResolvedPaths(NamedTuple):
 
     base_variables: Path
     template: Path
-    plans_dir: Path
+    surrogate_dir: Path
 
 
-class SlugPaths(NamedTuple):
-    """Paths derived from a slug."""
+class DerivedPaths(NamedTuple):
+    """Paths derived from a plan file."""
 
-    state_file: str
-    event_log: str
-    output_dir: Path
+    plan_name: str
+    plan_dir: Path
+    state_file: Path
+    event_log: Path
+    trash_dir: Path
+    scratch_dir: Path
+    artefacts_dir: Path
     output_file: Path
 
 
@@ -184,43 +200,19 @@ class SlugPaths(NamedTuple):
 # Configuration Constants
 # =============================================================================
 
-CORE_FILE_DEFINITIONS: tuple[CoreFileDefinition, ...] = (
-    CoreFileDefinition(
-        VariableKey.PLAN_FILE,
-        "",
-        "Implementation plan to execute",
-    ),
-    CoreFileDefinition(
-        VariableKey.STATE_FILE,
-        "",
-        "Coordinator state persistence",
-    ),
-    CoreFileDefinition(
-        VariableKey.EVENT_LOG_FILE,
-        "",
-        "Event store for all coordinator operations and agent results",
-    ),
-    CoreFileDefinition(
-        VariableKey.USAGE_SCRIPT,
-        ".claude/scripts/get-claude-usage.py",
-        "Session usage monitoring",
-    ),
-    CoreFileDefinition(
-        VariableKey.WORKING_DIR,
-        ".tmp",
-        "Directory for agent temporary files and scratch content",
-    ),
-)
-
 CORE_FILES_COLUMNS = ColumnSet((ColumnName.VARIABLE, ColumnName.VALUE, ColumnName.DESCRIPTION))
 ENVIRONMENTS_COLUMNS = ColumnSet((ColumnName.NAME, ColumnName.DESCRIPTION, ColumnName.HOW_TO_EXECUTE))
 AGENT_MODELS_COLUMNS = ColumnSet((ColumnName.AGENT_TYPE, ColumnName.MODEL, ColumnName.DESCRIPTION))
 AGENT_DOCS_COLUMNS = ColumnSet(
     (ColumnName.PATTERN, ColumnName.AGENT, ColumnName.ENVIRONMENT, ColumnName.MUST_READ, ColumnName.PURPOSE)
 )
-DEVELOPER_COMMANDS_COLUMNS = ColumnSet((ColumnName.TASK, ColumnName.ENVIRONMENT, ColumnName.COMMAND, ColumnName.PURPOSE))
+DEVELOPER_COMMANDS_COLUMNS = ColumnSet(
+    (ColumnName.TASK, ColumnName.ENVIRONMENT, ColumnName.COMMAND, ColumnName.PURPOSE))
 VERIFICATION_COMMANDS_COLUMNS = ColumnSet(
     (ColumnName.CHECK, ColumnName.ENVIRONMENT, ColumnName.COMMAND, ColumnName.EXIT_CODE, ColumnName.PURPOSE)
+)
+MCP_SERVERS_COLUMNS = ColumnSet(
+    (ColumnName.SERVER, ColumnName.FUNCTION, ColumnName.EXAMPLE, ColumnName.USE_WHEN)
 )
 
 TABLE_PARSE_CONFIGS: tuple[TableParseConfig, ...] = (
@@ -262,6 +254,11 @@ TABLE_PARSE_CONFIGS: tuple[TableParseConfig, ...] = (
         columns=VERIFICATION_COMMANDS_COLUMNS,
         variable_key=VariableKey.VERIFICATION_COMMANDS,
     ),
+    TableParseConfig(
+        section=SectionHeader.MCP_SERVERS,
+        columns=MCP_SERVERS_COLUMNS,
+        variable_key=VariableKey.MCP_SERVERS,
+    ),
 )
 
 TABLE_REPLACE_CONFIGS: tuple[TableReplaceConfig, ...] = (
@@ -290,6 +287,11 @@ TABLE_REPLACE_CONFIGS: tuple[TableReplaceConfig, ...] = (
         variable_key=VariableKey.VERIFICATION_COMMANDS,
         columns=VERIFICATION_COMMANDS_COLUMNS,
         pattern=r"(Variable: `VERIFICATION_COMMANDS`\s*\n\n[^\n]*\n[^\n]*\n[^\n]*\n\n)(\|[^\n]+\|(?:\n\|[^\n]+\|)*)",
+    ),
+    TableReplaceConfig(
+        variable_key=VariableKey.MCP_SERVERS,
+        columns=MCP_SERVERS_COLUMNS,
+        pattern=r"(Variable: `MCP_SERVERS`\s*\n\n[^\n]*\n[^\n]*\n\n[^\n]*\n\n)(\|[^\n]+\|(?:\n\|[^\n]+\|)*)",
     ),
 )
 
@@ -375,15 +377,40 @@ class Variables:
         """Update multiple simple variables."""
         self.simple.update(updates)
 
+    def expand_template_references(self) -> None:
+        """Expand {{VARIABLE}} references in variable values."""
+        max_iterations = 10
+        for _ in range(max_iterations):
+            changed = False
+            for key, value in list(self.simple.items()):
+                if "{{" in value:
+                    new_value = self._expand_value(value)
+                    if new_value != value:
+                        self.simple[key] = new_value
+                        changed = True
+            if not changed:
+                break
+
+    def _expand_value(self, value: str) -> str:
+        """Expand a single value's template references."""
+
+        def replacer(match: re.Match[str]) -> str:
+            var_name = match.group(1)
+            replacement = self.simple.get(var_name, "")
+            return replacement if replacement else match.group(0)
+
+        return re.sub(r"\{\{(\w+)\}\}", replacer, value)
+
 
 @dataclass(frozen=True)
 class GenerationResult:
     """Immutable result of orchestrator generation."""
 
     plan_file: str
-    slug: str
-    state_file: str
-    event_log: str
+    plan_name: str
+    plan_dir: Path
+    state_file: Path
+    event_log: Path
     output_file: Path
 
     def print_summary(self) -> None:
@@ -394,11 +421,17 @@ class GenerationResult:
             separator,
             "ORCHESTRATOR GENERATED",
             separator,
-            f"Plan: {self.plan_file}",
-            f"State: {self.state_file}",
-            f"Events: {self.event_log}",
-            f"Output: {self.output_file}",
+            f"Plan File:    {self.plan_file}",
+            f"Plan Name:    {self.plan_name}",
+            f"Plan Dir:     {self.plan_dir}",
+            f"State File:   {self.state_file}",
+            f"Event Log:    {self.event_log}",
+            f"Output:       {self.output_file}",
             separator,
+            "",
+            "To start the orchestrator, run:",
+            f"  /fiwb {self.plan_file}",
+            "",
         ]
         print("\n".join(lines))
 
@@ -426,8 +459,8 @@ def slugify(name: str) -> str:
     return slug.strip("-")
 
 
-def derive_slug_from_path(plan_file: str) -> str:
-    """Derive a slug from a plan file path."""
+def derive_plan_name(plan_file: str) -> str:
+    """Derive the plan name (slug) from a plan file path."""
     stem = Path(plan_file).stem
     return slugify(stem)
 
@@ -475,7 +508,10 @@ def extract_simple_variables(rows: TableData) -> dict[str, str]:
         if is_variable_row(row):
             var_name = strip_backticks(row[RowKey.VARIABLE.value])
             if var_name:
-                variables[var_name] = row.get(RowKey.VALUE.value, "")
+                # Get value, handling template syntax like {{PLAN_DIR}}/state.json
+                raw_value = row.get(RowKey.VALUE.value, "")
+                # Don't strip template references
+                variables[var_name] = raw_value
     return variables
 
 
@@ -585,19 +621,29 @@ def generate_markdown_table(rows: TableData, columns: ColumnSet) -> str:
     return "\n".join([header, separator, *data_rows])
 
 
-def build_core_file_row(definition: CoreFileDefinition, variables: Variables) -> TableRow:
-    """Build a table row for a core file definition."""
-    value = variables.get(definition.variable, definition.default_value)
-    return {
-        RowKey.VARIABLE.value: wrap_backticks(definition.variable.value),
-        RowKey.VALUE.value: wrap_backticks(value),
-        "description": definition.description,
-    }
-
-
 def build_core_files_table(variables: Variables) -> str:
     """Build the Core Files table with current variable values."""
-    rows = [build_core_file_row(defn, variables) for defn in CORE_FILE_DEFINITIONS]
+    core_vars = [
+        (VariableKey.PLAN_FILE, "Implementation plan to execute"),
+        (VariableKey.PLAN_NAME, "Plan name derived from file (kebab-case)"),
+        (VariableKey.PLAN_DIR, "Base directory for all session artifacts"),
+        (VariableKey.STATE_FILE, "Coordinator state persistence"),
+        (VariableKey.EVENT_LOG_FILE, "Event store for all coordinator operations"),
+        (VariableKey.USAGE_SCRIPT, "Session usage monitoring"),
+        (VariableKey.TRASH_DIR, "Deleted files storage (recoverable)"),
+        (VariableKey.SCRATCH_DIR, "Agent scratch files for temporary work"),
+        (VariableKey.ARTEFACTS_DIR, "Inter-agent artifact transfer directory"),
+    ]
+
+    rows: TableData = []
+    for var_key, description in core_vars:
+        value = variables.get(var_key)
+        rows.append({
+            RowKey.VARIABLE.value: wrap_backticks(var_key.value),
+            RowKey.VALUE.value: wrap_backticks(value) if value else "(derived)",
+            "description": description,
+        })
+
     return generate_markdown_table(rows, CORE_FILES_COLUMNS)
 
 
@@ -618,10 +664,10 @@ def substitute_variables(text: str, variables: Variables) -> str:
 
 
 def replace_table_section(
-    content: str,
-    pattern: str,
-    new_table: str,
-    skip_header_lines: int = 0,
+        content: str,
+        pattern: str,
+        new_table: str,
+        skip_header_lines: int = 0,
 ) -> str:
     """Replace a table section in the content."""
     if skip_header_lines > 0:
@@ -666,17 +712,24 @@ def resolve_paths(repo_root: Path) -> ResolvedPaths:
     return ResolvedPaths(
         base_variables=repo_root / FilePath.BASE_VARIABLES.value,
         template=repo_root / FilePath.TEMPLATE.value,
-        plans_dir=repo_root / FilePath.PLANS_DIR.value,
+        surrogate_dir=repo_root / FilePath.SURROGATE_DIR.value,
     )
 
 
-def resolve_slug_paths(plans_dir: Path, slug: str) -> SlugPaths:
-    """Resolve paths derived from a slug."""
-    return SlugPaths(
-        state_file=FilePathTemplate.STATE_FILE.value.format(slug=slug),
-        event_log=FilePathTemplate.EVENT_LOG.value.format(slug=slug),
-        output_dir=plans_dir / slug,
-        output_file=plans_dir / f"{slug}.md",
+def derive_paths(surrogate_dir: Path, plan_file: str) -> DerivedPaths:
+    """Derive all paths from a plan file."""
+    plan_name = derive_plan_name(plan_file)
+    plan_dir = surrogate_dir / plan_name
+
+    return DerivedPaths(
+        plan_name=plan_name,
+        plan_dir=plan_dir,
+        state_file=plan_dir / "state.json",
+        event_log=plan_dir / "event-log.jsonl",
+        trash_dir=plan_dir / ".trash",
+        scratch_dir=plan_dir / ".scratch",
+        artefacts_dir=plan_dir / ".artefacts",
+        output_file=surrogate_dir / f"{plan_name}-orchestrator.md",
     )
 
 
@@ -708,6 +761,22 @@ def parse_base_variables(base_vars_path: Path) -> Variables:
     return variables
 
 
+def setup_derived_variables(variables: Variables, plan_file: str, derived: DerivedPaths) -> None:
+    """Set up derived variables based on plan file."""
+    # Set core derived variables
+    variables.set(VariableKey.PLAN_FILE, plan_file)
+    variables.set(VariableKey.PLAN_NAME, derived.plan_name)
+    variables.set(VariableKey.PLAN_DIR, str(derived.plan_dir) + "/")
+    variables.set(VariableKey.STATE_FILE, str(derived.state_file))
+    variables.set(VariableKey.EVENT_LOG_FILE, str(derived.event_log))
+    variables.set(VariableKey.TRASH_DIR, str(derived.trash_dir) + "/")
+    variables.set(VariableKey.SCRATCH_DIR, str(derived.scratch_dir) + "/")
+    variables.set(VariableKey.ARTEFACTS_DIR, str(derived.artefacts_dir) + "/")
+
+    # Expand any template references in other variables
+    variables.expand_template_references()
+
+
 def write_output(output_file: Path, content: str) -> None:
     """Write content to output file."""
     output_file.write_text(content)
@@ -716,6 +785,14 @@ def write_output(output_file: Path, content: str) -> None:
 def ensure_directory(directory: Path) -> None:
     """Ensure a directory exists."""
     directory.mkdir(parents=True, exist_ok=True)
+
+
+def create_plan_directories(derived: DerivedPaths) -> None:
+    """Create all required plan directories."""
+    ensure_directory(derived.plan_dir)
+    ensure_directory(derived.trash_dir)
+    ensure_directory(derived.scratch_dir)
+    ensure_directory(derived.artefacts_dir)
 
 
 # =============================================================================
@@ -739,35 +816,37 @@ def generate_orchestrator(plan_file: str, repo_root: Path | None = None) -> Gene
     paths = resolve_paths(repo_root)
     validate_inputs(paths)
 
-    slug = derive_slug_from_path(plan_file)
-    slug_paths = resolve_slug_paths(paths.plans_dir, slug)
+    derived = derive_paths(paths.surrogate_dir, plan_file)
 
     print(f"Plan file: {plan_file}")
-    print(f"Derived slug: {slug}")
+    print(f"Plan name: {derived.plan_name}")
 
     print(f"Reading base variables from {paths.base_variables}")
     variables = parse_base_variables(paths.base_variables)
 
-    variables.set(VariableKey.PLAN_FILE, plan_file)
-    variables.set(VariableKey.STATE_FILE, slug_paths.state_file)
-    variables.set(VariableKey.EVENT_LOG_FILE, slug_paths.event_log)
+    # Set up derived variables
+    setup_derived_variables(variables, plan_file, derived)
 
-    ensure_directory(slug_paths.output_dir)
-    print(f"Created directory: {slug_paths.output_dir}")
+    # Create directory structure
+    create_plan_directories(derived)
+    print(f"Created directory structure at: {derived.plan_dir}")
 
+    # Process template
     print(f"Processing template from {paths.template}")
     template_content = paths.template.read_text()
     content = process_template(template_content, variables)
 
-    write_output(slug_paths.output_file, content)
-    print(f"Written orchestrator prompt to: {slug_paths.output_file}")
+    # Write output
+    write_output(derived.output_file, content)
+    print(f"Written orchestrator prompt to: {derived.output_file}")
 
     return GenerationResult(
         plan_file=plan_file,
-        slug=slug,
-        state_file=slug_paths.state_file,
-        event_log=slug_paths.event_log,
-        output_file=slug_paths.output_file,
+        plan_name=derived.plan_name,
+        plan_dir=derived.plan_dir,
+        state_file=derived.state_file,
+        event_log=derived.event_log,
+        output_file=derived.output_file,
     )
 
 
@@ -776,6 +855,10 @@ def main() -> None:
     if len(sys.argv) < 2:
         print("Usage: python generate-orchestrator.py <plan_file>")
         print("Example: python generate-orchestrator.py COMPREHENSIVE_IMPLEMENTATION_PLAN.md")
+        print()
+        print("Creates:")
+        print("  .claude/surrogate_activities/<slug>-orchestrator.md")
+        print("  .claude/surrogate_activities/<slug>/  (state, logs, scratch, artefacts)")
         sys.exit(1)
 
     plan_file = sys.argv[1]

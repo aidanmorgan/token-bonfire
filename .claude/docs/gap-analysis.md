@@ -6,11 +6,13 @@ Critical gaps that would prevent autonomous high-quality code generation.
 
 ### GAP-001: Plan Format Not Defined
 
-**Problem**: The orchestrator references `{{PLAN_FILE}}` but doesn't specify the expected format. The coordinator can't parse tasks without knowing the structure.
+**Problem**: The orchestrator references `{{PLAN_FILE}}` but doesn't specify the expected format. The coordinator can't
+parse tasks without knowing the structure.
 
 **Impact**: Fatal - coordinator can't extract tasks, dependencies, or acceptance criteria.
 
 **Required**:
+
 ```markdown
 ## Task Format Specification
 
@@ -30,11 +32,13 @@ Each task in PLAN_FILE must have:
 
 ### GAP-002: Agent Output Retrieval Not Specified
 
-**Problem**: Documents say "await agent" and "parse output" but don't specify HOW the coordinator gets agent results. The Task tool returns output, but the procedure isn't documented.
+**Problem**: Documents say "await agent" and "parse output" but don't specify HOW the coordinator gets agent results.
+The Task tool returns output, but the procedure isn't documented.
 
 **Impact**: Fatal - coordinator can't receive signals from agents.
 
 **Required**:
+
 - Document that Task tool returns agent output when complete
 - Specify timeout handling
 - Specify what happens if agent crashes mid-work
@@ -45,11 +49,13 @@ Each task in PLAN_FILE must have:
 
 ### GAP-003: Developer Codebase Access Not Documented
 
-**Problem**: Developer agents need to read/write files, but there's no documentation about what tools they have access to or how to use them.
+**Problem**: Developer agents need to read/write files, but there's no documentation about what tools they have access
+to or how to use them.
 
 **Impact**: Fatal - developers can't actually modify code.
 
 **Required**:
+
 ```markdown
 ## Developer Tool Access
 
@@ -75,17 +81,20 @@ Before editing any file, developers MUST:
 
 ### GAP-004: Context Delivery to Agents Undefined
 
-**Problem**: Agents are stateless. When auditor needs task spec, or supporting agent results need to reach developer, HOW does that information transfer happen?
+**Problem**: Agents are stateless. When auditor needs task spec, or expert results need to reach developer,
+HOW does that information transfer happen?
 
 **Impact**: Agents work without proper context → wrong output.
 
 **Current Gap**:
+
 - Developer completes → Auditor dispatched, but auditor doesn't receive the task spec in prompt
-- Supporting agent completes → Results need to reach developer, but developer is a separate agent invocation
+- Expert completes → Results need to reach developer, but developer is a separate agent invocation
 
 **Required**:
+
 - Auditor prompt must include full task specification, not just "acceptance criteria"
-- Supporting agent results must be included in developer's NEXT prompt (rework or continuation)
+- Expert results must be included in developer's NEXT prompt (rework or continuation)
 - State file should track context that needs to flow between agents
 
 **Action**: Update auditor-spec.md and developer-spec.md with explicit context inclusion.
@@ -99,6 +108,7 @@ Before editing any file, developers MUST:
 **Impact**: Merge conflicts, lost work, inconsistent state.
 
 **Required**:
+
 ```markdown
 ## File Lock Protocol
 
@@ -118,11 +128,13 @@ After developer completes:
 
 ### GAP-006: Acceptance Criteria Quality Not Verified
 
-**Problem**: If plan has vague acceptance criteria ("implement feature X"), auditor can't properly verify. No validation that acceptance criteria are testable.
+**Problem**: If plan has vague acceptance criteria ("implement feature X"), auditor can't properly verify. No validation
+that acceptance criteria are testable.
 
 **Impact**: Auditor can't do their job → bad code passes.
 
 **Required**:
+
 ```markdown
 ## Acceptance Criteria Requirements
 
@@ -148,11 +160,13 @@ Valid examples:
 
 ### GAP-007: Developer Context About Existing Code
 
-**Problem**: Developer is told to "follow existing patterns" but has no efficient way to discover what patterns exist beyond reading CLAUDE.md.
+**Problem**: Developer is told to "follow existing patterns" but has no efficient way to discover what patterns exist
+beyond reading CLAUDE.md.
 
 **Impact**: Inconsistent code, reinvented wheels, wrong patterns.
 
 **Required**:
+
 ```markdown
 ## Pattern Discovery Protocol
 
@@ -176,11 +190,13 @@ Include in developer prompt:
 
 ### GAP-008: Test Quality Not Verified
 
-**Problem**: Auditor checks tests exist but not whether tests are meaningful. Developer could write tests that always pass.
+**Problem**: Auditor checks tests exist but not whether tests are meaningful. Developer could write tests that always
+pass.
 
 **Impact**: Low-quality tests → bugs escape.
 
 **Required**:
+
 ```markdown
 ## Test Quality Checks
 
@@ -198,11 +214,13 @@ Auditor must verify:
 
 ### GAP-009: No Architectural Consistency Check
 
-**Problem**: Multiple developers working in parallel may make architecturally inconsistent decisions (different error handling patterns, different naming conventions, different data structures for similar problems).
+**Problem**: Multiple developers working in parallel may make architecturally inconsistent decisions (different error
+handling patterns, different naming conventions, different data structures for similar problems).
 
 **Impact**: Inconsistent codebase, maintenance burden.
 
 **Required**:
+
 - Periodic architectural review by coordinator or quality reviewer
 - Pattern enforcement across tasks
 - Cross-task consistency check before marking phase complete
@@ -218,6 +236,7 @@ Auditor must verify:
 **Impact**: No visibility into progress, can't detect stuck agents early.
 
 **Required**:
+
 ```markdown
 ## Checkpoint Enforcement
 
@@ -244,6 +263,7 @@ Developer MUST respond to checkpoint requests within 30 seconds with:
 **Impact**: Unclear how to proceed when environments disagree.
 
 **Required**:
+
 ```markdown
 ## Environment Disagreement Protocol
 
@@ -258,17 +278,19 @@ If command passes in some environments but fails in others:
 
 ---
 
-### GAP-012: Supporting Agent Result Integration
+### GAP-012: Expert Result Integration
 
-**Problem**: When supporting agent returns results, how does delegating developer use them? Developer is a fresh agent invocation.
+**Problem**: When expert returns results, how does delegating developer use them? Developer is a fresh agent
+invocation.
 
-**Impact**: Supporting agent work is wasted if not properly integrated.
+**Impact**: Expert work is wasted if not properly integrated.
 
 **Required**:
+
 ```markdown
 ## Result Integration Protocol
 
-When supporting agent completes:
+When expert completes:
 1. Store results in state under task context
 2. If delegating developer is still active: inject results into conversation
 3. If delegating developer finished: include results in rework prompt
@@ -315,34 +337,34 @@ When supporting agent completes:
 
 All gaps have been addressed. The orchestrator is now ready for autonomous high-quality code generation.
 
-| Priority | Gap | Action | Status |
-|----------|-----|--------|--------|
-| P1 | GAP-001 Plan Format | Create plan-format.md | FIXED |
-| P1 | GAP-002 Agent Output | Add to task-delivery-loop.md | FIXED |
-| P1 | GAP-003 Tool Access | Add to developer-spec.md | FIXED |
-| P2 | GAP-004 Context Delivery | Update auditor-spec.md, developer-spec.md | FIXED |
-| P2 | GAP-005 Concurrent Files | Create concurrency.md | FIXED |
-| P2 | GAP-006 AC Quality | Add validation to plan parsing | FIXED |
-| P2 | GAP-007 Pattern Discovery | Enhance developer prompt | FIXED |
-| P3 | GAP-008 Test Quality | Add to auditor checklist | FIXED |
-| P3 | GAP-009 Arch Consistency | Add phase completion review to task-delivery-loop.md | FIXED |
-| P3 | GAP-010 Progress Visibility | Add checkpoint enforcement to task-delivery-loop.md | FIXED |
-| P3 | GAP-011 Env Disagreement | Add environment disagreement protocol to task-delivery-loop.md | FIXED |
-| P3 | GAP-012 Result Integration | Add result integration to agent-coordination.md | FIXED |
-| P4 | GAP-013 Rollback | Add rollback capability to state-management.md | FIXED |
-| P4 | GAP-014 Learning | Add failure pattern learning to state-management.md | FIXED |
-| P4 | GAP-015 Cycle Detection | Add mandatory cycle detection to plan-format.md | FIXED |
+| Priority | Gap                         | Action                                                         | Status |
+|----------|-----------------------------|----------------------------------------------------------------|--------|
+| P1       | GAP-001 Plan Format         | Create plan-format.md                                          | FIXED  |
+| P1       | GAP-002 Agent Output        | Add to task-delivery-loop.md                                   | FIXED  |
+| P1       | GAP-003 Tool Access         | Add to developer-spec.md                                       | FIXED  |
+| P2       | GAP-004 Context Delivery    | Update auditor-spec.md, developer-spec.md                      | FIXED  |
+| P2       | GAP-005 Concurrent Files    | Create concurrency.md                                          | FIXED  |
+| P2       | GAP-006 AC Quality          | Add validation to plan parsing                                 | FIXED  |
+| P2       | GAP-007 Pattern Discovery   | Enhance developer prompt                                       | FIXED  |
+| P3       | GAP-008 Test Quality        | Add to auditor checklist                                       | FIXED  |
+| P3       | GAP-009 Arch Consistency    | Add phase completion review to task-delivery-loop.md           | FIXED  |
+| P3       | GAP-010 Progress Visibility | Add checkpoint enforcement to task-delivery-loop.md            | FIXED  |
+| P3       | GAP-011 Env Disagreement    | Add environment disagreement protocol to task-delivery-loop.md | FIXED  |
+| P3       | GAP-012 Result Integration  | Add result integration to agent-coordination.md                | FIXED  |
+| P4       | GAP-013 Rollback            | Add rollback capability to state-management.md                 | FIXED  |
+| P4       | GAP-014 Learning            | Add failure pattern learning to state-management.md            | FIXED  |
+| P4       | GAP-015 Cycle Detection     | Add mandatory cycle detection to plan-format.md                | FIXED  |
 
 ### Documentation Updates Summary
 
-| Document | Additions |
-|----------|-----------|
-| task-delivery-loop.md | Agent output retrieval, timeout tracking, architectural consistency check, checkpoint enforcement, environment disagreement protocol |
-| plan-format.md | Acceptance criteria validation, mandatory cycle detection |
-| developer-spec.md | Tool access, pattern discovery (already present from earlier) |
-| auditor-spec.md | Full task specification in prompt, test quality verification (already present) |
-| state-management.md | Rollback capability, failure pattern learning |
-| agent-coordination.md | Supporting agent result integration |
-| concurrency.md | NEW - File lock protocol, conflict detection/resolution |
-| base_variables.md | Python tooling (pyright, pytest, ruff), AGENT_TIMEOUT |
-| main orchestrator template | AGENT_TIMEOUT variable, updated Reference Documents table |
+| Document                   | Additions                                                                                                                            |
+|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
+| task-delivery-loop.md      | Agent output retrieval, timeout tracking, architectural consistency check, checkpoint enforcement, environment disagreement protocol |
+| plan-format.md             | Acceptance criteria validation, mandatory cycle detection                                                                            |
+| developer-spec.md          | Tool access, pattern discovery (already present from earlier)                                                                        |
+| auditor-spec.md            | Full task specification in prompt, test quality verification (already present)                                                       |
+| state-management.md        | Rollback capability, failure pattern learning                                                                                        |
+| agent-coordination.md      | Expert result integration                                                                                                            |
+| concurrency.md             | NEW - File lock protocol, conflict detection/resolution                                                                              |
+| base_variables.md          | Python tooling (pyright, pytest, ruff), AGENT_TIMEOUT                                                                                |
+| main orchestrator template | AGENT_TIMEOUT variable, updated Reference Documents table                                                                            |

@@ -4,7 +4,7 @@ When an agent signals for divine clarification, the coordinator acts as intermed
 
 ## Coordinator Procedure
 
-1. Detect the "SEEKING DIVINE CLARIFICATION" signal from the agent
+1. Detect the "SEEKING_DIVINE_CLARIFICATION" signal from the agent
 2. Log event: `agent_seeks_guidance` with `agent_id`, `task_id`, `question`, and `options`
 3. Add the question to `pending_divine_questions` in coordinator state
 4. Save state to `{{STATE_FILE}}` immediately
@@ -41,6 +41,7 @@ Resume work incorporating this guidance.
 ## Output Formats
 
 **On divine clarification request:**
+
 ```
 DIVINE CLARIFICATION REQUESTED
 
@@ -52,6 +53,7 @@ Praying to God...
 ```
 
 **On divine response delivery:**
+
 ```
 DIVINE GUIDANCE DELIVERED
 
@@ -65,10 +67,12 @@ Agent resuming work with divine guidance.
 ## Handling Pending Questions on Compaction/Pause
 
 Questions awaiting divine response persist in `pending_divine_questions`. On resume:
+
 1. Check `pending_divine_questions` for unanswered questions
 2. For each pending question, pray to God again
 3. Deliver responses before restoring the associated agents
 
 ## Multiple Agents Seeking Clarification
 
-When multiple agents have pending questions, the coordinator processes them in order received. Each prayer is independent and does not block other prayers.
+When multiple agents have pending questions, the coordinator processes them in order received. Each prayer is
+independent and does not block other prayers.

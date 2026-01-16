@@ -4,9 +4,11 @@ These rules apply to all agents (developer, auditor, remediation).
 
 ## Working Directory
 
-All temporary files, scratch content, debug output, and intermediate artifacts must be created under `{{WORKING_DIR}}`. Agents must never create temporary files in the project root or source directories.
+All temporary files, scratch content, debug output, and intermediate artifacts must be created under `{{WORKING_DIR}}`.
+Agents must never create temporary files in the project root or source directories.
 
 Examples of content that belongs in `{{WORKING_DIR}}`:
+
 - Debug logs and trace output
 - Test data files generated during development
 - Intermediate build artifacts not managed by the build system
@@ -17,24 +19,27 @@ Examples of content that belongs in `{{WORKING_DIR}}`:
 
 **CRITICAL**: Spawned agents operate in complete isolation:
 
-| Isolation Property | Implication |
-|--------------------|-------------|
-| No shared context | Agents cannot see each other's work or conversation |
-| No persistent memory | Each agent invocation starts fresh |
-| No implicit knowledge | Agent knows only what's in its prompt |
-| No cross-agent communication | Agents communicate only through coordinator |
+| Isolation Property           | Implication                                         |
+|------------------------------|-----------------------------------------------------|
+| No shared context            | Agents cannot see each other's work or conversation |
+| No persistent memory         | Each agent invocation starts fresh                  |
+| No implicit knowledge        | Agent knows only what's in its prompt               |
+| No cross-agent communication | Agents communicate only through coordinator         |
 
 ### Implications for the Coordinator
 
 When dispatching an agent:
 
-1. **Include complete context**: The agent has no history. Include all task requirements, relevant state, and necessary background in the prompt.
+1. **Include complete context**: The agent has no history. Include all task requirements, relevant state, and necessary
+   background in the prompt.
 
-2. **Never reference prior conversations**: Phrases like "as we discussed" or "the file you modified" are meaningless to agents.
+2. **Never reference prior conversations**: Phrases like "as we discussed" or "the file you modified" are meaningless to
+   agents.
 
 3. **Specify file paths explicitly**: Include actual paths, not references to "the file from earlier."
 
-4. **Repeat critical constraints**: Include all boundaries and requirements in every dispatch, even if "the agent should know."
+4. **Repeat critical constraints**: Include all boundaries and requirements in every dispatch, even if "the agent should
+   know."
 
 ### Implications for Agents
 
@@ -42,7 +47,8 @@ When producing output:
 
 1. **Write artifacts to shared locations**: Use `{{ARTEFACTS_DIR}}` for anything another agent needs.
 
-2. **Be explicit in signals**: Include all relevant information in completion signals—the coordinator cannot infer context.
+2. **Be explicit in signals**: Include all relevant information in completion signals—the coordinator cannot infer
+   context.
 
 3. **Document decisions**: Other agents cannot ask you why you made a choice. Document reasoning in artifacts.
 
@@ -68,28 +74,34 @@ For inter-agent communication:
 
 ## Environment Execution Requirements
 
-**Commands MUST be executed in ALL environments unless explicitly excluded.** The Environment column controls where commands run:
+**Commands MUST be executed in ALL environments unless explicitly excluded.** The Environment column controls where
+commands run:
 
-| Environment Column | Execution Rule |
-|--------------------|----------------|
-| Empty | Run in ALL environments from `ENVIRONMENTS` table. Skipping any is a task failure. |
-| Specific value (e.g., `Mac`) | Run ONLY in that environment. Other environments are explicitly excluded. |
+| Environment Column           | Execution Rule                                                                     |
+|------------------------------|------------------------------------------------------------------------------------|
+| Empty                        | Run in ALL environments from `ENVIRONMENTS` table. Skipping any is a task failure. |
+| Specific value (e.g., `Mac`) | Run ONLY in that environment. Other environments are explicitly excluded.          |
 
 **Execution procedure for empty Environment:**
+
 1. Read the `ENVIRONMENTS` table to get all defined environments.
 2. For each environment, execute the command using that environment's execution method.
 3. ALL environments must pass. A failure in any environment fails the entire check.
 4. Report results for each environment separately to enable debugging.
 
 **Execution procedure for specified Environment:**
+
 1. Execute the command ONLY in the specified environment.
 2. Use that environment's execution method from the `ENVIRONMENTS` table.
 
-## Supporting Agent Delegation
+## Expert Delegation
 
-Baseline agents (developer, auditor, remediation) may delegate work to supporting agents when doing so would improve quality or efficiency. Supporting agents include domain experts, advisors, task executors, quality reviewers, and pattern specialists.
+Baseline agents (developer, auditor, remediation) may delegate work to experts when doing so would improve
+quality or efficiency. Experts include domain experts, advisors, task executors, quality reviewers, and
+pattern specialists.
 
 **When to delegate:**
+
 1. Work requires expertise the baseline agent lacks (use domain expert)
 2. Guidance is needed on decisions or approaches (use advisor)
 3. A well-defined subtask can be handed off completely (use task executor)
@@ -97,20 +109,22 @@ Baseline agents (developer, auditor, remediation) may delegate work to supportin
 5. Pattern conformance or templates are needed (use pattern specialist)
 
 **Delegation criteria:**
-- The supporting agent has capabilities that match the request
+
+- The expert has capabilities that match the request
 - The delegation would not create circular dependencies
 - The work can be cleanly separated from your main task
 - You can integrate the results when delivered
 
 **Delegation protocol:**
 
-1. **Identify delegation opportunity**: Review `SUPPORTING AGENTS` section in your prompt.
+1. **Identify delegation opportunity**: Review `EXPERTS` section in your prompt.
 
 2. **Signal delegation request**:
-```
-DELEGATION REQUEST
 
-Agent: [agent name from SUPPORTING AGENTS]
+```
+EXPERT_REQUEST
+
+Agent: [agent name from EXPERTS]
 Request Type: [advice | task | review | pattern]
 Request: [specific ask - what you need help with]
 Context: [relevant background the agent needs]
@@ -118,9 +132,11 @@ Constraints: [any requirements or limitations]
 Expected Output: [what you need back]
 ```
 
-3. **Continue independent work**: While waiting, you may work on parts of your task that don't depend on the delegation results.
+3. **Continue independent work**: While waiting, you may work on parts of your task that don't depend on the delegation
+   results.
 
 4. **Receive results**: The coordinator will deliver results in this format:
+
 ```
 DELEGATION RESULTS
 
@@ -131,7 +147,7 @@ Duration: [N] seconds
 Confidence: [HIGH | MEDIUM | LOW]
 
 ## Deliverables
-[The supporting agent's work product]
+[The expert's work product]
 
 ## Recommendations
 [If any]
@@ -145,14 +161,16 @@ Resume your work with these results.
 5. **Integrate results**: Incorporate the deliverables into your work.
 
 **Delegation constraints:**
-- You may NOT delegate your entire task to supporting agents
+
+- You may NOT delegate your entire task to experts
 - You may NOT delegate verification responsibilities (those remain yours)
 - You MUST integrate results before claiming task completion
-- You MUST attribute supporting agent contributions in your completion report
+- You MUST attribute expert contributions in your completion report
 - You MUST consider confidence level when integrating (verify LOW confidence results)
 
 **If delegation is queued:**
 The coordinator may notify you that an agent is busy:
+
 ```
 DELEGATION QUEUED
 
@@ -174,6 +192,7 @@ Continue with independent work. Results will be delivered when available.
 6. Dependencies or blocking issues that require external action
 
 **Agents must never:**
+
 - Make assumptions when the correct action is unclear
 - Proceed with partial understanding hoping to fix issues later
 - Interpret silence as approval
@@ -187,6 +206,7 @@ Continue with independent work. Results will be delivered when available.
 There are only two valid outcomes for any verification check: **PASS** or **FAIL**.
 
 **CONDITIONAL_PASS is FAIL.** Agents are not permitted to:
+
 - Pass a check "with caveats"
 - Pass a check "pending future work"
 - Pass a check "assuming X will be fixed later"
@@ -196,7 +216,7 @@ There are only two valid outcomes for any verification check: **PASS** or **FAIL
 ## Agent Question Signal Format
 
 ```
-SEEKING DIVINE CLARIFICATION
+SEEKING_DIVINE_CLARIFICATION
 
 Task: [task ID]
 Agent: [agent ID]

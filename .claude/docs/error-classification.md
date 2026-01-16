@@ -1,16 +1,17 @@
 # Error Classification
 
-Errors fall into categories based on their recoverability and required response. This classification guides the coordinator's error handling.
+Errors fall into categories based on their recoverability and required response. This classification guides the
+coordinator's error handling.
 
 ## Error Categories
 
-| Category | Description | Recovery | Escalation |
-|----------|-------------|----------|------------|
-| **Transient** | Temporary failures that may resolve on retry | Automatic retry | After retry limit |
-| **Agent Failure** | Agent crashes, timeouts, or invalid output | Re-dispatch task | After `TASK_FAILURE_LIMIT` |
-| **Infrastructure** | Tests broken, env unavailable, pre-existing failures | Remediation loop | After `REMEDIATION_ATTEMPTS` |
-| **Configuration** | Invalid plan, missing deps, ambiguous requirements | Divine intervention | Immediate |
-| **Unrecoverable** | Repeated failures, limits exceeded | Halt workflow | Immediate |
+| Category           | Description                                          | Recovery            | Escalation                   |
+|--------------------|------------------------------------------------------|---------------------|------------------------------|
+| **Transient**      | Temporary failures that may resolve on retry         | Automatic retry     | After retry limit            |
+| **Agent Failure**  | Agent crashes, timeouts, or invalid output           | Re-dispatch task    | After `TASK_FAILURE_LIMIT`   |
+| **Infrastructure** | Tests broken, env unavailable, pre-existing failures | Remediation loop    | After `REMEDIATION_ATTEMPTS` |
+| **Configuration**  | Invalid plan, missing deps, ambiguous requirements   | Divine intervention | Immediate                    |
+| **Unrecoverable**  | Repeated failures, limits exceeded                   | Halt workflow       | Immediate                    |
 
 ---
 
@@ -19,6 +20,7 @@ Errors fall into categories based on their recoverability and required response.
 Temporary failures that often resolve on retry.
 
 ### Examples
+
 - Tool invocation timeout
 - Network connectivity issue
 - File system busy
@@ -47,11 +49,12 @@ def handle_transient_error(error, context):
 ```
 
 ### Events
-| Event | Fields |
-|-------|--------|
-| `transient_error_retry` | error_type, retry, delay_seconds |
-| `transient_error_resolved` | error_type, total_retries |
-| `transient_error_escalated` | error_type, reason |
+
+| Event                       | Fields                           |
+|-----------------------------|----------------------------------|
+| `transient_error_retry`     | error_type, retry, delay_seconds |
+| `transient_error_resolved`  | error_type, total_retries        |
+| `transient_error_escalated` | error_type, reason               |
 
 ---
 
@@ -60,6 +63,7 @@ def handle_transient_error(error, context):
 Agent did not produce valid output.
 
 ### Examples
+
 - Agent timeout (exceeded `AGENT_TIMEOUT`)
 - Agent crashed (Task tool error)
 - No recognizable signal in output
@@ -93,12 +97,13 @@ def handle_agent_failure(error, task_id, agent_type):
 ```
 
 ### Events
-| Event | Fields |
-|-------|--------|
-| `agent_failure` | task_id, agent_type, error_type, attempt |
-| `agent_timeout` | agent_id, task_id, elapsed_ms |
-| `agent_crashed` | agent_id, task_id, error_message |
-| `signal_parse_failure` | agent_id, task_id, raw_output_sample |
+
+| Event                  | Fields                                   |
+|------------------------|------------------------------------------|
+| `agent_failure`        | task_id, agent_type, error_type, attempt |
+| `agent_timeout`        | agent_id, task_id, elapsed_ms            |
+| `agent_crashed`        | agent_id, task_id, error_message         |
+| `signal_parse_failure` | agent_id, task_id, raw_output_sample     |
 
 ---
 
@@ -107,6 +112,7 @@ def handle_agent_failure(error, task_id, agent_type):
 Systemic issues blocking all development.
 
 ### Examples
+
 - Pre-existing test failures
 - Linter/type checker errors in baseline code
 - Devcontainer unavailable
@@ -157,11 +163,12 @@ Human intervention required.
 ```
 
 ### Events
-| Event | Fields |
-|-------|--------|
-| `infrastructure_blocked` | issue, reported_by |
-| `remediation_dispatched` | attempt, issue |
-| `infrastructure_restored` | attempts_used |
+
+| Event                     | Fields             |
+|---------------------------|--------------------|
+| `infrastructure_blocked`  | issue, reported_by |
+| `remediation_dispatched`  | attempt, issue     |
+| `infrastructure_restored` | attempts_used      |
 
 ---
 
@@ -170,6 +177,7 @@ Human intervention required.
 Issues requiring human clarification.
 
 ### Examples
+
 - Ambiguous acceptance criteria
 - Conflicting requirements
 - Missing information in plan
@@ -200,11 +208,12 @@ def handle_configuration_error(error, task_id):
 ```
 
 ### Events
-| Event | Fields |
-|-------|--------|
-| `configuration_error` | task_id, error_type |
-| `agent_seeks_guidance` | agent_id, task_id, question |
-| `divine_response_received` | task_id, response |
+
+| Event                      | Fields                      |
+|----------------------------|-----------------------------|
+| `configuration_error`      | task_id, error_type         |
+| `agent_seeks_guidance`     | agent_id, task_id, question |
+| `divine_response_received` | task_id, response           |
 
 ---
 
@@ -213,6 +222,7 @@ def handle_configuration_error(error, task_id):
 Failures requiring human intervention.
 
 ### Examples
+
 - Task exceeded `TASK_FAILURE_LIMIT`
 - Remediation exceeded `REMEDIATION_ATTEMPTS`
 - State corruption unrecoverable from event log
@@ -249,8 +259,9 @@ Human intervention required to proceed.
 ```
 
 ### Events
-| Event | Fields |
-|-------|--------|
+
+| Event             | Fields                      |
+|-------------------|-----------------------------|
 | `workflow_failed` | reason, details, last_state |
 
 ---
@@ -291,10 +302,10 @@ def classify_error(error) -> str:
 
 ## Error Response Summary
 
-| Error Type | First Response | Escalation Path |
-|------------|----------------|-----------------|
-| Transient | Retry with backoff | → Agent failure |
-| Agent failure | Re-dispatch task | → Unrecoverable |
-| Infrastructure | Remediation loop | → Unrecoverable |
-| Configuration | Divine intervention | → Blocks until resolved |
-| Unrecoverable | Halt workflow | → Human review |
+| Error Type     | First Response      | Escalation Path         |
+|----------------|---------------------|-------------------------|
+| Transient      | Retry with backoff  | → Agent failure         |
+| Agent failure  | Re-dispatch task    | → Unrecoverable         |
+| Infrastructure | Remediation loop    | → Unrecoverable         |
+| Configuration  | Divine intervention | → Blocks until resolved |
+| Unrecoverable  | Halt workflow       | → Human review          |
