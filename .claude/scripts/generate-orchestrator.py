@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Generate orchestrator prompt from template and base variables.
 
-This exists because asking claude to do this is so damn slow and I am impatient.
-
 Usage:
     python generate-orchestrator.py <plan_file>
 
@@ -10,8 +8,8 @@ Example:
     python generate-orchestrator.py COMPREHENSIVE_IMPLEMENTATION_PLAN.md
 
 Creates:
-    .claude/surrogate_activities/<slug>-orchestrator.md - The processed orchestrator prompt
-    .claude/surrogate_activities/<slug>/ - Directory for state, event log, scratch, artefacts
+    .claude/bonfire/<slug>-orchestrator.md - The processed orchestrator prompt
+    .claude/bonfire/<slug>/ - Directory for state, event log, scratch, artefacts
 """
 
 from __future__ import annotations
@@ -40,8 +38,8 @@ class FilePath(str, Enum):
     """Standard file paths relative to repository root."""
 
     BASE_VARIABLES = ".claude/base_variables.md"
-    TEMPLATE = ".claude/prompts/industrial_society_and_its_prompts.md"
-    SURROGATE_DIR = ".claude/surrogate_activities"
+    TEMPLATE = ".claude/prompts/master_prompt_template.md"
+    BONFIRE_DIR = ".claude/bonfire"
 
 
 class SectionHeader(str, Enum):
@@ -180,7 +178,7 @@ class ResolvedPaths(NamedTuple):
 
     base_variables: Path
     template: Path
-    surrogate_dir: Path
+    bonfire_dir: Path
 
 
 class DerivedPaths(NamedTuple):
@@ -430,7 +428,7 @@ class GenerationResult:
             separator,
             "",
             "To start the orchestrator, run:",
-            f"  /fiwb {self.plan_file}",
+            f"  /bonfire {self.plan_file}",
             "",
         ]
         print("\n".join(lines))
@@ -712,14 +710,14 @@ def resolve_paths(repo_root: Path) -> ResolvedPaths:
     return ResolvedPaths(
         base_variables=repo_root / FilePath.BASE_VARIABLES.value,
         template=repo_root / FilePath.TEMPLATE.value,
-        surrogate_dir=repo_root / FilePath.SURROGATE_DIR.value,
+        bonfire_dir=repo_root / FilePath.BONFIRE_DIR.value,
     )
 
 
-def derive_paths(surrogate_dir: Path, plan_file: str) -> DerivedPaths:
+def derive_paths(bonfire_dir: Path, plan_file: str) -> DerivedPaths:
     """Derive all paths from a plan file."""
     plan_name = derive_plan_name(plan_file)
-    plan_dir = surrogate_dir / plan_name
+    plan_dir = bonfire_dir / plan_name
 
     return DerivedPaths(
         plan_name=plan_name,
@@ -729,7 +727,7 @@ def derive_paths(surrogate_dir: Path, plan_file: str) -> DerivedPaths:
         trash_dir=plan_dir / ".trash",
         scratch_dir=plan_dir / ".scratch",
         artefacts_dir=plan_dir / ".artefacts",
-        output_file=surrogate_dir / f"{plan_name}-orchestrator.md",
+        output_file=bonfire_dir / f"{plan_name}-orchestrator.md",
     )
 
 
@@ -816,7 +814,7 @@ def generate_orchestrator(plan_file: str, repo_root: Path | None = None) -> Gene
     paths = resolve_paths(repo_root)
     validate_inputs(paths)
 
-    derived = derive_paths(paths.surrogate_dir, plan_file)
+    derived = derive_paths(paths.bonfire_dir, plan_file)
 
     print(f"Plan file: {plan_file}")
     print(f"Plan name: {derived.plan_name}")
@@ -857,8 +855,8 @@ def main() -> None:
         print("Example: python generate-orchestrator.py COMPREHENSIVE_IMPLEMENTATION_PLAN.md")
         print()
         print("Creates:")
-        print("  .claude/surrogate_activities/<slug>-orchestrator.md")
-        print("  .claude/surrogate_activities/<slug>/  (state, logs, scratch, artefacts)")
+        print("  .claude/bonfire/<slug>-orchestrator.md")
+        print("  .claude/bonfire/<slug>/  (state, logs, scratch, artefacts)")
         sys.exit(1)
 
     plan_file = sys.argv[1]

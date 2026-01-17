@@ -1,6 +1,6 @@
 # Recovery System Overview
 
-This directory contains comprehensive recovery procedures for handling various failure scenarios in the FIWB
+This directory contains comprehensive recovery procedures for handling various failure scenarios in the Token Bonfire
 coordination system.
 
 ## Purpose
@@ -28,7 +28,7 @@ The recovery system ensures the coordinator can gracefully handle and recover fr
     - Recovery from corrupted state files
     - State reconstruction from event log
 
-3. **[Agent Recovery](agent-recovery.md)**
+3. **[Agent Recovery](agent-file-recovery.md)**
     - Missing agent definition files
     - Agent file recreation from templates
     - Critic-specific recovery procedures

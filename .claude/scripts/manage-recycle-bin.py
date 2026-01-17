@@ -125,7 +125,7 @@ class Config:
     """Immutable configuration."""
     settings_file: Path = Path(".claude/settings.json")
     hook_script: Path = Path(".claude/hooks/recycle-bin.py")
-    surrogate_base: Path = Path(".claude/surrogate_activities")
+    bonfire_base: Path = Path(".claude/bonfire")
 
     @property
     def hook_config(self) -> dict:
@@ -219,15 +219,15 @@ def get_trash_dir() -> Path:
     if plan_dir := os.environ.get("CLAUDE_PLAN_DIR"):
         return Path(plan_dir) / ".trash"
 
-    if CONFIG.surrogate_base.exists():
+    if CONFIG.bonfire_base.exists():
         dirs = [
-            d for d in CONFIG.surrogate_base.iterdir()
+            d for d in CONFIG.bonfire_base.iterdir()
             if d.is_dir() and not d.name.startswith(".")
         ]
         if dirs:
             return dirs[0] / ".trash"
 
-    return CONFIG.surrogate_base / "_default" / ".trash"
+    return CONFIG.bonfire_base / "_default" / ".trash"
 
 
 def parse_metadata(recovery_dir: Path) -> Result[RecoverableFile]:

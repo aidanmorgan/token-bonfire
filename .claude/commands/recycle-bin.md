@@ -50,7 +50,7 @@ When installed, the hook intercepts file deletion commands (`rm`, `unlink`, `tra
 
 1. Verifies the file is inside the project directory
 2. Parses the bash command to identify files being deleted
-3. Moves each file to `.claude/surrogate_activities/[plan]/.trash/[uuid]-[filename]/`
+3. Moves each file to `.claude/bonfire/[plan]/.trash/[uuid]-[filename]/`
 4. Creates `metadata.json` with recovery information
 5. Blocks the original deletion command with feedback to Claude
 

@@ -61,7 +61,7 @@ def get_plan_dir() -> Path:
     plan_dir = os.environ.get('CLAUDE_PLAN_DIR')
     if plan_dir:
         return Path(plan_dir)
-    return Path('.claude/surrogate_activities/_default')
+    return Path('.claude/bonfire/_default')
 
 
 PROJECT_DIR = get_project_dir()

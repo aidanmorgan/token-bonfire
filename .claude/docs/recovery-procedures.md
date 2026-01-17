@@ -6,7 +6,7 @@ See **[Recovery System Overview](recovery/index.md)** for the complete documenta
 
 - [Event Log Recovery](recovery/event-log-recovery.md) - Corruption detection, state reconstruction
 - [State Recovery](recovery/state-recovery.md) - State file recovery
-- [Agent Recovery](recovery/agent-recovery.md) - Missing agent files
+- [Agent Recovery](recovery/agent-file-recovery.md) - Missing agent files
 - [Baseline Failures](recovery/baseline-failures.md) - Pre-existing failure handling
 - [Session Recovery](recovery/session-recovery.md) - Complete session recovery orchestration
 

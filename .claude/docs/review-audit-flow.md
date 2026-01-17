@@ -6,7 +6,7 @@ This document covers Steps 5-9 of the coordinator loop: Critic review, Auditor v
 
 - [task-dispatch.md](task-dispatch.md) - Steps 1-4: Task dispatch
 - [signal-specification.md](signal-specification.md) - All signal formats
-- [agent-recovery.md](agent-recovery.md) - Timeout and crash handling
+- [agent-timeout-recovery.md](agent-timeout-recovery.md) - Timeout and crash handling
 - [developer-rework.md](developer-rework.md) - Rework dispatch procedures
 
 ---
@@ -441,7 +441,7 @@ See [signal-specification.md](signal-specification.md) for complete formats.
 
 ## Timeout and Recovery
 
-For timeout and crash handling of Critics and Auditors, see [agent-recovery.md](agent-recovery.md).
+For timeout and crash handling of Critics and Auditors, see [agent-timeout-recovery.md](agent-timeout-recovery.md).
 
 ---
 
@@ -450,6 +450,6 @@ For timeout and crash handling of Critics and Auditors, see [agent-recovery.md](
 - [task-dispatch.md](task-dispatch.md) - Steps 1-4
 - [signal-specification.md](signal-specification.md) - Signal formats
 - [developer-rework.md](developer-rework.md) - Rework dispatch
-- [agent-recovery.md](agent-recovery.md) - Timeout handling
+- [agent-timeout-recovery.md](agent-timeout-recovery.md) - Timeout handling
 - [remediation-loop.md](remediation-loop.md) - Infrastructure remediation
 - [state-management.md](state-management.md) - State tracking

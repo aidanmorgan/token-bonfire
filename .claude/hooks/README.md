@@ -102,7 +102,7 @@ Each protected file has a `metadata.json`:
   "task_id": "task-3-1-1",
   "file_type": "file",
   "recovery_id": "abc123de",
-  "recovery_path": ".claude/surrogate_activities/[plan]/.trash/abc123de-file.py/content"
+  "recovery_path": ".claude/bonfire/[plan]/.trash/abc123de-file.py/content"
 }
 ```
 

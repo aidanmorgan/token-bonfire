@@ -11,7 +11,7 @@ See also:
 
 - [Event Log Recovery](event-log-recovery.md) - Event log validation and recovery
 - [State Recovery](state-recovery.md) - State file recovery
-- [Agent Recovery](agent-recovery.md) - Agent file recovery
+- [Agent Recovery](agent-file-recovery.md) - Agent file recovery
 - [Baseline Failures](baseline-failures.md) - Pre-existing failure tracking
 - [Recovery Index](index.md) - Overview of all recovery procedures
 
@@ -143,6 +143,6 @@ def session_recovery_check():
 
 - [Event Log Recovery](event-log-recovery.md) - Event log validation and recovery
 - [State Recovery](state-recovery.md) - State file recovery procedures
-- [Agent Recovery](agent-recovery.md) - Agent file recovery procedures
+- [Agent Recovery](agent-file-recovery.md) - Agent file recovery procedures
 - [Baseline Failures](baseline-failures.md) - Pre-existing failure baseline
 - [Session Management](../session-management.md) - Session lifecycle

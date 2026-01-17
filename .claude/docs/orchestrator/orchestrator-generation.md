@@ -280,7 +280,7 @@ def start_orchestrator(plan_file: str) -> None:
 └── experts/
     └── [plan-specific experts].md
 
-.claude/surrogate_activities/[plan-name]/
+.claude/bonfire/[plan-name]/
 ├── state.json
 ├── events.jsonl
 ├── best-practices-research.json

@@ -68,7 +68,7 @@ Make changes to fix issues:
 3. Separate mixed content
 4. Move misplaced content
 5. Split oversized files (semantically, not arbitrarily)
-6. Update all references
+6. Update all referencesx
 7. Verify consistency
 
 ## Philosophy

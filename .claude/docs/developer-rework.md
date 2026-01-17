@@ -311,6 +311,6 @@ def handle_workflow_failure(task_id: str, reason: str):
 
 - [review-audit-flow.md](review-audit-flow.md) - Review and audit flow
 - [signal-specification.md](signal-specification.md) - Signal formats
-- [agent-recovery.md](agent-recovery.md) - Timeout and crash handling
+- [agent-timeout-recovery.md](agent-timeout-recovery.md) - Timeout and crash handling
 - [state-management.md](state-management.md) - State tracking
 - [environment-verification.md](environment-verification.md) - Multi-env verification

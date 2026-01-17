@@ -101,7 +101,7 @@ When installed, the recycle bin hook:
 
 1. Verifies the file is inside the project directory
 2. Intercepts `rm`, `unlink`, and `trash` commands
-3. Moves files to `.claude/surrogate_activities/[plan]/.trash/`
+3. Moves files to `.claude/bonfire/[plan]/.trash/`
 4. Creates metadata for each file (original path, deletion time, etc.)
 5. Blocks the original deletion command with feedback to Claude
 
@@ -113,7 +113,7 @@ The hook does NOT protect files in (deletions proceed normally):
 
 ## File Locations
 
-- Trash directory: `.claude/surrogate_activities/[plan]/.trash/`
+- Trash directory: `.claude/bonfire/[plan]/.trash/`
 - Each file has: `[recovery_id]-[filename]/content` (the file) and `metadata.json`
 
 ## Example Session

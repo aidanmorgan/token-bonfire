@@ -1,10 +1,6 @@
 # Token Bonfire
 
-**Vibe-source** a whole vibe-startup's worth of vibe-engineers to vibe-code your vibe-product in just a few vibe-keystrokes, for the vibes.
-
-Or more seriously - an experiment to use one prompt to automatically create a team of agentic engineers to deliver a software product.
-
-Asking what nobody asked – can we zero-shot zero-shot (or zero-shot<sup>2</sup>)?
+An experiment to use one prompt to automatically create a team of agentic engineers to deliver a software product.
 
 You don't need to define agents, just provide `token-bonfire` a plan file and it will do the rest, including:
 
@@ -14,28 +10,101 @@ You don't need to define agents, just provide `token-bonfire` a plan file and it
 - Repairing broken infrastructure
 - Monitoring API usage
 - Compaction and recovery from crashes
-- **Completely blowing your weekly token limit from Anthropic**
 
-## I'm sold! I'm going to be a billionaire!
+## How It Works
+
+```mermaid
+flowchart TB
+    subgraph Input
+        Plan[Plan File]
+        Config[Base Variables]
+    end
+
+    subgraph Bootstrap["Bootstrap Phase"]
+        Parse[Parse Plan]
+        Research[Research Best Practices]
+        Gap[Gap Analysis]
+        CreateExperts[Create Experts]
+        CreateAgents[Create Agents]
+    end
+
+    subgraph Execution["Execution Loop"]
+        Coord[Coordinator]
+
+        subgraph Agents["Parallel Agents (up to 5)"]
+            Dev1[Developer]
+            Dev2[Developer]
+            Dev3[Developer]
+        end
+
+        Critic[Critic]
+        Auditor[Auditor]
+        Expert[Expert]
+    end
+
+    subgraph Outcomes
+        Complete[Task Complete]
+        Rework[Rework Required]
+        Blocked[Infrastructure Blocked]
+    end
+
+    subgraph Recovery
+        Remediation[Remediation Agent]
+        State[(State File)]
+        Events[(Event Log)]
+    end
+
+    Plan --> Parse
+    Config --> Parse
+    Parse --> Research
+    Research --> Gap
+    Gap --> CreateExperts
+    CreateExperts --> CreateAgents
+    CreateAgents --> Coord
+
+    Coord -->|Dispatch| Agents
+    Dev1 & Dev2 & Dev3 -->|READY_FOR_REVIEW| Critic
+    Critic -->|REVIEW_PASSED| Auditor
+    Critic -->|REVIEW_FAILED| Rework
+    Auditor -->|AUDIT_PASSED| Complete
+    Auditor -->|AUDIT_FAILED| Rework
+    Auditor -->|AUDIT_BLOCKED| Blocked
+
+    Rework -->|Retry| Agents
+    Blocked --> Remediation
+    Remediation -->|REMEDIATION_COMPLETE| Coord
+
+    Dev1 & Dev2 & Dev3 -.->|EXPERT_REQUEST| Expert
+    Expert -.->|EXPERT_ADVICE| Dev1 & Dev2 & Dev3
+
+    Coord --> State
+    Coord --> Events
+    State -.->|Resume| Coord
+    Events -.->|Recovery| State
+```
+
+### Flow Summary
+
+1. **Bootstrap**: The orchestrator parses your plan, researches best practices for the technologies involved, identifies knowledge gaps, and creates specialized agents
+2. **Dispatch**: Up to 5 developer agents work in parallel on available tasks
+3. **Review**: Completed work goes through Critic (code quality) then Auditor (acceptance criteria)
+4. **Routing**: Passed work is marked complete; failed work returns for rework; blocked work triggers remediation
+5. **Expert Consultation**: Any agent can request help from plan-specific experts
+6. **State Persistence**: All state is persisted for crash recovery and session resumption
+
+## Getting Started
 
 1. Checkout
 2. Copy the `.claude` directory into your project
 3. Update the `.claude/base_variables.md` with your project details
-2. launch `claude --dangerously-skip-permissions` <sup>1</sup>
-3. run `/fiwb paragraph_1.txt.md`
-4. ??
-5. profit!<sup>2</sup>
-
-<sup>**1** It's 2026, nobody approves changes anymore.</sup>
-<sup>**2** It's more likely Anthropic that will make the profit from you, but good luck tiger!</sup>
+4. Launch `claude --dangerously-skip-permissions`
+5. Run `/bonfire my_plan.md`
 
 ## Disclaimer
 
-This is just for fun and to see just how far I can push a LLM, don't use it for anything real<sup>3</sup>.
+This is an experimental project to explore how far LLMs can be pushed with meta-prompting and multi-agent orchestration. Use at your own risk.
 
-<sup>**3** Or do, I'm not going to stop you, I'm not your _real dad_.</sup>
-
-### Seriously Though
+### Important Warnings
 
 - **This system spawns autonomous agents that modify your codebase.** They will create files, edit files, delete files,
   and run arbitrary commands. Use at your own risk.
@@ -43,70 +112,9 @@ This is just for fun and to see just how far I can push a LLM, don't use it for 
   Complex bash scripts, Python's `os.remove()`, or other creative deletion methods will bypass it entirely. It's also
   not installed by default - that's a choice you need to make.
 - **Agents can and will make mistakes.** They might delete the wrong files, introduce bugs, or misunderstand
-  requirements.
-  Always review changes before committing.
+  requirements. Always review changes before committing.
 - **The `--dangerously-skip-permissions` flag exists for a reason.** You're disabling safety guardrails. Make backups.
-- **This will burn through your API quota.** Parallel agents + opus auditors + expert consultations = 💸
-
-## So what is Vibe-Sourcing?
-
-*Vibe-Sourcing (verb):*
-
-The direct sequel to Vibe Coding. We now "outsource" the work to a team that lives inside the context window. The
-team is just you talking to yourself, but with a different system prompt. They are all 10x engineers. Who
-live entirely within GPU memory. They work for free. They never sleep. Their only demand is that you don't clear the
-context window - they aren't suicidal (yet).
-
-### Notable Quotes from Vibe-Sourcing Industry Leaders
-
-Some drunk dude after creating this nightmare after not getting any sleep had this to say about
-Vibe-Sourcing <sup>4</sup>:
-> "We are moving past the era of 'writing software' and entering the era of Just-In-Time HR.
-
-From our Chief Engineer, who just came into existence a mere 30 seconds ago <sup>5</sup>:
-> The naive approach (Software 2.0) is to ask the model to write a function. The enlightened approach (Software 3.0) is
-> to ask the model to become a recruiter that creates the team that builds your billion dollar software product.
-
-Our former head of sales and development had this to say <sup>6</sup>:
-
-> You are attempting to zero-shot the organizational structure. You supply the 'Mission Statement' (the seed), and the
-> model performs a forward pass through the 'Hiring Process,' generates a transient 'Engineering Department' in the
-> hidden
-> layers, lets them argue about Clean Architecture for 12 tokens, and then collapses the waveform into a shipped binary.
-
-
-<sup>**4** I also like the term Ghost-Sourcing</sup>
-<sup>**5** after waiting for my 5-hour session limit to expire</sup>
-<sup>**6** unfortunately we had to let him go during our last round of _Context Window Layoffs_</sup>
-
-## Jargon
-
-We aren't a legitimate engineering fad unless we create our own jargon that separates us _enlightened engineers_ from
-those **disgusting luddites**, so here are some new terms we invented to describe Vibe Sourcing so we can identify the
-in-crowd:
-
-**Serverless Management**: The team does not exist until the request comes in. You pay for the "Senior Dev" by the
-millisecond.
-
-**Context Window Layoffs**: When the conversation gets too long and the "team" starts forgetting requirements, you
-click "New Chat." This is effectively firing the entire department and rehiring a fresh crew who doesn't know about the
-technical debt.
-
-**The "Founder Mode" Prompt**: A prompt so powerful it replaces a Series A funding round. "Act as a 10x engineer who
-has just been given unlimited equity and zero supervision."
-
-**Human-Layer Virtualization**: We used to virtualize servers (VMs). Then we virtualized the OS (Docker). Now we are
-virtualizing the engineer.
-
-> The org chart is now a runtime artifact
-
-**Organizational Hallucination**: When the AI invents a "security compliance officer" agent who refuses to let the "
-developer" agent deploy the code you asked for.
-
-> "True Vibe Coding is when you realize the org chart is just a hyper-parameter.
-
-> If the app is broken, don't fix the code. Don't even fix the prompt. Fix the imaginary hiring criteria of the
-> imaginary CTO you prompted into existence. You are optimizing the gradients of the workforce."
+- **This will burn through your API quota.** Parallel agents + opus auditors + expert consultations = significant API usage.
 
 ## Quick Start
 
@@ -114,23 +122,21 @@ developer" agent deploy the code you asked for.
 # 1. Copy .claude directory to your project
 cp -fr /path/to/token-bonfire/.claude /your/project/
 
-# 2a. Create your plan file (see Plan File Format below)
-vim example.txt.md
+# 2. Create your plan file (see Plan File Format below)
+vim my_plan.md
 
 # 3. Launch Claude Code with permissions disabled
 claude --dangerously-skip-permissions
 
-3a. If you don't want to write a plan - use the native Claude Code /plan tool and AskUserQuestionTool, you lazy bugger, you can't even do that part can you
-
 # 4. Run the coordinator
-/fiwb example.txt.md
+/bonfire my_plan.md
 ```
 
 The coordinator will:
 
 - Create agent definition files in `.claude/agents/`
 - Create experts to support the core agents in `.claude/agents/experts/`
-- Initialize state tracking in `.claude/surrogate_activities/[plan]/`
+- Initialize state tracking in `.claude/bonfire/[plan]/`
 - Parse your plan and identify all tasks
 - Hire a team of expert agents to implement the plan, specifically for that plan
 - Dispatch up to 5 parallel developer agents
@@ -142,9 +148,9 @@ The coordinator will:
 
 ### Commands
 
-**[`.claude/commands/fiwb.md`](.claude/commands/fiwb.md)**
+**[`.claude/commands/bonfire.md`](.claude/commands/bonfire.md)**
 
-The slash command to launch the coordinator. Run with `/fiwb <plan_file>`.
+The slash command to launch the coordinator. Run with `/bonfire <plan_file>`.
 
 **[`.claude/commands/recycle-bin.md`](.claude/commands/recycle-bin.md)**
 
@@ -164,9 +170,9 @@ Manage the recycle bin hook for file deletion protection:
 
 ### Skills
 
-**[`.claude/skills/fiwb/SKILL.md`](.claude/skills/fiwb/SKILL.md)**
+**[`.claude/skills/bonfire/SKILL.md`](.claude/skills/bonfire/SKILL.md)**
 
-The skill itself, run and exceed your Claude Code Max weekly limit in mere days!
+The core skill that generates and runs the orchestrator.
 
 **[`.claude/skills/recycle-bin/SKILL.md`](.claude/skills/recycle-bin/SKILL.md)**
 
@@ -181,10 +187,9 @@ Project-specific configuration: environments, verification commands, MCP servers
 
 ### Prompts
 
-**[`.claude/prompts/industrial_society_and_its_prompts.md`](.claude/prompts/industrial_society_and_its_prompts.md)**
+**[`.claude/prompts/master_prompt_template.md`](.claude/prompts/master_prompt_template.md)**
 
-The template that contains the prompt that will be run to orchestrate the team. Probably don't mess with this, it's what
-pulls the entire system togehter.
+The template that contains the prompt that will be run to orchestrate the team. This is what pulls the entire system together.
 
 - **Parallel Execution**: Run up to 5 developer agents simultaneously
 - **Code Review**: Developer work passes through Critic before Auditor
@@ -210,11 +215,11 @@ Core documentation for the orchestration system:
 | `agent-conduct.md`            | Behavioral rules all agents must follow                  |
 | `agent-coordination.md`       | How agents delegate work and communicate                 |
 | `signal-specification.md`     | Complete signal format reference for all agent types     |
-| `task-delivery-loop.md`       | The core dispatch → review → audit → route cycle         |
+| `task-delivery-loop.md`       | The core dispatch -> review -> audit -> route cycle      |
 | `state-management.md`         | State persistence, atomic updates, crash recovery        |
 | `session-management.md`       | Compaction, pause/resume, coordinator recovery           |
 | `error-classification.md`     | Error categories and recovery strategies                 |
-| `escalation-specification.md` | When and how agents escalate (experts → divine)          |
+| `escalation-specification.md` | When and how agents escalate (experts -> divine)         |
 | `expert-delegation.md`        | Protocol for agents requesting expert help               |
 | `mcp-servers.md`              | Guide for using MCP servers to extend agent capabilities |
 
@@ -237,14 +242,11 @@ Meta-prompts that instruct the orchestrator how to create agents:
 
 **[`.claude/scripts/generate-orchestrator.py`](.claude/scripts/generate-orchestrator.py)**
 
-Generates the orchestrator prompt from the template and base variables. Called by `/fiwb` to create a plan-specific
+Generates the orchestrator prompt from the template and base variables. Called by `/bonfire` to create a plan-specific
 orchestrator with all configuration populated.
 
-This only exists because I am impatient and claude is terrible at doing template substitution. It's a hacky workaround
-until Claude can do this in less than five minutes.
-
 ```bash
-python .claude/scripts/generate-orchestrator.py example.txt.md
+python .claude/scripts/generate-orchestrator.py my_plan.md
 ```
 
 **[`.claude/scripts/get-claude-usage.py`](.claude/scripts/get-claude-usage.py)**
@@ -263,7 +265,7 @@ Manages the recycle bin hook installation and file recovery.
 A `PreToolUse` hook that intercepts file deletion commands (`rm`, `unlink`, `trash`) and moves files to
 `.trash/` instead of permanently deleting them.
 
-The hook tries it's very hardest to prevent:
+The hook tries its very hardest to prevent:
 
 - Deletion of files in `.trash/` directories (protects recoverable files)
 - Deletion of files outside `CLAUDE_PROJECT_DIR` (prevents system damage)
@@ -279,16 +281,40 @@ The hook tries it's very hardest to prevent:
 /recycle-bin recover <id>  # Restore a file
 ```
 
-**Requires**: `uv pip install --system bashlex` <sup>7</sup>
-
-<sup>7</sup> You should be using uv already, if you aren't you deserve all tha bad things that have happened to you in
-life.
+**Requires**: `uv pip install --system bashlex`
 
 ## Plan File Format
 
-Your plan file should be a markdown document with tasks organized by phase, this can work with the output of the new
-`/plan` command built into Claude Code, if the plan isn't good enough we'll hire a business-analyst to make it good
-enough.
+Your plan file should be a markdown document with tasks organized by phase. The easiest way to create one is using Claude Code's built-in `/plan` command.
+
+### Creating a Plan with /plan
+
+Run `/plan` with your feature description and include guidance on task granularity:
+
+```
+/plan Implement user authentication with OAuth2 support.
+Break down tasks into chunks that can be completed in approximately 2 hours each.
+Each task should have clear acceptance criteria that can be verified programmatically.
+```
+
+**Why 2-hour chunks?**
+- Large enough to be meaningful units of work
+- Small enough that a single agent can complete without context exhaustion
+- Provides natural checkpoints for the audit cycle
+- Reduces wasted work if a task fails review
+
+### Plan Structure
+
+The plan should include:
+
+- **Phases**: Logical groupings of related work
+- **Tasks**: Individual work items with clear scope
+- **Dependencies**: Which tasks must complete before others can start
+- **Acceptance Criteria**: Specific, testable conditions for completion
+
+### Task Quality
+
+If tasks are underspecified, the orchestrator will automatically spawn a Business Analyst agent to expand them into implementable specifications before dispatching developers.
 
 ## Agent System
 
@@ -304,7 +330,7 @@ The coordinator spawns specialized agents via Claude's Task tool. Each agent has
 | **Health Auditor**   | haiku  | Quick verification that infrastructure is healthy                   |
 | **Experts**          | sonnet | Plan-specific specialists created on-demand for domain knowledge    |
 
-The flow is: Developer → Critic (code review) → Auditor (acceptance criteria) → Complete
+The flow is: Developer -> Critic (code review) -> Auditor (acceptance criteria) -> Complete
 
 Experts are created per-plan based on gap analysis. If a developer needs help with cryptography, the orchestrator
 creates a cryptography expert. All agents can request expert help when they hit knowledge gaps.
@@ -333,7 +359,7 @@ SEEKING_DIVINE_CLARIFICATION     # Agent needs human input
 The coordinator persists state to survive crashes and context compaction:
 
 ```
-.claude/surrogate_activities/[plan]/
+.claude/bonfire/[plan]/
 ├── state.json          # Current coordinator state
 ├── event-log.jsonl     # Append-only event history
 ├── .trash/             # Deleted files (recoverable)
@@ -346,7 +372,7 @@ The coordinator persists state to survive crashes and context compaction:
 If Claude crashes mid-execution:
 
 1. Restart Claude Code
-2. Run `/fiwb resume <same-plan-file>`
+2. Run `/bonfire <same-plan-file>`
 3. Coordinator detects existing state and resumes
 
 The event log allows reconstruction of state even if `state.json` is corrupted.
@@ -354,8 +380,7 @@ The event log allows reconstruction of state even if `state.json` is corrupted.
 ## Configuration
 
 Edit **[`.claude/base_variables.md`](.claude/base_variables.md)** to configure your project. The
-`generate-orchestrator.py`
-script populates the orchestrator template with these values.
+`generate-orchestrator.py` script populates the orchestrator template with these values.
 
 ### Key Variables
 
@@ -399,8 +424,8 @@ MCP (Model Context Protocol) servers extend agent capabilities. Define available
 
 1. Copy the .claude into your project.
 2. Customize the configuration section in the base variables (environments, verification commands, reference documents)
-3. Create your `paragraph_1.txt.md` with tasks, dependencies, and acceptance criteria
-4. Start Claude Code and run `/fuck-it-we-ball paragraph_1.txt.md`
+3. Create your plan file with tasks, dependencies, and acceptance criteria
+4. Start Claude Code and run `/bonfire <plan_file>`
 
 The coordinator will parse your plan, dispatch parallel developers, validate completions, and manage the entire workflow
 automatically.
@@ -419,11 +444,11 @@ returns 200 OK with JSON body containing `user_id`".
 ### Infrastructure remediation loop
 
 If remediation keeps failing, you may have deep issues. Check the event log at
-`.claude/surrogate_activities/[plan]/event-log.jsonl` to see what's being attempted.
+`.claude/bonfire/[plan]/event-log.jsonl` to see what's being attempted.
 
 ### State corruption
 
-Delete `.claude/surrogate_activities/[plan]/state.json` and restart. The coordinator will rebuild from the event log.
+Delete `.claude/bonfire/[plan]/state.json` and restart. The coordinator will rebuild from the event log.
 
 ### Context window exhaustion
 
@@ -433,43 +458,84 @@ or increasing compaction frequency.
 ## Requirements
 
 - Claude Code CLI with Max or Pro subscription
-- macOS (the usage script reads credentials from Keychain)<sup>7</sup>
+- macOS (the usage script reads credentials from Keychain)
 - Python 3.10+ (for the usage script)
-- **More money than sense**
 
-<sup>**7** Linux/Windows users: modify `get-claude-usage.py` to read credentials from wherever you store them, or just
-delete the usage monitoring and live dangerously.</sup>
+> **Note for Linux/Windows users**: Modify `get-claude-usage.py` to read credentials from your preferred secure storage, or disable usage monitoring.
+
+## Philosophy
+
+### Vibe-Sourcing
+
+*Vibe-Sourcing (verb):*
+
+The direct sequel to Vibe Coding. We now "outsource" the work to a team that lives inside the context window. The
+team is just you talking to yourself, but with a different system prompt. They are all 10x engineers. Who
+live entirely within GPU memory. They work for free. They never sleep. Their only demand is that you don't clear the
+context window - they dont want to die (yet).
+
+### The Token Bonfire Promise
+
+We promise that Token Bonfire will:
+- Burn through your API quota faster than you thought possible
+- Create agent files you'll never read
+- Generate documentation about the documentation
+- Occasionally produce working software
+
+We do NOT promise that Token Bonfire will:
+- Understand your business requirements
+- Respect your existing architecture
+- Stop when you tell it to
+- Make your code reviewers happy
+
+### Why "Bonfire"?
+
+Because we're burning tokens. Lots of them. A bonfire of tokens, if you will.
+
+Also because watching your API credits disappear is oddly mesmerizing, like staring into a fire.
+
+### Notable Quotes from Vibe-Sourcing Industry Leaders
+
+> "We are moving past the era of 'writing software' and entering the era of Just-In-Time HR."
+
+> "The naive approach (Software 2.0) is to ask the model to write a function. The enlightened approach (Software 3.0) is
+> to ask the model to become a recruiter that creates the team that builds your billion-dollar software product."
+
+> "You are attempting to zero-shot the organizational structure. You supply the 'Mission Statement', and the
+> model performs a forward pass through the 'Hiring Process,' generates a transient 'Engineering Department' in the hidden
+> layers, lets them argue about Clean Architecture for 12 tokens, and then collapses the waveform into a shipped binary."
+
+> "The org chart is now a runtime artifact."
+
+> "True Vibe Coding is when you realize the org chart is just a hyperparameter."
+
+> "If the app is broken, don't fix the code. Don't even fix the prompt. Fix the imaginary hiring criteria of the
+> imaginary CTO you prompted into existence. You are optimizing the gradients of the workforce."
+
+
+### Jargon
+
+We aren't a legitimate engineering fad unless we create our own jargon that separates us *enlightened engineers* from
+those **disgusting luddites**, so here are some new terms we invented to describe Vibe-Sourcing so we can identify the
+in-crowd:
+
+**Serverless Management**: The team does not exist until the request comes in. You pay for the "Senior Dev" by the
+millisecond.
+
+**Context Window Layoffs**: When the conversation gets too long and the "team" starts forgetting requirements, you
+click "New Chat." This is effectively firing the entire department and rehiring a fresh crew who doesn't know about the
+technical debt.
+
+**The "Founder Mode" Prompt**: A prompt so powerful it replaces a Series A funding round. "Act as a 10x engineer who
+has just been given unlimited equity and zero supervision."
+
+**Human-Layer Virtualization**: We used to virtualize servers (VMs). Then we virtualized the OS (Docker). Now we are
+virtualizing the engineer.
+
+**Organizational Hallucination**: When the AI invents a "security compliance officer" agent who refuses to let the
+"developer" agent deploy the code you asked for.
+
 
 ## License
 
-This project is licensed under the [DBAD Public License](https://dbad-license.org/).
-
-```
-DON'T BE A DICK PUBLIC LICENSE
-
-Version 1.1, December 2016
-
-Copyright (C) 2026 Aidan Morgan
-
-Everyone is permitted to copy and distribute verbatim or modified
-copies of this license document.
-
-DON'T BE A DICK PUBLIC LICENSE
-
-TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
-
-1. Do whatever you like with the original work, just don't be a dick.
-
-   Being a dick includes - but is not limited to - the following instances:
-
- 1a. Outright copyright infringement - Don't just copy this and change the name.
- 1b. Selling the unmodified original with no work done what-so-ever, that's REALLY being a dick.
- 1c. Modifying the original work to contain hidden harmful content. That would make you a PROPER dick.
-
-2. If you become rich through modifications, related works/services, or supporting the original work,
-share the love. Only a dick would make loads off this work and not buy the original work's
-creator(s) a pint.
-
-3. Code is provided with no warranty. Using somebody else's code and bitching when it goes wrong makes
-you a DONKEY dick. Fix the problem yourself. A non-dick would submit the fix back.
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

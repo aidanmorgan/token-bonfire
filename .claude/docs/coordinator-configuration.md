@@ -36,7 +36,7 @@ Variables use `{{variable}}` syntax. The coordinator expands templates before di
 All plan-related files are organized under `{{PLAN_DIR}}`:
 
 ```
-.claude/surrogate_activities/[plan]/
+.claude/bonfire/[plan]/
 ├── state.json              # Coordinator state persistence
 ├── event-log.jsonl         # Event store for all operations
 ├── .trash/                 # Deleted files (recoverable via metadata)
@@ -49,7 +49,7 @@ All plan-related files are organized under `{{PLAN_DIR}}`:
 | Variable         | Default Value                                 | Description                                                  |
 |------------------|-----------------------------------------------|--------------------------------------------------------------|
 | `PLAN_FILE`      | (required)                                    | Implementation plan to execute                               |
-| `PLAN_DIR`       | `.claude/surrogate_activities/{{PLAN_NAME}}/` | Base directory for all session artifacts                     |
+| `PLAN_DIR`       | `.claude/bonfire/{{PLAN_NAME}}/` | Base directory for all session artifacts                     |
 | `STATE_FILE`     | `{{PLAN_DIR}}state.json`                      | Coordinator state persistence                                |
 | `EVENT_LOG_FILE` | `{{PLAN_DIR}}event-log.jsonl`                 | Event store for all coordinator operations and agent results |
 | `USAGE_SCRIPT`   | `.claude/scripts/get-claude-usage.py`         | Session usage monitoring                                     |
@@ -64,17 +64,17 @@ When no explicit `PLAN_DIR` is provided, it is derived from `PLAN_FILE`:
 1. Extract the plan file name (e.g., `COMPREHENSIVE_IMPLEMENTATION_PLAN.md`)
 2. Remove the `.md` extension
 3. Convert to lowercase kebab-case (e.g., `comprehensive-implementation-plan`)
-4. Create path: `.claude/surrogate_activities/{{PLAN_NAME}}/`
+4. Create path: `.claude/bonfire/{{PLAN_NAME}}/`
 
 **Example:**
 
 ```
 PLAN_FILE: plans/my-feature-plan.md
 PLAN_NAME: my-feature-plan
-PLAN_DIR:  .claude/surrogate_activities/my-feature-plan/
+PLAN_DIR:  .claude/bonfire/my-feature-plan/
 
 Directory structure created:
-.claude/surrogate_activities/my-feature-plan/
+.claude/bonfire/my-feature-plan/
 ├── state.json           # Coordinator state
 ├── event-log.jsonl      # Event history
 ├── .scratch/            # Temporary agent work

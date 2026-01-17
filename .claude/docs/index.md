@@ -283,7 +283,7 @@ Agents MUST read these before beginning work:
 │
 ├── prompts/                   # Main orchestrator template
 ├── commands/                  # Slash commands
-├── skills/                    # FIWB and other skills
+├── skills/                    # Bonfire and other skills
 └── scripts/                   # Helper scripts
 ```
 

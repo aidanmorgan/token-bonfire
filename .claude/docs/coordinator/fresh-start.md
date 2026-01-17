@@ -30,7 +30,7 @@ plan_file = "{{PLAN_FILE}}"
 plan_name = os.path.splitext(os.path.basename(plan_file))[0].lower().replace("_", "-")
 
 # Set PLAN_DIR
-PLAN_DIR = f".claude/surrogate_activities/{plan_name}/"
+PLAN_DIR = f".claude/bonfire/{plan_name}/"
 
 # Create directory structure
 os.makedirs(f"{PLAN_DIR}.scratch", exist_ok=True)
@@ -42,7 +42,7 @@ os.makedirs(".claude/agents/experts", exist_ok=True)
 This creates:
 
 ```
-.claude/surrogate_activities/{{PLAN_NAME}}/
+.claude/bonfire/{{PLAN_NAME}}/
 ├── .scratch/
 ├── .artefacts/
 └── .trash/

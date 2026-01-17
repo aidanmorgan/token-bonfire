@@ -7,7 +7,7 @@ parsing results.
 
 - [review-audit-flow.md](review-audit-flow.md) - Steps 5-9: Critic and Auditor flow
 - [signal-specification.md](signal-specification.md) - All signal formats
-- [agent-recovery.md](agent-recovery.md) - Timeout and crash handling
+- [agent-timeout-recovery.md](agent-timeout-recovery.md) - Timeout and crash handling
 - [state-management.md](state-management.md) - State tracking
 
 ---
@@ -316,7 +316,7 @@ output = TaskOutput(task_id=task_result.task_id, block=True, timeout=300000)
 
 ### Timeout and Crash Handling
 
-See [agent-recovery.md](agent-recovery.md) for:
+See [agent-timeout-recovery.md](agent-timeout-recovery.md) for:
 
 - Timeout tracking and handling
 - Crash recovery procedures
@@ -487,4 +487,4 @@ After parsing developer output:
 - [signal-specification.md](signal-specification.md) - Signal formats
 - [state-management.md](state-management.md) - State tracking
 - [agent-coordination.md](agent-coordination.md) - Task-agent matching
-- [agent-recovery.md](agent-recovery.md) - Timeout handling
+- [agent-timeout-recovery.md](agent-timeout-recovery.md) - Timeout handling

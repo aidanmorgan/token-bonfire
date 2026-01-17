@@ -1,11 +1,11 @@
-# FIWB - Parallel Implementation Coordinator
+# Bonfire - Parallel Implementation Coordinator
 
 Launch the parallel implementation coordinator to execute a plan file.
 
 ## Usage
 
 ```
-/fiwb <plan_file>
+/bonfire <plan_file>
 ```
 
 ## Arguments
@@ -14,9 +14,7 @@ Launch the parallel implementation coordinator to execute a plan file.
 
 ## Instructions
 
-Display "FUCK IT, WE BALL!" to the user.
-
-Invoke the fiwb skill to:
+Invoke the bonfire skill to:
 
 1. Generate an orchestrator prompt from the specified plan file
 2. Create the plan directory with state and event log files
@@ -26,14 +24,14 @@ Invoke the fiwb skill to:
 
 Use the Skill tool with:
 
-- skill: "fiwb"
+- skill: "bonfire"
 - args: "$ARGUMENTS"
 
 The coordinator will:
 
 - Parse the plan file to identify all tasks
 - Create required agent files in `.claude/agents/`
-- Initialize state tracking in `.claude/surrogate_activities/[plan]/`
+- Initialize state tracking in `.claude/bonfire/[plan]/`
 - Begin dispatching parallel agents
 - Manage the audit loop until all tasks complete
 
@@ -47,7 +45,7 @@ Key references for the orchestrator:
 
 | Document                                                        | Purpose                              |
 |-----------------------------------------------------------------|--------------------------------------|
-| [task-delivery-loop.md](.claude/docs/task-delivery-loop.md)     | Core dispatch → review → audit cycle |
+| [task-delivery-loop.md](.claude/docs/task-delivery-loop.md)     | Core dispatch -> review -> audit cycle |
 | [signal-specification.md](.claude/docs/signal-specification.md) | All signal formats                   |
 | [state-management.md](.claude/docs/state-management.md)         | Coordinator state tracking           |
 | [agent-definitions.md](.claude/docs/agent-definitions.md)       | Agent types and creation             |
@@ -55,7 +53,7 @@ Key references for the orchestrator:
 ## Example
 
 ```
-/fiwb COMPREHENSIVE_IMPLEMENTATION_PLAN.md
+/bonfire COMPREHENSIVE_IMPLEMENTATION_PLAN.md
 ```
 
 This launches the coordinator to execute all tasks in the plan using parallel agents.

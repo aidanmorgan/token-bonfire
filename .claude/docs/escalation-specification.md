@@ -36,11 +36,13 @@ Clear rules for when and how agents escalate issues, including divine clarificat
 
 ### Baseline Agents (WITH Experts Available)
 
-| Phase             | Attempts | Action                            |
-|-------------------|----------|-----------------------------------|
-| Self-Solve        | 1-3      | Try different approaches yourself |
-| Expert Delegation | 4-6      | Request help from experts         |
-| Divine            | 7+       | MANDATORY escalation to human     |
+| Phase             | Attempts  | Action                            |
+|-------------------|-----------|-----------------------------------|
+| Self-Solve        | 1-3       | Try different approaches yourself |
+| Expert Delegation | 4-6       | Request help from experts         |
+| Divine            | After 6   | MANDATORY escalation to human     |
+
+**Note**: "After 6" means if all 6 attempts fail, divine intervention is MANDATORY before any further work.
 
 **After 3 delegation attempts all return EXPERT_UNSUCCESSFUL:**
 
@@ -55,7 +57,7 @@ DO NOT: Retry the same experts
 | Phase      | Attempts | Action                            |
 |------------|----------|-----------------------------------|
 | Self-Solve | 1-6      | Try different approaches yourself |
-| Divine     | 7+       | MANDATORY escalation to human     |
+| Divine     | After 6  | MANDATORY escalation to human     |
 
 ### Expert Agents
 

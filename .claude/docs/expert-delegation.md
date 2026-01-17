@@ -300,10 +300,10 @@ When an expert signals UNSUCCESSFUL:
 The escalation protocol (see [escalation-specification.md](escalation-specification.md)) defines:
 
 | Attempts | Action                                     |
-|----------|--------------------------------------------|
+|----------|---------------------------------------------|
 | 1-3      | Self-solve (if no experts available: 1-6)  |
 | 4-6      | Expert consultation (if experts available) |
-| 6+       | Divine intervention (MANDATORY)            |
+| After 6  | Divine intervention (MANDATORY)            |
 
 After consulting an expert (attempts 4-6), if still stuck:
 

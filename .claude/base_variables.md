@@ -4,10 +4,10 @@ Configuration variables for the whole project, consistent between creating teams
 
 ## Directory Structure
 
-All plan-related files are organized under `.claude/surrogate_activities/[plan]/`:
+All plan-related files are organized under `.claude/bonfire/[plan]/`:
 
 ```
-.claude/surrogate_activities/[plan]/
+.claude/bonfire/[plan]/
 ├── state.json              # Coordinator state persistence
 ├── event-log.jsonl         # Event store for all operations
 ├── .trash/                 # Deleted files (recoverable)
@@ -37,7 +37,7 @@ def derive_plan_directory(plan_file):
     basename = os.path.basename(plan_file)
     name_without_ext = os.path.splitext(basename)[0]
     slug = name_without_ext.lower().replace('_', '-')
-    return f".claude/surrogate_activities/{slug}/"
+    return f".claude/bonfire/{slug}/"
 ```
 
 ## Thresholds
