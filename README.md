@@ -1,9 +1,10 @@
 # Token Bonfire
 
-**Vibe-source** a whole startup's worth of vibe-engineers to build your product in just a few keystrokes.
+**Vibe-source** a whole vibe-startup's worth of vibe-engineers to vibe-code your vibe-product in just a few vibe-keystrokes, for the vibes.
 
-An attempt to use one prompt to automatically create a team of agentic engineers to deliver a software product. Asking
-what nobody asked – can we zero-shot zero-shot (or zero-shot<sup>2</sup>)?
+Or more seriously - an experiment to use one prompt to automatically create a team of agentic engineers to deliver a software product.
+
+Asking what nobody asked – can we zero-shot zero-shot (or zero-shot<sup>2</sup>)?
 
 You don't need to define agents, just provide `token-bonfire` a plan file and it will do the rest, including:
 
@@ -18,8 +19,8 @@ You don't need to define agents, just provide `token-bonfire` a plan file and it
 ## I'm sold! I'm going to be a billionaire!
 
 1. Checkout
-2. Copy the .claude directory into your project
-3. Update the .claude/base_variables.md with your project details
+2. Copy the `.claude` directory into your project
+3. Update the `.claude/base_variables.md` with your project details
 2. launch `claude --dangerously-skip-permissions` <sup>1</sup>
 3. run `/fiwb paragraph_1.txt.md`
 4. ??
@@ -47,7 +48,7 @@ This is just for fun and to see just how far I can push a LLM, don't use it for 
 - **The `--dangerously-skip-permissions` flag exists for a reason.** You're disabling safety guardrails. Make backups.
 - **This will burn through your API quota.** Parallel agents + opus auditors + expert consultations = 💸
 
-## Introducing Vibe-Sourcing
+## So what is Vibe-Sourcing?
 
 *Vibe-Sourcing (verb):*
 
@@ -448,7 +449,7 @@ DON'T BE A DICK PUBLIC LICENSE
 
 Version 1.1, December 2016
 
-Copyright (C) [year] [fullname]
+Copyright (C) 2026 Aidan Morgan
 
 Everyone is permitted to copy and distribute verbatim or modified
 copies of this license document.
