@@ -12,17 +12,11 @@ Clear rules for when and how agents escalate issues, including divine clarificat
 
 ## Escalation Hierarchy
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        ESCALATION LADDER                                 │
-├─────────────────────────────────────────────────────────────────────────┤
-│  Self-Solve (1-3 attempts)                                               │
-│        ↓ If unsuccessful                                                │
-│  Expert Delegation (4-6 attempts) [if experts available]                │
-│        ↓ If unsuccessful                                                │
-│  Divine Intervention (MANDATORY after 6 total attempts)                 │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+**Escalation Ladder**:
+
+1. Self-Solve (1-3 attempts)
+2. ↓ If unsuccessful: Expert Delegation (4-6 attempts) [if experts available]
+3. ↓ If unsuccessful: Divine Intervention (MANDATORY after 6 total attempts)
 
 ---
 

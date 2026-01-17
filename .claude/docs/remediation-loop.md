@@ -6,62 +6,18 @@ until either:
 - Infrastructure is restored (HEALTHY)
 - Maximum attempts exceeded (workflow fails)
 
-## Remediation Loop Diagram
+## Remediation Loop Steps
 
-```
-                    ┌────────────────────────────────┐
-                    │  INFRASTRUCTURE BLOCKED        │
-                    │  (AUDIT_BLOCKED or INFRA       │
-                    │   BLOCKED signal detected)     │
-                    └───────────────┬────────────────┘
-                                    │
-                                    ▼
-                    ┌────────────────────────────────┐
-                    │  PAUSE NEW ASSIGNMENTS         │
-                    │  infrastructure_blocked = true │
-                    └───────────────┬────────────────┘
-                                    │
-                    ┌───────────────▼────────────────┐
-             ┌─────►│  DISPATCH REMEDIATION AGENT    │
-             │      │  attempt = attempt + 1         │
-             │      └───────────────┬────────────────┘
-             │                      │
-             │                      ▼
-             │      ┌────────────────────────────────┐
-             │      │  AWAIT REMEDIATION_COMPLETE    │
-             │      │  Parse: REMEDIATION_COMPLETE   │
-             │      └───────────────┬────────────────┘
-             │                      │
-             │                      ▼
-             │      ┌────────────────────────────────┐
-             │      │  DISPATCH HEALTH_AUDITOR       │
-             │      └───────────────┬────────────────┘
-             │                      │
-             │                      ▼
-             │      ┌────────────────────────────────┐
-             │      │  PARSE HEALTH_AUDIT RESULT     │
-             │      └───────────────┬────────────────┘
-             │                      │
-             │           ┌──────────┴──────────┐
-             │           │                     │
-             │        HEALTHY              UNHEALTHY
-             │           │                     │
-             │           ▼                     ▼
-             │  ┌─────────────────┐   ┌─────────────────────┐
-             │  │ RESTORE FLOW    │   │ CHECK ATTEMPT LIMIT │
-             │  │ blocked = false │   └──────────┬──────────┘
-             │  │ attempt = 0     │              │
-             │  │ RESUME          │    ┌─────────┴─────────┐
-             │  └─────────────────┘    │                   │
-             │                    < LIMIT             >= LIMIT
-             │                         │                   │
-             └─────────────────────────┘                   ▼
-                                              ┌─────────────────────┐
-                                              │ WORKFLOW FAILED     │
-                                              │ Human intervention  │
-                                              │ required            │
-                                              └─────────────────────┘
-```
+1. **INFRASTRUCTURE BLOCKED** - AUDIT_BLOCKED or INFRA_BLOCKED signal detected
+2. **PAUSE NEW ASSIGNMENTS** - Set infrastructure_blocked = true
+3. **DISPATCH REMEDIATION AGENT** - Increment attempt counter
+4. **AWAIT REMEDIATION_COMPLETE** - Parse signal
+5. **DISPATCH HEALTH_AUDITOR** - Verify fix
+6. **PARSE HEALTH_AUDIT RESULT**:
+    - **HEALTHY** → RESTORE FLOW (blocked = false, attempt = 0, RESUME)
+    - **UNHEALTHY** → CHECK ATTEMPT LIMIT:
+        - **< LIMIT** → Go back to step 3
+        - **>= LIMIT** → WORKFLOW FAILED (human intervention required)
 
 ## Remediation Loop Procedure
 
@@ -112,7 +68,7 @@ def remediation_loop():
 
             # CRITICAL: Check attempt limit HERE to prevent infinite loop
             # (Don't wait for health audit - agent already failed)
-            if remediation_attempt_count >= REMEDIATION_ATTEMPTS:
+            if remediation_attempt_count > REMEDIATION_ATTEMPTS:
                 log_event("remediation_exhausted",
                           reason="agent_failures_without_completion",
                           attempt_count=remediation_attempt_count)

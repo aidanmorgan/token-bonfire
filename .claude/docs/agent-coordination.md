@@ -285,15 +285,8 @@ For complex artifacts that need to be shared between agents, use the artefacts d
 
 ### Artefacts Directory Structure
 
-```
-{{PLAN_DIR}}/.artefacts/
-├── [task-id]/                    # Artifacts organized by source task
-│   ├── schema.json               # Generated schema
-│   ├── analysis-report.md        # Analysis document
-│   └── manifest.json             # Artifact manifest
-└── shared/                       # Cross-task artifacts
-    └── project-patterns.md       # Discovered patterns
-```
+- `{{PLAN_DIR}}/.artefacts/[task-id]/` - Artifacts per task (schema.json, analysis-report.md, manifest.json)
+- `{{PLAN_DIR}}/.artefacts/shared/` - Cross-task artifacts (project-patterns.md)
 
 ### Artifact Manifest Format
 

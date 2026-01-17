@@ -13,35 +13,19 @@ This document covers Steps 5-9 of the coordinator loop: Critic review, Auditor v
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    REVIEW & AUDIT FLOW (Steps 5-9)                       │
-├─────────────────────────────────────────────────────────────────────────┤
-│  5. DISPATCH CRITIC (on READY_FOR_REVIEW)                                │
-│     ↓                                                                    │
-│  6. AWAIT CRITIC → parse REVIEW_PASSED or REVIEW_FAILED                  │
-│     ↓ REVIEW_PASSED                    ↓ REVIEW_FAILED                   │
-│  7. DISPATCH AUDITOR                   → Developer rework                │
-│     ↓                                                                    │
-│  8. AWAIT AUDITOR → parse AUDIT_PASSED/FAILED/BLOCKED                    │
-│     ↓                                                                    │
-│  9. ROUTE: PASS → complete | FAIL → rework | BLOCKED → remediation       │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+**Review & Audit Flow (Steps 5-9)**:
 
-### Workflow Diagram
+1. DISPATCH CRITIC (on READY_FOR_REVIEW)
+2. AWAIT CRITIC → parse REVIEW_PASSED or REVIEW_FAILED
+3. On REVIEW_PASSED → DISPATCH AUDITOR | On REVIEW_FAILED → Developer rework
+4. AWAIT AUDITOR → parse AUDIT_PASSED/FAILED/BLOCKED
+5. ROUTE: PASS → complete | FAIL → rework | BLOCKED → remediation
 
-```
-┌──────────────┐    READY_FOR_REVIEW    ┌──────────────┐    REVIEW_PASSED    ┌──────────────┐
-│              │ ────────────────────►  │              │ ──────────────────► │              │
-│  DEVELOPER   │                        │    CRITIC    │                     │   AUDITOR    │
-│              │ ◄────────────────────  │              │                     │              │
-└──────────────┘    REVIEW_FAILED       └──────────────┘                     └──────────────┘
-       ▲            (with issues)                                                   │
-       │                                                                            │
-       │                                    AUDIT_FAILED                            │
-       └────────────────────────────────────(with issues)───────────────────────────┘
-```
+### Workflow
+
+DEVELOPER → READY_FOR_REVIEW → CRITIC → REVIEW_PASSED → AUDITOR → AUDIT_PASSED → Complete
+
+On failure: REVIEW_FAILED or AUDIT_FAILED returns to DEVELOPER with issues
 
 | Stage          | Agent      | Purpose             | Success            | Failure           |
 |----------------|------------|---------------------|--------------------|-------------------|
@@ -219,19 +203,13 @@ dispatch_auditor(task_id)  # → Step 7
 
 ### On REVIEW_FAILED → Developer Rework
 
-```python
-pending_critique.remove(task_id)
-critique_failures[task_id] = critique_failures.get(task_id, 0) + 1
+**State updates**: See [state/update-triggers.md - REVIEW_FAILED](state/update-triggers.md#review_failed) for the
+authoritative state transition.
 
-if critique_failures[task_id] >= TASK_FAILURE_LIMIT:
-    log_event("workflow_failed", reason="critique_failure_limit", task_id=task_id)
-else:
-    in_progress_tasks[task_id]['status'] = 'implementing'
-    dispatch_developer_rework(task_id, critic_issues)
-    log_event("critic_fail", task_id=task_id, failures=critique_failures[task_id])
-```
+**Summary**: Increment `critique_failures[task_id]`, check against `TASK_FAILURE_LIMIT`, then dispatch rework or
+escalate.
 
-See [developer-rework.md](developer-rework.md) for rework dispatch details.
+See [developer-rework.md](developer-rework.md) for rework prompt construction.
 
 ---
 
@@ -421,20 +399,12 @@ save_state()
 
 ### FAIL Routing (Developer Rework)
 
-```python
-# Check failure count
-audit_failures[task_id] = audit_failures.get(task_id, 0) + 1
+**State updates**: See [state/update-triggers.md - AUDIT_FAILED](state/update-triggers.md#audit_failed) for the
+authoritative state transition.
 
-if audit_failures[task_id] >= TASK_FAILURE_LIMIT:
-    log_event("workflow_failed", reason="audit_failure_limit", task_id=task_id)
-else:
-    # Return to developer
-    in_progress_tasks[task_id]["status"] = "implementing"
-    pending_audit.remove(task_id)
-    dispatch_developer_rework(task_id, audit_failures)
-```
+**Summary**: Increment `audit_failures[task_id]`, check against `TASK_FAILURE_LIMIT`, then dispatch rework or escalate.
 
-See [developer-rework.md](developer-rework.md) for rework dispatch details.
+See [developer-rework.md](developer-rework.md) for rework prompt construction.
 
 ### BLOCKED Routing (Infrastructure Remediation)
 

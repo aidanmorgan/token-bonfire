@@ -5,7 +5,7 @@ Variable: `AGENT_DEFINITIONS`
 These are **prompts to spawn an agent** that creates the actual agent file. The coordinator dispatches an agent with the
 creation prompt, and that agent writes the agent file to `.claude/agents/`.
 
-For full creation prompts, see the individual files in [agent-creation/](agent-creation/).
+For full creation prompts, see the individual files in [agent-creation/](agent-creation/index.md).
 
 ---
 
@@ -456,7 +456,7 @@ When the coordinator needs to create an agent:
 
 ## Related Documentation
 
-- [Agent Creation Prompts](agent-creation/) - Full creation prompts for each agent
+- [Agent Creation Prompts](agent-creation/index.md) - Full creation prompts for each agent
 - [Prompt Engineering Guide](agent-creation/prompt-engineering-guide.md) - Best practices for agent prompts
 - [Expert Creation](agent-creation/expert-creation.md) - Creating expert agents
 - [Signal Specification](signal-specification.md) - Complete signal format reference

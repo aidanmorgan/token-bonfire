@@ -14,21 +14,13 @@ parsing results.
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         TASK DISPATCH (Steps 1-4)                        │
-├─────────────────────────────────────────────────────────────────────────┤
-│  1. SELECT TASK (from available, unblocked tasks)                        │
-│     ↓                                                                    │
-│  2. PREPARE PROMPT (expand templates, include references)                │
-│     ↓                                                                    │
-│  3. DISPATCH DEVELOPER (Task tool)                                       │
-│     ↓                                                                    │
-│  4. AWAIT DEVELOPER → parse for READY_FOR_REVIEW signal                  │
-│     ↓                                                                    │
-│  → Continue to review-audit-flow.md                                      │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+**Task Dispatch (Steps 1-4)**:
+
+1. SELECT TASK (from available, unblocked tasks)
+2. PREPARE PROMPT (expand templates, include references)
+3. DISPATCH DEVELOPER (Task tool)
+4. AWAIT DEVELOPER → parse for READY_FOR_REVIEW signal
+   → Continue to review-audit-flow.md
 
 ---
 
@@ -148,6 +140,30 @@ agent_definition = Read(agent_file_path)
     - **VALIDATE expert files exist** before including in prompt
 
    ```python
+   def match_experts_to_task(task_id: str, experts: list[dict]) -> list[dict]:
+       """Match experts to task using keyword triggers from expert definitions."""
+
+       task = get_task(task_id)
+       task_text = f"{task.work} {' '.join(task.acceptance_criteria)}".lower()
+
+       matched = []
+       for expert in experts:
+           # Each expert has keyword_triggers generated during expert creation
+           keywords = expert.get('keyword_triggers', [])
+
+           # Check if any keyword matches task text
+           matching_keywords = [kw for kw in keywords if kw.lower() in task_text]
+
+           if matching_keywords:
+               matched.append({
+                   **expert,
+                   'match_type': 'SUGGESTED',
+                   'matched_keywords': matching_keywords
+               })
+
+       return matched
+
+
    def match_and_validate_experts(task_id: str, experts: list[dict]) -> list[dict]:
        """Match experts to task and validate their files exist."""
 
@@ -228,7 +244,7 @@ All agent prompts MUST include:
 
 - `path/to/docs`: purpose
 
-⚠️ You MUST read all MUST READ files before starting work.
+IMPORTANT: You MUST read all MUST READ files before starting work.
 ```
 
 ---
@@ -344,6 +360,13 @@ Tests Written:
 Verification Results (self-verified):
 - <check_name>: PASS
 
+Expert Consultation:
+- Consulted: <expert-name> for <topic> - Advice: <brief summary>
+  OR
+- Not needed: <justification>
+  OR
+- Pre-implementation review: <expert-name> confirmed approach
+
 Summary:
 <brief_description_of_implementation>
 ```
@@ -368,6 +391,7 @@ def parse_developer_output(output: str, expected_task_id: str) -> dict:
             'files_modified': extract_files_modified(output),
             'tests_written': extract_tests_written(output),
             'verification_results': extract_verification_results(output),
+            'expert_consultation': extract_expert_consultation(output),
             'summary': extract_summary(output),
             'next_action': 'DISPATCH_CRITIC'
         }
@@ -384,6 +408,31 @@ def parse_developer_output(output: str, expected_task_id: str) -> dict:
 
     # No recognized signal
     return {'signal': 'UNKNOWN', 'next_action': 'REQUEST_CHECKPOINT'}
+
+
+def extract_expert_consultation(output: str) -> dict:
+    """Extract Expert Consultation field from READY_FOR_REVIEW signal."""
+
+    # Look for Expert Consultation section
+    consultation_match = re.search(
+        r'Expert Consultation:\s*\n-\s*(.+?)(?=\n\n|\nSummary:)',
+        output, re.DOTALL
+    )
+
+    if not consultation_match:
+        return {'type': 'missing', 'value': None}
+
+    consultation_text = consultation_match.group(1).strip()
+
+    # Parse the three valid formats
+    if consultation_text.startswith('Consulted:'):
+        return {'type': 'consulted', 'value': consultation_text}
+    elif consultation_text.startswith('Not needed:'):
+        return {'type': 'not_needed', 'value': consultation_text}
+    elif consultation_text.startswith('Pre-implementation review:'):
+        return {'type': 'pre_implementation', 'value': consultation_text}
+    else:
+        return {'type': 'invalid', 'value': consultation_text}
 ```
 
 ### On READY_FOR_REVIEW

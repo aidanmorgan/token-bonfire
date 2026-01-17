@@ -5,33 +5,24 @@ through the system.
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         COORDINATOR LOOP                                 │
-├─────────────────────────────────────────────────────────────────────────┤
-│  1. SELECT TASK                                                          │
-│     ↓                                                                    │
-│  2. PREPARE PROMPT (expand templates, include references)                │
-│     ↓                                                                    │
-│  3. DISPATCH DEVELOPER (Task tool)                                       │
-│     ↓                                                                    │
-│  4. PARSE DEVELOPER SIGNAL (READY_FOR_REVIEW)                            │
-│     ↓                                                                    │
-│  5. DISPATCH CRITIC (Task tool)                                          │
-│     ↓                                                                    │
-│  6. PARSE CRITIC OUTCOME (REVIEW_PASSED | REVIEW_FAILED)                 │
-│     ↓                                                                    │
-│  7. IF REVIEW_FAILED → rework | IF REVIEW_PASSED → continue              │
-│     ↓                                                                    │
-│  8. DISPATCH AUDITOR (Task tool)                                         │
-│     ↓                                                                    │
-│  9. PARSE AUDIT OUTCOME                                                  │
-│     ↓                                                                    │
-│ 10. ROUTE: PASS → complete | FAIL → rework | BLOCKED → remediation       │
-│     ↓                                                                    │
-│ 11. LOOP (fill actor slots)                                              │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+The task delivery loop has two phases, each detailed in separate documents:
+
+**Phase A: Task Dispatch** ([task-dispatch.md](task-dispatch.md) - Steps 1-4):
+
+1. SELECT TASK - Choose from available, unblocked tasks
+2. PREPARE PROMPT - Expand templates, include references
+3. DISPATCH DEVELOPER - Spawn agent via Task tool
+4. PARSE DEVELOPER SIGNAL - Handle READY_FOR_REVIEW
+
+**Phase B: Review & Audit** ([review-audit-flow.md](review-audit-flow.md) - Steps 5-9):
+
+5. DISPATCH CRITIC - Code quality review
+6. PARSE CRITIC OUTCOME - REVIEW_PASSED or REVIEW_FAILED
+7. DISPATCH AUDITOR - Acceptance criteria verification
+8. PARSE AUDIT OUTCOME - AUDIT_PASSED, AUDIT_FAILED, or AUDIT_BLOCKED
+9. ROUTE - PASS → complete | FAIL → rework | BLOCKED → remediation
+
+After routing, fill actor slots and loop.
 
 ---
 
@@ -107,38 +98,35 @@ See [environment-verification.md](environment-verification.md) for validation pr
 
 ---
 
-## Step 5: Dispatch Critic
+## Steps 5-6: Critic Review
 
 **Input**: Task ID, developer completion signal
 
-**Procedure**:
+See [review-audit-flow.md](review-audit-flow.md) for the full Critic dispatch and parsing procedure (Steps 5-6).
+
+**Summary**:
 
 1. Prepare critic prompt with modified files and task context
 2. Dispatch Critic agent
-3. Await `REVIEW_PASSED` or `REVIEW_FAILED`
-
-See [review-audit-flow.md](review-audit-flow.md) for the full Critic dispatch procedure.
+3. Parse outcome: `REVIEW_PASSED` → continue to audit | `REVIEW_FAILED` → developer rework
 
 ---
 
-## Step 6: Dispatch Auditor
+## Steps 7-8: Auditor Verification
 
 **Input**: Task ID, files modified, acceptance criteria
 
-**Procedure**:
+See [review-audit-flow.md](review-audit-flow.md) for the full Auditor dispatch and parsing procedure (Steps 7-8).
+
+**Summary**:
 
 1. Extract task acceptance criteria and modified files
-2. Include required reading and verification commands
-3. Dispatch Auditor agent
-4. Parse audit outcome
-
-See [review-audit-flow.md](review-audit-flow.md) for the full Auditor dispatch procedure.
-
-**Output**: Audit outcome (PASS | FAIL | BLOCKED) + details
+2. Dispatch Auditor agent
+3. Parse audit outcome: PASS | FAIL | BLOCKED
 
 ---
 
-## Step 7: Route Based on Outcome
+## Step 9: Route Based on Outcome
 
 ### PASS Routing
 
@@ -163,113 +151,83 @@ save_state()
 
 ### FAIL Routing
 
-```python
-# Check failure count
-audit_failures[task_id] = audit_failures.get(task_id, 0) + 1
+**State updates**: See [state/update-triggers.md - AUDIT_FAILED](state/update-triggers.md#audit_failed) for the
+authoritative state transition.
 
-if audit_failures[task_id] >= TASK_FAILURE_LIMIT:
-    log_event("workflow_failed", reason="task exceeded failure limit")
-else:
-    # Return to developer with fix requirements
-    dispatch_developer_rework(task_id, audit_failures)
-```
+**Summary**: Increment failure count, check limit, dispatch rework or escalate.
 
-See [developer-rework.md](developer-rework.md) for rework dispatch details.
+See [developer-rework.md](developer-rework.md) for rework prompt construction.
 
 ### BLOCKED Routing
 
-```python
-infrastructure_blocked = True
-infrastructure_issue = parse_blocked_reason(auditor_output)
-dispatch_remediation_agent(infrastructure_issue)
-```
-
 See [remediation-loop.md](remediation-loop.md) for the full remediation procedure.
+
+**Summary**: Set `infrastructure_blocked`, dispatch remediation agent.
 
 ---
 
-## Step 8: Fill Actor Slots
+## Fill Actor Slots (After Each Routing Decision)
 
-After any routing decision, immediately check and fill actor slots:
+After any routing decision, immediately check and fill actor slots.
+
+**CRITICAL: Dispatch in priority order - complete in-flight work before starting new work.**
 
 ```python
-while count_active_actors() < ACTIVE_DEVELOPERS:
-    if not available_tasks:
-        break
-    if infrastructure_blocked:
-        break
-    if pending_divine_questions:
-        break
+def fill_actor_slots():
+    """Fill slots with priority: critics > auditors > developers."""
 
-    task = select_next_task()
-    dispatch_developer(task)
+    if infrastructure_blocked or pending_divine_questions:
+        return
+
+    # PRIORITY 1: Dispatch critics for pending reviews
+    # Tasks waiting for review should not be starved by new work
+    while pending_critique and count_active_critics() < MAX_PARALLEL_CRITICS:
+        task_id = pending_critique.pop(0)
+        dispatch_critic(task_id)
+
+    # PRIORITY 2: Dispatch auditors for pending audits
+    # Tasks that passed review should complete before new work starts
+    while pending_audit and count_active_auditors() < MAX_PARALLEL_AUDITORS:
+        task_id = pending_audit.pop(0)
+        dispatch_auditor(task_id)
+
+    # PRIORITY 3: Dispatch developers for new tasks
+    # Only start new work after in-flight work is being processed
+    while count_active_developers() < MAX_PARALLEL_DEVELOPERS:
+        if not available_tasks:
+            break
+        task = select_next_task()
+        dispatch_developer(task)
 ```
+
+**Why this order matters:**
+
+- Completing in-flight work unblocks dependent tasks faster
+- Prevents task starvation where reviews pile up while new work starts
+- Ensures the full Developer→Critic→Auditor pipeline flows smoothly
 
 ---
 
 ## Coordinator State Machine
 
-```
-                     ┌──────────────────┐
-                     │  SELECT_TASK     │
-                     └────────┬─────────┘
-                              │
-                              ▼
-                     ┌──────────────────┐
-                     │ DISPATCH_DEV     │
-                     └────────┬─────────┘
-                              │
-                              ▼
-                     ┌──────────────────┐
-              ┌──────┤ AWAIT_DEV        ├──────┐
-              │      └────────┬─────────┘      │
-              │               │                │
-         DELEGATION    READY_FOR_REVIEW  DIVINE_QUESTION
-              │               │                │
-              ▼               ▼                ▼
-    ┌─────────────────┐ ┌──────────────┐ ┌─────────────────┐
-    │ HANDLE_DELEGATE │ │DISPATCH_CRIT │ │ AWAIT_DIVINE    │
-    └────────┬────────┘ └──────┬───────┘ └────────┬────────┘
-              │                │                   │
-              │                ▼                   │
-              │      ┌──────────────────┐         │
-              │      │ AWAIT_CRITIC     │         │
-              │      └────────┬─────────┘         │
-              │               │                   │
-              │    ┌──────────┴──────────┐       │
-              │    │                     │       │
-              │ REVIEW_PASSED      REVIEW_FAILED │
-              │    │                     │       │
-              │    ▼                     │       │
-              │ ┌──────────────┐         │       │
-              │ │ DISPATCH_AUD │         │       │
-              │ └──────┬───────┘         │       │
-              │        │                 │       │
-              │        ▼                 │       │
-              │ ┌──────────────────┐     │       │
-              │ │ AWAIT_AUDIT      │     │       │
-              │ └────────┬─────────┘     │       │
-              │          │               │       │
-              │  ┌───────┼───────┐       │       │
-              │  │       │       │       │       │
-              │ PASS    FAIL  BLOCKED    │       │
-              │  │       │       │       │       │
-              │  ▼       ▼       ▼       ▼       │
-              │┌────┐┌──────┐┌────────┐┌──────┐  │
-              ││TASK││REWORK││REMEDIATE││REWORK│  │
-              ││DONE││      ││        ││      │  │
-              │└─┬──┘└──┬───┘└───┬────┘└──┬───┘  │
-              │  │      │        │        │      │
-              └──┴──────┴────────┴────────┴──────┘
-                              │
-                              ▼
-                     ┌──────────────────┐
-                     │ FILL_SLOTS       │
-                     └────────┬─────────┘
-                              │
-                              ▼
-                          (loop)
-```
+**States**: SELECT_TASK → DISPATCH_DEV → AWAIT_DEV
+
+**From AWAIT_DEV**:
+
+- DELEGATION → HANDLE_DELEGATE → back to loop
+- READY_FOR_REVIEW → DISPATCH_CRIT → AWAIT_CRITIC
+- DIVINE_QUESTION → AWAIT_DIVINE → back to loop
+
+**From AWAIT_CRITIC**:
+
+- REVIEW_PASSED → DISPATCH_AUD → AWAIT_AUDIT
+- REVIEW_FAILED → REWORK → back to loop
+
+**From AWAIT_AUDIT**:
+
+- PASS → TASK_DONE → FILL_SLOTS → loop
+- FAIL → REWORK → FILL_SLOTS → loop
+- BLOCKED → REMEDIATE → FILL_SLOTS → loop
 
 ### Task States
 

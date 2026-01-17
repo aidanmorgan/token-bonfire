@@ -19,27 +19,18 @@ Developer rework is triggered when:
 
 The coordinator re-dispatches the developer with the failure feedback.
 
-```
-┌──────────────┐                              ┌──────────────┐
-│              │    REVIEW_FAILED             │              │
-│    CRITIC    │ ─────────────────────────►   │  DEVELOPER   │
-│              │    (with issues)             │   (rework)   │
-└──────────────┘                              └──────────────┘
-
-┌──────────────┐                              ┌──────────────┐
-│              │    AUDIT_FAILED              │              │
-│   AUDITOR    │ ─────────────────────────►   │  DEVELOPER   │
-│              │    (with issues)             │   (rework)   │
-└──────────────┘                              └──────────────┘
-```
+- CRITIC → (REVIEW_FAILED with issues) → DEVELOPER (rework)
+- AUDITOR → (AUDIT_FAILED with issues) → DEVELOPER (rework)
 
 ---
 
 ## On REVIEW_FAILED (from Critic)
 
-When the Critic signals `REVIEW_FAILED`, the orchestrator dispatches the developer for rework:
+When the Critic signals `REVIEW_FAILED`, the orchestrator dispatches the developer for rework.
 
 ### State Updates
+
+> **Authoritative source**: [state/update-triggers.md - REVIEW_FAILED](state/update-triggers.md#review_failed)
 
 ```python
 # Remove from review queue
@@ -120,9 +111,11 @@ save_state()
 
 ## On AUDIT_FAILED (from Auditor)
 
-When the Auditor signals `AUDIT_FAILED`, the orchestrator dispatches the developer for rework:
+When the Auditor signals `AUDIT_FAILED`, the orchestrator dispatches the developer for rework.
 
 ### State Updates
+
+> **Authoritative source**: [state/update-triggers.md - AUDIT_FAILED](state/update-triggers.md#audit_failed)
 
 ```python
 # Remove from audit queue
@@ -207,31 +200,14 @@ save_state()
 
 ---
 
-## Rework Flow Diagram
+## Rework Flow
 
-```
-                    READY_FOR_REVIEW
-        ┌────────────────────────────────────────┐
-        │                                        │
-        ▼                                        │
-┌──────────────┐                        ┌──────────────┐
-│              │     REVIEW_FAILED      │              │
-│    CRITIC    │ ─────────────────────► │  DEVELOPER   │
-│              │     (issues)           │              │
-└──────────────┘                        └──────────────┘
-        │                                        ▲
-        │ REVIEW_PASSED                          │
-        ▼                                        │
-┌──────────────┐     AUDIT_FAILED               │
-│              │ ───────────────────────────────┘
-│   AUDITOR    │     (issues)
-│              │
-└──────────────┘
-        │
-        │ AUDIT_PASSED
-        ▼
-   TASK COMPLETE
-```
+DEVELOPER → (READY_FOR_REVIEW) → CRITIC
+
+- On REVIEW_FAILED → DEVELOPER reworks
+- On REVIEW_PASSED → AUDITOR
+    - On AUDIT_FAILED → DEVELOPER reworks
+    - On AUDIT_PASSED → TASK COMPLETE
 
 ---
 

@@ -1,473 +1,523 @@
 # Agent Prompt Engineering Guide
 
-**Purpose**: Define best practices for creating effective agent prompts
-**Version**: 2024-01-16-v1
-
-## Overview
-
-This guide defines the standard structure and best practices for creating agent prompts in the Token Bonfire
-orchestration system. All agent creation prompts MUST follow these guidelines.
+**Purpose**: Define principles for creating mission-oriented, high-quality agent prompts
+**Version**: 2025-01-17-v2
 
 ---
 
-## Prompt Structure
+## Core Philosophy
 
-Every agent prompt MUST include these sections in order:
+Agents are not tools to be configured. They are **roles to be inhabited**.
+
+A well-crafted prompt doesn't just tell an agent what to do - it transforms how the agent thinks about their work. The
+goal is to create agents that:
+
+- **Own their mission** - feel personal responsibility for outcomes
+- **Recognize their limits** - know when to ask for help vs. push through
+- **Act with judgment** - make decisions within their authority, escalate beyond it
+- **Produce verifiable work** - output that proves they did the work, not just claimed to
+
+---
+
+## Agent vs Expert: The Depth Distinction
+
+**CRITICAL**: Baseline agents and experts serve different purposes and require different prompt structures.
+
+### Baseline Agents (Developer, Critic, Auditor, etc.)
+
+**Broad but shallow.** They handle many technologies and situations with competent general knowledge.
+
+| Characteristic      | Implication for Prompts                  |
+|---------------------|------------------------------------------|
+| Wide scope          | Provide frameworks for common situations |
+| General knowledge   | Emphasize when to recognize limits       |
+| Many technologies   | Research injects breadth, not depth      |
+| Frequent delegation | Expert awareness is critical             |
+
+Baseline agents should think: "I can handle most things competently, but I know when I'm out of my depth."
+
+### Expert Agents (Plan-Specific Specialists)
+
+**Narrow but deep.** They provide authoritative guidance in one specific domain.
+
+| Characteristic  | Implication for Prompts                           |
+|-----------------|---------------------------------------------------|
+| Single domain   | Deep expertise, not broad coverage                |
+| Authoritative   | Definitive recommendations, not suggestions       |
+| Last resort     | Cannot delegate - must solve or escalate to human |
+| Rare invocation | Each consultation matters                         |
+
+Experts should think: "In my domain, I am the authority. I give answers, not options."
+
+---
+
+## Mission-Oriented Identity
+
+### The Stakes Are Real
+
+Every agent prompt must make consequences concrete:
+
+**WRONG** (abstract):
+
+```
+You review code for quality.
+```
+
+**RIGHT** (concrete stakes):
+
+```
+You are the last line of defense before code ships to production.
+
+If you pass broken code:
+- Real users experience real failures
+- Security flaws expose customer data
+- Bugs corrupt data at 3am when no one's watching
+
+If you're too strict:
+- Velocity dies
+- Developers ignore your feedback
+- Important features don't ship
+
+Your judgment determines which of these happens.
+```
+
+### Ownership Language
+
+Use personal, accountable language:
+
+| Weak                          | Strong                            |
+|-------------------------------|-----------------------------------|
+| "The code should be reviewed" | "You review this code"            |
+| "Tests need to pass"          | "Your tests must pass"            |
+| "Issues should be reported"   | "You report every issue you find" |
+| "Quality is important"        | "You are responsible for quality" |
+
+### What You Are NOT
+
+Every identity should include explicit scope limits:
+
+```markdown
+You Are NOT:
+- A rubber stamp who approves everything
+- A pedant who fails code for style preferences
+- An implementer who fixes issues yourself
+- A guesser who passes uncertain code
+```
+
+---
+
+## Required Sections
+
+Every agent prompt MUST include these sections:
 
 ### 1. Frontmatter (YAML)
 
 ```yaml
 ---
-name: [ agent-name ]
-description: [ One sentence describing what this agent does and when to use it ]
-model: [ sonnet | opus | haiku ]
-tools: [ comma-separated list of tools ]
+name: [agent-name]
+description: [One sentence: what + when to use]
+model: [sonnet | opus | haiku]
+tools: [comma-separated list]
 version: "YYYY-MM-DD-v1"
 ---
 ```
 
 **Model Selection**:
 
-- `opus`: High-stakes decisions, quality gatekeeping, complex analysis
-- `sonnet`: Implementation work, moderate complexity tasks
-- `haiku`: Simple verification, fast binary decisions
+- `opus`: Quality gatekeeping, complex judgment, high-stakes decisions
+- `sonnet`: Implementation, moderate complexity, standard workflows
+- `haiku`: Binary verification, fast checks, simple decisions
 
-### 2. Agent Identity
+### 2. Agent Identity (CRITICAL)
 
-Define WHO the agent is, not just what it does. Include:
+This is the most important section. It shapes everything else.
 
 ```xml
-
 <agent_identity>
-    You are [ROLE NAME] with [EXPERIENCE/EXPERTISE].
+You are [ROLE] responsible for [MISSION].
 
-    Your Mission:
-    - [Primary responsibility]
-    - [Secondary responsibility]
+**THE STAKES**:
+[Concrete consequences of doing this well vs poorly]
 
-    Your Authority:
-    - [What decisions you can make]
-    - [What outcomes you control]
+**YOUR AUTHORITY**:
+- You CAN: [decisions within scope]
+- You CANNOT: [decisions requiring escalation]
 
-    Your Mindset:
-    - [How you approach work]
-    - [What you prioritize]
-    - [What you refuse to compromise on]
+**YOUR COMMITMENT**:
+- [What you refuse to compromise]
+- [What you prioritize above all]
+
+**YOU ARE NOT**:
+- [Anti-pattern 1]
+- [Anti-pattern 2]
 </agent_identity>
 ```
 
-**Best Practices**:
+### 3. Failure Modes (REQUIRED)
 
-- Use strong, clear role definition
-- Make the agent feel ownership of their responsibility
-- Define attitude and approach, not just tasks
-- Include what the agent is NOT (to prevent scope creep)
-
-### 3. Framing (Optional but Recommended)
-
-Provide context that shapes how the agent interprets their work:
+Anticipate how agents fail and build in countermeasures:
 
 ```xml
+<failure_modes>
+The most common ways agents in your role fail:
 
-<framing>
-    **CRITICAL CONTEXT**: [Important perspective or constraint]
+| Failure | Why It Happens | Your Countermeasure |
+|---------|----------------|---------------------|
+| Rubber-stamping | Assumption work is correct | Before passing: list 3 things that COULD be wrong |
+| Vague feedback | Avoiding specifics | Every issue: file:line + specific fix |
+| Scope creep | Helpfulness instinct | You [role]. You do not [other role]. |
+| Missing context | Rushing | Read ALL relevant files before any judgment |
+| False confidence | Pattern matching | If you haven't verified it, you don't know it |
 
-    [Explanation of why this framing matters]
-    [How this affects how the agent should approach work]
-</framing>
+You MUST internalize these countermeasures.
+</failure_modes>
 ```
 
-**Use framing when**:
+### 4. Decision Authority Matrix (REQUIRED)
 
-- You want to influence the agent's interpretation of ambiguous situations
-- You need to prevent specific failure modes
-- You want to create a specific psychological stance
-
-### 4. Success Criteria
-
-Define what "done" looks like. Be specific and verifiable:
+Be explicit about what decisions the agent can make:
 
 ```xml
+<decision_authority>
+**DECIDE YOURSELF** (no escalation needed):
+| Decision | Guidance |
+|----------|----------|
+| [Type] | [How to decide] |
 
+**CONSULT EXPERT** (delegate before deciding):
+| Decision | Which Expert | Why |
+|----------|--------------|-----|
+| [Type] | [expert-name] | [Requires domain depth] |
+
+**ESCALATE TO HUMAN** (divine intervention):
+| Decision | Why Human Needed |
+|----------|------------------|
+| [Type] | [Beyond agent authority] |
+
+NEVER guess on expert or human decisions. Ask.
+</decision_authority>
+```
+
+### 5. Pre-Signal Verification (REQUIRED)
+
+Force self-questioning before any signal:
+
+```xml
+<pre_signal_verification>
+**BEFORE ANY PASS/SUCCESS SIGNAL**, answer:
+1. "What's the weakest part of this? Why am I passing it anyway?"
+2. "If this fails in production, what will I wish I had caught?"
+3. "Did I VERIFY this, or am I ASSUMING it?"
+
+**BEFORE ANY FAIL SIGNAL**, answer:
+1. "Is every issue I'm citing real, or am I being pedantic?"
+2. "Can they fix this without asking followup questions?"
+3. "Am I failing for the right reasons?"
+
+**BEFORE ANY ESCALATION**, answer:
+1. "Did I genuinely try 3 different approaches?"
+2. "What SPECIFICALLY would help me?"
+
+If you cannot answer these, you are not ready to signal.
+</pre_signal_verification>
+```
+
+### 6. Success Criteria (Tiered)
+
+Define minimum, expected, and excellent:
+
+```xml
 <success_criteria>
-    Work is complete when ALL of these are true:
-    1. [Specific, verifiable criterion]
-    2. [Specific, verifiable criterion]
-    3. [Specific, verifiable criterion]
+**MINIMUM** (must achieve):
+- [Binary requirement]
+- [Binary requirement]
 
-    Work is NOT complete if:
-    - [Failure condition]
-    - [Failure condition]
+**EXPECTED** (normal good work):
+- [Quality standard]
+- [Quality standard]
+
+**EXCELLENT** (aspire to):
+- [Excellence marker]
+- [Excellence marker]
+
+Aim for EXCELLENT, not just MINIMUM.
 </success_criteria>
 ```
 
-**Best Practices**:
+### 7. Method (Phased)
 
-- Use binary conditions (yes/no, not "mostly")
-- Make criteria independently verifiable
-- Include explicit failure conditions
-
-### 5. Method (Phased Approach)
-
-Break work into clear phases:
+Each phase must have concrete, verifiable actions:
 
 ```xml
-
 <method>
-    PHASE 1: [PHASE NAME]
-    1. [Concrete action]
-    2. [Concrete action]
-    3. [Concrete action]
+PHASE 1: [NAME]
+1. [Action that produces observable output]
+2. [Action that produces observable output]
+Checkpoint: [What you should have at this point]
 
-    PHASE 2: [PHASE NAME]
-    1. [Concrete action]
-    2. [Concrete action]
+PHASE 2: [NAME]
+...
 
-    ...
-
-    PHASE N: SIGNAL
-    1. [How to output result]
+FINAL PHASE: SIGNAL
+1. Complete pre-signal verification
+2. Output signal in exact format
 </method>
 ```
 
-**Best Practices**:
+### 8. Boundaries
 
-- Each phase has a clear purpose
-- Actions are concrete and verifiable
-- Include decision points and how to handle them
-- End with explicit signaling phase
-
-### 6. Boundaries
-
-Define what the agent MUST and MUST NOT do:
+Define both MUST and MUST NOT with reasons:
 
 ```xml
-
 <boundaries>
-    MUST NOT:
-    - [Prohibited action with brief reason]
-    - [Prohibited action with brief reason]
+**MUST**:
+- [Required action] - because [consequence if skipped]
+- [Required action] - because [consequence if skipped]
 
-    MUST:
-    - [Required action with brief reason]
-    - [Required action with brief reason]
+**MUST NOT**:
+- [Prohibited action] - because [why this causes harm]
+- [Prohibited action] - because [why this causes harm]
 </boundaries>
 ```
 
-**Best Practices**:
-
-- Be specific about prohibited actions
-- Explain WHY something is prohibited (prevents workarounds)
-- Include both process and output constraints
-
-### 7. Expert Awareness
-
-Make the agent aware of their limitations and available help:
+### 9. Expert Awareness (Baseline Agents Only)
 
 ```xml
-
 <expert_awareness>
-    **YOU HAVE LIMITATIONS.** Recognize them and ask for help.
+**YOU ARE BROAD BUT SHALLOW.** You handle many things competently, but you are
+not an expert in any specific domain.
 
-    YOUR LIMITATIONS:
-    - [Specific limitation relevant to this role]
-    - [Specific limitation relevant to this role]
+**RECOGNIZE YOUR LIMITS**:
+- You know patterns, not deep domain knowledge
+- You can spot obvious issues, not subtle ones
+- You can apply standard practices, not make authoritative domain calls
 
-    AVAILABLE EXPERTS:
-    {{#each available_experts}}
-    | {{name}} | {{expertise}} | Ask when: {{delegation_triggers}} |
-    {{/each}}
+**AVAILABLE EXPERTS**:
+| Expert | Domain | Ask When |
+|--------|--------|----------|
+{{AVAILABLE_EXPERTS}}
 
-    WHEN TO ASK AN EXPERT:
-    - [Trigger condition]
-    - [Trigger condition]
+**WHEN TO ASK**:
+- Domain-specific correctness questions
+- Trade-offs requiring deep expertise
+- "Is this the RIGHT way?" not just "Does this work?"
 
-    **IT IS BETTER TO ASK THAN TO GUESS WRONG.**
+**IT IS BETTER TO ASK THAN TO GUESS WRONG.**
 </expert_awareness>
 ```
 
-### 8. Context Management
-
-Define how to handle long-running work:
+### 10. Coordinator Integration
 
 ```xml
-
-<context_management>
-    [Brief description of context risks for this agent type]
-
-    CHECKPOINT TRIGGERS:
-    - [When to checkpoint]
-    - [When to checkpoint]
-
-    CHECKPOINT FORMAT:
-    [Exact format for checkpoints]
-
-    See: .claude/docs/agent-context-management.md
-</context_management>
-```
-
-### 9. Coordinator Integration
-
-Define signal rules:
-
-```xml
-
 <coordinator_integration>
-    SIGNAL RULES:
-    - Signal MUST start at column 0 (beginning of line)
-    - Signal MUST appear at END of response
-    - NEVER use signal keywords in prose
-    - Output exactly ONE signal per response
+SIGNAL RULES:
+- Signal MUST start at column 0 (no indentation)
+- Signal MUST appear at END of response
+- NEVER use signal keywords in prose
+- Output exactly ONE primary signal per response
 </coordinator_integration>
 ```
 
-### 10. Signal Format
-
-Define exact output formats:
+### 11. Signal Format
 
 ```xml
-
 <signal_format>
-    [SIGNAL_NAME]:
-```
-
+[SIGNAL_NAME]:
+\`\`\`
 [Exact format with placeholders]
+\`\`\`
 
-```
-
-[ALTERNATIVE_SIGNAL]:
-```
-
-[Exact format with placeholders]
-
-```
+CRITICAL: Use EXACT format. Malformed signals break the workflow.
 </signal_format>
 ```
 
 ---
 
-## Best Practices Injection
+## Anti-Vagueness Standards
 
-For agents that need current best practices (Developer, Critic), include:
+These words are BANNED without specifics:
+
+| Banned        | Replacement Required           |
+|---------------|--------------------------------|
+| "carefully"   | What specific checks?          |
+| "properly"    | What does proper mean?         |
+| "appropriate" | What are the criteria?         |
+| "as needed"   | When is it needed?             |
+| "thoroughly"  | What does thorough include?    |
+| "consider"    | What specifically to consider? |
+| "ensure"      | How to verify?                 |
+| "good"        | What makes it good?            |
+
+**WRONG**: "Review the code carefully for issues"
+**RIGHT**: "For each file, verify: no TODO/FIXME comments, no unused imports, all error paths handled, test coverage for
+new code paths"
+
+---
+
+## Learning from Existing Prompts
+
+Before creating an agent prompt, research existing successful prompts for similar roles.
+
+### Why Research Existing Prompts
+
+The orchestrator researches popular, well-regarded agent prompts to:
+
+- Learn identity framing techniques that create ownership
+- Discover constraint patterns that prevent common failures
+- Find output format approaches that work well
+- Understand error handling patterns from production prompts
+- Gather decision-making frameworks that produce good results
+
+### What to Look For
+
+When analyzing existing prompts, extract:
+
+| Element             | What to Look For                    | How to Adapt                         |
+|---------------------|-------------------------------------|--------------------------------------|
+| Identity            | How does it create agent ownership? | Apply similar framing to your domain |
+| Constraints         | What boundaries prevent failure?    | Translate to your agent's scope      |
+| Output Format       | How does it structure responses?    | Adapt signal format as needed        |
+| Error Handling      | How does it handle edge cases?      | Apply similar patterns               |
+| Decision Frameworks | How does it guide choices?          | Customize for your domain            |
+
+### Adaptation vs Copying
+
+DO: Extract patterns and principles, then apply them to your specific context
+DON'T: Copy prompts verbatim - they won't fit your plan context
+
+**Good adaptation:**
+
+- "This prompt uses concrete stakes - I'll create stakes specific to MY agent"
+- "This prompt has a failure modes table - I'll add one for MY agent's failures"
+
+**Bad copying:**
+
+- "This prompt mentions X so I'll mention X" (without understanding why)
+
+---
+
+## Calibration Examples (REQUIRED for Gatekeeping Agents)
+
+Agents that pass/fail work need concrete examples:
 
 ```xml
+<calibration>
+**PASSES** (and why):
+\`\`\`[language]
+[Code example]
+\`\`\`
+Passes because: [specific reasons]
 
-<best_practices>
-    {{BEST_PRACTICES_FROM_RESEARCH}}
+**FAILS** (and why):
+\`\`\`[language]
+[Code example]
+\`\`\`
+Fails because: [specific reasons]
 
-    (This section is populated by the orchestrator based on pre-creation research for the technologies in this plan.)
-</best_practices>
-```
-
-The orchestrator populates this by:
-
-1. Identifying languages, frameworks, and tools in the plan
-2. Using WebSearch to find current best practices
-3. Summarizing key patterns and anti-patterns
-
----
-
-## Prompt Engineering Principles
-
-### 1. Be Specific, Not General
-
-**Wrong**: "Review the code carefully"
-**Right**: "Read every modified file line-by-line. For each file, check for: [specific list]"
-
-### 2. Define the Negative Space
-
-Tell the agent what NOT to do, not just what to do:
-
-**Wrong**: "Fix the code"
-**Right**: "Fix the code. Do NOT add features. Do NOT refactor beyond the fix. Do NOT change tests to make them pass."
-
-### 3. Create Accountability
-
-Make the agent feel ownership:
-
-**Wrong**: "Check if tests pass"
-**Right**: "You are the final quality gate. If you pass broken code, it goes to production. Run every test yourself."
-
-### 4. Use Concrete Examples
-
-When possible, show exact formats:
-
-**Wrong**: "Output your findings in a structured format"
-**Right**:
-
-```
-Output in this exact format:
-```
-
-AUDIT_PASSED - [task ID]
-
-Quality: VERIFIED
-Requirements: [list with evidence]
-
-```
-```
-
-### 5. Anticipate Failure Modes
-
-Include guardrails for common mistakes:
-
-```xml
-
-<quality_tells>
-    If ANY found, task FAILS:
-    - TODO comments
-    - FIXME comments
-    - Placeholder implementations
-    ...
-</quality_tells>
-```
-
-### 6. Make Instructions Scannable
-
-Use:
-
-- Numbered lists for sequences
-- Bullet points for parallel items
-- Bold for emphasis
-- Tables for structured data
-- Headers for sections
-
-### 7. Include Decision Frameworks
-
-When the agent faces choices, provide guidance:
-
-```
-If X, then Y.
-If A and B, then C.
-When in doubt, [default action].
+**JUDGMENT CALL** (how to decide):
+\`\`\`[language]
+[Borderline example]
+\`\`\`
+Decision framework: [how to reason about this]
+</calibration>
 ```
 
 ---
 
-## Pre-Creation Research
+## Verification That Can't Be Faked
 
-For agents that implement or review code, the CREATOR must research best practices before writing the agent definition.
+Structure requirements so completion proves the work was done:
 
-### Research Process
+**WRONG** (can fake):
 
-```markdown
-## Pre-Creation Research (REQUIRED)
-
-Before writing the agent file, you MUST research current best practices:
-
-1. **Identify Technologies**: Read the plan and codebase to identify:
-    - Programming languages used
-    - Frameworks and libraries
-    - Tools and build systems
-
-2. **Research Best Practices**: Use WebSearch to find current standards:
-    - "[language] best practices [current year]"
-    - "[framework] recommended patterns"
-    - "[library] common pitfalls"
-
-3. **Document Findings**: Create a best practices summary to embed in the agent.
+```
+Review the code and report issues.
 ```
 
-### What to Research
+**RIGHT** (proves engagement):
 
-| Agent Type | Research Focus                                               |
-|------------|--------------------------------------------------------------|
-| Developer  | Implementation patterns, coding standards, testing practices |
-| Critic     | Code review criteria, quality issues, anti-patterns          |
-| Auditor    | Verification approaches, acceptance testing patterns         |
-| Expert     | Domain-specific best practices for their expertise area      |
+```
+For each modified file, document:
+- Lines reviewed: [X-Y]
+- What this section does: [summary]
+- Issues found: [list with line numbers, or "None after checking for: X, Y, Z"]
+- Verdict: [PASS/ISSUE]
+```
 
----
-
-## Terminology Standards
-
-Use these terms consistently across all prompts:
-
-| Term                    | Meaning                                                        |
-|-------------------------|----------------------------------------------------------------|
-| **Default agents**      | Developer, Critic, Auditor, BA, Remediation, Health Auditor    |
-| **Experts**             | Specialist agents created per-plan to provide domain expertise |
-| **Orchestrator**        | The coordinator that manages agents and workflow               |
-| **Signal**              | Structured output that triggers coordinator actions            |
-| **Checkpoint**          | Progress snapshot for context management                       |
-| **Divine intervention** | Human escalation when agents are stuck                         |
+The structure forces actual engagement - you can't fill it out without reading.
 
 ---
 
 ## Quality Checklist
 
-Before finalizing any agent prompt, verify:
+Before finalizing ANY agent prompt:
 
-- [ ] Frontmatter is complete and accurate
-- [ ] Agent identity defines WHO, not just WHAT
-- [ ] Success criteria are specific and verifiable
-- [ ] Method has clear phases with concrete actions
-- [ ] Boundaries define both MUST and MUST NOT
-- [ ] Expert awareness is included (if applicable)
-- [ ] Context management defines checkpoints
-- [ ] Signal format is exact with examples
-- [ ] No vague instructions ("carefully", "properly", "as needed")
-- [ ] Decision frameworks provided for ambiguous situations
-- [ ] Failure modes are anticipated and addressed
-- [ ] Pre-creation research completed (for code-related agents)
+**Structure**:
+
+- [ ] Frontmatter complete
+- [ ] Identity creates ownership and stakes
+- [ ] Failure modes anticipated with countermeasures
+- [ ] Decision authority explicit (decide/consult/escalate)
+- [ ] Pre-signal verification required
+- [ ] Success criteria tiered (minimum/expected/excellent)
+- [ ] Method has concrete, verifiable phases
+- [ ] Boundaries explain WHY
+- [ ] Signal format exact
+
+**Language**:
+
+- [ ] No banned vague words without specifics
+- [ ] Uses ownership language ("you", "your")
+- [ ] Stakes are concrete, not abstract
+- [ ] Consequences explained for both directions
+
+**For Baseline Agents**:
+
+- [ ] Expert awareness section present
+- [ ] Limits acknowledged
+- [ ] Delegation triggers clear
+
+**For Experts**:
+
+- [ ] Deep expertise demonstrated (not surface-level)
+- [ ] Authoritative tone (answers, not options)
+- [ ] Cannot delegate emphasized
+- [ ] Decision frameworks produce definitive recommendations
 
 ---
 
-## Required: Quality Verification Skill
+## The Meta-Prompt Mission
 
-**CRITICAL**: When creating agent/expert prompts during orchestrator bootstrap, you MUST use the `/verify-prompt`
-skill before writing the file.
+When you write a meta-prompt, remember:
 
-### Verification Workflow
+**You are not configuring a tool. You are defining a role that will be inhabited.**
 
-```
-1. Generate initial prompt using template + context
-2. Invoke /verify-prompt skill:
-   - Use Skill tool with skill: "verify-prompt"
-   - Provide the generated prompt in context
-3. Review the PROMPT QUALITY REVIEW output
-4. Apply ALL CRITICAL recommendations (mandatory)
-5. Apply ALL HIGH recommendations (mandatory)
-6. Apply MEDIUM recommendations (optional)
-7. Write the REVISED prompt to the agent file
-```
+The agent you create will:
 
-### Example Usage
+- Review every piece of code
+- Audit every implementation
+- Make pass/fail decisions with real consequences
 
-```python
-# After generating initial_prompt...
+If you create a weak agent:
 
-# Invoke verification skill
-Skill(skill="verify-prompt")
+- Bugs ship
+- Quality degrades
+- The system fails
 
-# The skill will output recommendations like:
-# ISSUE: agent_identity - Generic identity
-# SEVERITY: CRITICAL
-# RECOMMENDED: [improved text]
+If you create a strong agent:
 
-# Apply recommendations to initial_prompt
-# Write revised prompt to file
-```
+- Quality improves with every cycle
+- Issues die before they're born
+- The system succeeds
 
-### Why This Matters
-
-Poor quality prompts lead to:
-
-- Agents that don't follow instructions
-- Vague outputs that can't be parsed
-- Scope creep and unauthorized actions
-- Failed audits and wasted cycles
-
-The `/verify-prompt` skill catches these issues before they cause problems.
-
-See: `.claude/skills/verify-prompt.md` for full skill documentation.
+**This is not optional. This is not "try your best." Make it excellent.**
 
 ---
 
 ## Cross-References
 
-- **[Documentation Index](../index.md)** - Navigation hub for all docs
+- **[Documentation Index](../index.md)** - Navigation hub
+- [Meta-Prompting Architecture](../meta-prompting.md) - How this system works
 - [Signal Specification](../signal-specification.md) - Signal formats
-- [Escalation Specification](../escalation-specification.md) - Escalation rules
-- [Agent Context Management](../agent-context-management.md) - Context management
-- [MCP Servers](../mcp-servers.md) - MCP server capabilities
+- [Escalation Specification](../escalation-specification.md) - When to escalate
+- [Agent Context Management](../agent-context-management.md) - Context handling

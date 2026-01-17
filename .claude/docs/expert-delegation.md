@@ -19,23 +19,8 @@ orchestrator creates experts during plan analysis and registers them for default
 **Key Principle**: Default agents should recognize their limitations and delegate to experts rather than guess or
 produce incorrect work.
 
-```
-Default Agent (Developer/Critic/Auditor/etc.)
-    │
-    │ "I need expert help with this decision"
-    │
-    ▼
-EXPERT_REQUEST signal
-    │
-    ▼
-Orchestrator routes to Expert
-    │
-    ▼
-Expert provides EXPERT_ADVICE or EXPERT_UNSUCCESSFUL
-    │
-    ▼
+**Flow**: Default Agent → EXPERT_REQUEST signal → Orchestrator → Expert → EXPERT_ADVICE (or EXPERT_UNSUCCESSFUL) →
 Default Agent applies advice or escalates
-```
 
 ---
 
@@ -48,10 +33,10 @@ When you receive a task, your prompt includes an `AVAILABLE EXPERTS` section:
 ```markdown
 AVAILABLE EXPERTS:
 
-| Expert | Expertise | Ask When |
-|--------|-----------|----------|
-| crypto-expert | Cryptographic implementations | Choosing algorithms, verifying security |
-| protocol-expert | Network protocol design | Message format decisions, state machines |
+| Expert | Expertise | Keyword Triggers | Ask When |
+|--------|-----------|------------------|----------|
+| crypto-expert | Cryptographic implementations | encryption, AES, RSA, hashing, SHA, key derivation | Choosing algorithms, verifying security |
+| protocol-expert | Network protocol design | protocol, handshake, message format, state machine | Message format decisions, state machines |
 ```
 
 ### 2. Match Your Question to an Expert
@@ -60,14 +45,15 @@ Before delegating, identify:
 
 1. **What is my question?** - Be specific about what you need help with
 2. **Which expert's domain matches?** - Check the "Expertise" column
-3. **Do the triggers apply?** - Check the "Ask When" column
+3. **Do the keyword triggers apply?** - Check the "Keyword Triggers" column for domain keywords in your task
+4. **Do the triggers apply?** - Check the "Ask When" column
 
 ### 3. If No Expert Matches
 
 If your question doesn't match any available expert:
 
-- You have 6 self-solve attempts (instead of 3+3)
-- After 6 failures, escalate to divine intervention
+- You have 6 self-solve attempts total (since no expert can help)
+- After 6 self-solve failures, escalate to divine intervention
 - Do NOT guess if you're uncertain
 
 ---
@@ -95,6 +81,28 @@ Default agents should ask experts when ANY of these apply:
 | Question is in your capability | Handle it                             |
 | Asking expert to do your work  | Never - experts advise, you implement |
 | Already received advice        | Apply it, don't ask again             |
+
+### Pre-Implementation Review (Optional)
+
+For complex tasks where you want to validate your approach before coding:
+
+1. **Before implementing**, consult the relevant expert about your planned approach
+2. **Describe your approach**, not the implementation details
+3. **Ask for confirmation** or alternative recommendations
+4. **Document as**: `Pre-implementation review: [expert-name] confirmed approach`
+
+**When to use pre-implementation review:**
+
+| Situation                 | Consider Pre-Implementation Review |
+|---------------------------|------------------------------------|
+| Multiple valid approaches | YES - expert can guide best choice |
+| High-risk implementation  | YES - catch issues early           |
+| Unfamiliar domain         | YES - validate understanding       |
+| Simple, clear task        | NO - proceed with implementation   |
+| Time-sensitive task       | OPTIONAL - use judgment            |
+
+Pre-implementation review is a judgment call by the developer or critic based on task complexity and their confidence
+level.
 
 ### Agent-Specific Triggers
 
@@ -279,44 +287,11 @@ When an expert signals UNSUCCESSFUL:
 
 ## Flow Diagram: Expert Delegation
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                   DEFAULT AGENT WORKING                       │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                   ┌──────────────────────┐
-                   │ Face decision/verify │
-                   │ correctness needed?  │
-                   └──────────────────────┘
-                              │
-              ┌───────────────┴───────────────┐
-              │                               │
-         In my domain                Outside my expertise
-              │                               │
-              ▼                               ▼
-        Handle it                    ┌──────────────────────┐
-                                     │ Check AVAILABLE      │
-                                     │ EXPERTS table        │
-                                     └──────────────────────┘
-                                              │
-                              ┌───────────────┴───────────────┐
-                              │                               │
-                       Expert exists                   No expert matches
-                              │                               │
-                              ▼                               ▼
-                    ┌──────────────────┐          ┌──────────────────────┐
-                    │ EXPERT_REQUEST   │          │ Self-solve 6 attempts│
-                    │ signal           │          │ Then divine escalate │
-                    └──────────────────┘          └──────────────────────┘
-                              │
-              ┌───────────────┴───────────────┐
-              │                               │
-      EXPERT_ADVICE                  EXPERT_UNSUCCESSFUL
-              │                               │
-              ▼                               ▼
-        Apply advice               Escalate to divine
-```
+1. Default agent faces decision requiring expertise
+2. In my domain → Handle it
+3. Outside expertise → Check AVAILABLE EXPERTS table
+4. Expert exists → EXPERT_REQUEST signal → EXPERT_ADVICE (apply) or EXPERT_UNSUCCESSFUL (escalate)
+5. No expert → Self-solve 6 attempts then divine escalate
 
 ---
 
