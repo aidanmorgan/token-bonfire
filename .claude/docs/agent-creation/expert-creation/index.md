@@ -12,19 +12,20 @@
 
 ## What This Documentation Is
 
-Orchestrator analyzes the plan for gaps, researches the domain, substitutes variables, and spawns a prompt-creation
+The team lead analyzes the plan for gaps, researches the domain, substitutes variables, and spawns a prompt-creation
 sub-agent. The sub-agent (you) receives gap analysis and research, then writes the expert agent file to
-`.claude/agents/experts/[expert-name].md`. Expert agents provide specialist advice, signal EXPERT_ADVICE or
-EXPERT_UNSUCCESSFUL, and CANNOT delegate further.
+`.claude/experts/<plan_slug>/[expert-name].md`. Expert agents provide specialist advisory guidance via mailbox messages
+and CANNOT delegate further. Experts are advisory only -- they never write code directly.
 
 **YOUR RESPONSIBILITY**: The file you write MUST be complete and self-contained. An expert spawned with that file must
 know EXACTLY:
 
 - What expertise they provide and for which tasks
-- How to give **AUTHORITATIVE, ACTIONABLE** advice (not suggestions or options)
-- What signals to emit and in what format
-- That they CANNOT delegate (they are the last resort before divine intervention)
-- How default agents will request their help
+- How to give **AUTHORITATIVE, ACTIONABLE** advisory guidance (not suggestions or options)
+- That they are **advisory only** -- they never write code, only provide guidance
+- What messages to send and in what format
+- That they CANNOT delegate (they are the last resort before user clarification)
+- How developers will request their advice via `NEED_EXPERT_ADVICE` / `EXPERT_ADVICE_PROVIDED` signals
 
 ---
 
@@ -37,17 +38,17 @@ This expert creation guide is organized into focused documents:
 - Three types of experts: Domain, Reference, and Left-Field
 - Methodology experts for project-specific procedural knowledge
 - Key principles: narrower but deeper expertise
-- Responsibility split between orchestrator, default agents, and experts
+- Responsibility split between team lead, baseline teammates, and experts
 
 ### 2. [Gap Analysis](gap-analysis.md) - Identifying Where Experts Are Needed
 
-- Gap analysis process the orchestrator performs
+- Gap analysis process the team lead performs
 - Identifying expertise gaps, decision points, and verification gaps
 - Determining which experts to create
 
 ### 3. [Inputs](inputs.md) - Research and Inputs for Expert Creation
 
-- Inputs provided by orchestrator
+- Inputs provided by team lead
 - Deep domain research requirements
 - Research process and existing expert prompt analysis
 
@@ -57,7 +58,7 @@ This expert creation guide is organized into focused documents:
 - Required sections and their purposes
 - Mission-oriented identity and failure modes
 - Expertise sections for different expert types
-- Decision authority and signal formats
+- Decision authority and message formats
 
 ### 5. [Verification](verification.md) - Quality Assurance
 
@@ -69,26 +70,25 @@ This expert creation guide is organized into focused documents:
 
 ## Quick Reference
 
-**Key Principle**: Experts are **narrower but deeper** than baseline agents
+**Key Principle**: Experts are **narrower but deeper** than baseline teammates
 
-- **Baseline agents**: Wide breadth, general depth
+- **Baseline teammates**: Wide breadth, general depth
 - **Experts**: Narrow breadth, expert-level depth
 
 **Expert Chain**:
 
-1. Default agent signals EXPERT_REQUEST
-2. Orchestrator routes to expert
-3. Expert provides EXPERT_ADVICE or EXPERT_UNSUCCESSFUL (after 3 attempts)
-4. On EXPERT_ADVICE: Agent applies advice
-5. On EXPERT_UNSUCCESSFUL: Agent MUST escalate to divine intervention
+1. Developer sends `NEED_EXPERT_ADVICE` to team lead, specifying the expert name
+2. Team lead routes the request to the expert
+3. Expert reads mailbox, provides advisory `EXPERT RESULT` or indicates failure (after 3 attempts)
+4. Team lead forwards expert advice to developer as `EXPERT_ADVICE_PROVIDED`
+5. Developer implements the code based on expert guidance
+6. On failure: Developer MUST escalate to team lead for user clarification
 
 ---
 
 ## Cross-References
 
 - **[Documentation Index](../../index.md)** - Navigation hub for all docs
-- [Agent Definitions](../../agent-definitions.md) - Default agent definitions
-- [Signal Specification](../../signal-specification.md) - Expert signal formats
 - [Escalation Specification](../../escalation-specification.md) - Escalation rules
 - [Expert Delegation](../../expert-delegation.md) - Delegation protocol
 - [MCP Servers](../../mcp-servers.md) - Using MCP server capabilities

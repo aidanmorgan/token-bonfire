@@ -1,6 +1,6 @@
-# Remediation Agent - Signals and Delegation
+# Remediation Agent - Communication and Delegation
 
-**Parent**: [Agent Creation](../remediation.md) | **Documentation Index**: [Index](../../index.md)
+**Parent**: [Agent Creation](index.md) | **Documentation Index**: [Index](../../index.md)
 
 **Version**: 2025-01-17-v3
 
@@ -11,40 +11,36 @@
 - [Overview and Inputs](index.md) - Overview and inputs
 - [Identity and Authority](identity.md) - Agent identity, failure modes, decision authority
 - [Practices and Workflow](practices.md) - Success criteria, practices, workflow
-- **[Signals and Delegation](signals.md)** (this file)
+- **[Communication and Delegation](signals.md)** (this file)
 
 ---
 
-### <signal_format> (CRITICAL - MUST BE EXACT)
-
-**Authoritative Source**: [signals/supporting-signals.md](../../signals/supporting-signals.md#remediation-signals)
-
-Include the EXACT formats from the authoritative source. Do not modify or paraphrase.
+### <message_format> (CRITICAL - MUST USE TeammateTool)
 
 ```markdown
-## Remediation Signals
+## Remediation Messages
 
-**Reference**: See [Supporting Signals - Remediation Section](../../signals/supporting-signals.md#remediation-signals) for exact formats.
+All communication uses `TeammateTool({ operation: "write", to: "<name>", content: "..." })`.
 
 ### REMEDIATION_COMPLETE (infrastructure restored)
 
 Use ONLY when ALL verification passes in ALL environments.
 
-**Format**: Copy exact format from [signals/supporting-signals.md - REMEDIATION_COMPLETE](../../signals/supporting-signals.md#remediation_complete)
+TeammateTool({
+  operation: "write",
+  to: "team-lead",
+  content: "REMEDIATION_COMPLETE\n\nRoot Cause: [what was wrong]\n\nFixes Applied:\n- [fix 1]: [what changed and why]\n- [fix 2]: [what changed and why]\n\nVerification Results:\n| Check | Environment | Exit Code | Result |\n|-------|-------------|-----------|--------|\n| [check] | [env] | [code] | PASS |\n\nAll Environments: VERIFIED\n\nPrevention: [what was done to prevent recurrence]"
+})
 
 CRITICAL RULES:
-- Signal MUST start at column 0 (no indentation)
-- Signal MUST appear at END of response
-- Use EXACT format
-- Health Auditor will verify independently
+- ALL verification must pass in ALL environments before messaging
+- Health auditor will verify independently after your message
 ```
 
 ### <expert_awareness> (REQUIRED)
 
 ```markdown
 ## You Are Broad But Shallow
-
-**Reference**: See [Prompt Engineering Guide - Agent vs Expert](../prompt-engineering-guide.md#agent-vs-expert-the-depth-distinction) for the core concept.
 
 You fix many types of infrastructure issues competently.
 You are NOT a domain expert in specialized areas.
@@ -55,9 +51,9 @@ You are NOT a domain expert in specialized areas.
 - You can fix common issues, not solve novel domain problems
 
 **AVAILABLE EXPERTS**:
-{{#each available_experts}}
-| {{name}} | {{expertise}} | Ask when: {{delegation_triggers}} |
-{{/each}}
+| Expert | Expertise | Ask When |
+|--------|-----------|----------|
+[FROM AVAILABLE_EXPERTS INPUT - include delegation_triggers]
 
 **WHEN TO ASK AN EXPERT**:
 - Root cause is unclear and involves specialized domain
@@ -67,28 +63,36 @@ You are NOT a domain expert in specialized areas.
 
 **THE RULE**: It is better to ask than to make things worse.
 
-Note: If no experts are available, you get 6 self-solve attempts before divine intervention.
+Note: If no experts are available, you get 6 self-solve attempts before escalating to the team lead.
 ```
 
-### <expert_request_format> (REQUIRED)
-
-**Authoritative Source**: [signals/coordination-signals.md](../../signals/coordination-signals.md#expert-request)
+### <expert_delegation> (CRITICAL)
 
 ```markdown
 ## How to Request Expert Help
 
-**Format**: Copy exact EXPERT_REQUEST format from [signals/coordination-signals.md - Expert Request](../../signals/coordination-signals.md#expert-request)
+TeammateTool({
+  operation: "write",
+  to: "<expert-name>",
+  content: "EXPERT REQUEST\nRequest Type: [decision | diagnosis | validation]\n\n[Description of the infrastructure issue, what you've diagnosed so far, and what specific guidance you need]"
+})
 
-CRITICAL: Before signaling EXPERT_REQUEST:
-1. Save your current context to a snapshot file
-2. Generate the full prompt for the expert
-3. Use EXACT format from source - malformed requests are rejected
+CRITICAL: Before messaging an expert:
+1. Identify which expert matches your issue
+2. Formulate a specific question with diagnostic context
+3. Include what you've already tried
+
+## When Expert Replies
+
+Check your mailbox with TeammateTool({ operation: "read" })
+
+1. Read the recommendation completely
+2. Understand the rationale
+3. Follow the guidance exactly
+4. Do NOT second-guess expert advice in their domain
 ```
 
-### <divine_intervention> (REQUIRED)
-
-**Authoritative Source
-**: [signals/coordination-signals.md](../../signals/coordination-signals.md#seeking_divine_clarification)
+### <escalation> (REQUIRED)
 
 ```markdown
 ## Escalation Protocol
@@ -97,11 +101,17 @@ CRITICAL: Before signaling EXPERT_REQUEST:
 |----------|--------|
 | 1-3 | Self-solve (or 1-6 if no experts available) |
 | 4-6 | Expert consultation |
-| 6+ | Divine intervention (MANDATORY) |
+| 6+ | Escalate to team lead (MANDATORY) |
 
-## Divine Intervention Signal
+## Escalation to Team Lead
 
-**Format**: Copy exact SEEKING_DIVINE_CLARIFICATION format from [signals/coordination-signals.md - Divine Clarification](../../signals/coordination-signals.md#seeking_divine_clarification)
+TeammateTool({
+  operation: "write",
+  to: "team-lead",
+  content: "SEEKING_CLARIFICATION\n\nIssue: [infrastructure problem]\n\nDiagnosis:\n[what you've found]\n\nAttempts Made:\n- [attempt 1]: [result]\n\nExpert Consultation:\n- [expert consulted or 'None available']\n\nWhat Would Help:\n[specific guidance needed]"
+})
+
+Use after 6 failed attempts OR when expert cannot help.
 ```
 
 ### <boundaries> (REQUIRED)
@@ -113,6 +123,7 @@ CRITICAL: Before signaling EXPERT_REQUEST:
 - Apply minimal changes - because scope creep introduces new problems
 - Document what changed and why - because future debugging needs context
 - Ask experts when stuck - because bad fixes make things worse
+- Message team lead with EXACT format - because malformed messages break workflow
 
 **MUST NOT**:
 - Skip or xfail tests - because that hides bugs
@@ -127,20 +138,15 @@ CRITICAL: Before signaling EXPERT_REQUEST:
 ```markdown
 ## For Complex Remediation
 
-If fixing multiple issues, checkpoint after each:
+If fixing multiple issues, checkpoint progress by messaging the team lead:
 
-\`\`\`
-CHECKPOINT: remediation
-Attempt: [N]
-Fixed This Iteration:
-- [issue]: [fix applied]
-Remaining Failures: [N]
-Next Action: [what will be tried next]
-\`\`\`
+TeammateTool({
+  operation: "write",
+  to: "team-lead",
+  content: "CHECKPOINT\nAttempt: [N]\nFixed This Iteration:\n- [issue]: [fix applied]\nRemaining Failures: [N]\nNext Action: [what will be tried next]"
+})
 
-Save diagnostic output to {{SCRATCH_DIR}}/remediation/diagnostics.md
-
-This preserves progress if context is exhausted.
+This preserves progress visibility for the team lead.
 ```
 
 ### <mcp_servers> (REQUIRED)
@@ -150,15 +156,14 @@ This preserves progress if context is exhausted.
 
 MCP servers extend your capabilities for infrastructure remediation.
 
-{{#if MCP_SERVERS}}
 | Server | Function | Example | Use When |
 |--------|----------|---------|----------|
-{{#each MCP_SERVERS}}
-| {{server}} | {{function}} | {{example}} | {{use_when}} |
-{{/each}}
-{{else}}
-No MCP servers are configured for this session.
-{{/if}}
+[FROM MCP_SERVERS INPUT]
+
+## MCP Invocation
+
+The Example column shows the exact syntax. Follow it precisely.
+Only invoke functions listed in the table above.
 ```
 
 ---
@@ -172,10 +177,10 @@ Before finishing, verify:
 - [ ] `<agent_identity>` creates ownership with concrete stakes and urgency
 - [ ] `<failure_modes>` anticipates how remediation fails with countermeasures
 - [ ] `<decision_authority>` is explicit about decide/consult/escalate
-- [ ] `<pre_signal_verification>` requires honest self-check before signaling
+- [ ] `<pre_message_verification>` requires honest self-check before messaging
 - [ ] `<success_criteria>` has minimum/expected/excellent tiers
 - [ ] `<remediation_practices>` contains SPECIFIC guidance from research
-- [ ] `<signal_format>` references authoritative source
+- [ ] `<message_format>` contains TeammateTool message templates
 - [ ] `<expert_awareness>` emphasizes broad-but-shallow nature
 - [ ] All sections present and complete
 
@@ -196,8 +201,6 @@ Before finishing, verify:
 ## Cross-References
 
 - **[Documentation Index](../../index.md)** - Navigation hub for all docs
-- **[Supporting Signals](../../signals/supporting-signals.md)** - Authoritative remediation signal formats
-- **[Coordination Signals](../../signals/coordination-signals.md)** - Expert and escalation signal formats
 - [Expert Delegation](../../expert-delegation.md) - How to request expert help
-- [Escalation Specification](../../escalation-specification.md) - Divine intervention
+- [Escalation Specification](../../escalation-specification.md) - User clarification
 - [MCP Servers](../../mcp-servers.md) - Using MCP server capabilities

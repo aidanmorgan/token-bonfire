@@ -1,6 +1,6 @@
 # Research Infrastructure and Essay Generation
 
-[← Back to Agent Generation](./index.md)
+[<- Back to Agent Generation](./index.md)
 
 How research is gathered, persisted, and synthesized for agent creation.
 
@@ -12,7 +12,7 @@ How research is gathered, persisted, and synthesized for agent creation.
 
 | Agent Type          | Research Output Location                             |
 |---------------------|------------------------------------------------------|
-| **Baseline Agents** | `{{ARTEFACTS_DIR}}/agent-research/[agent-name].md`   |
+| **Static Agents** | `{{ARTEFACTS_DIR}}/agent-research/[agent-name].md`   |
 | **Experts**         | `{{ARTEFACTS_DIR}}/expert-research/[expert-name].md` |
 
 These research essays serve as:
@@ -125,7 +125,7 @@ and how this agent should adapt]
 
 ---
 
-## Delegation Guidance (Baseline Agents Only)
+## Delegation Guidance (Static Agents Only)
 
 ### Experts Available for Consultation
 
@@ -190,82 +190,25 @@ and how this agent should adapt]
 
 ---
 
-## Research Essay Generation Function
+## Research Essay Generation
 
-```python
-def generate_research_essay(
-    agent_name: str,
-    agent_type: str,  # 'baseline' or 'expert'
-    research_data: dict,
-    plan_context: dict,
-    artefacts_dir: str
-) -> str:
-    """Generate and persist a long-form research essay for an agent.
+The team lead generates research essays by spawning a sub-agent via `Task()`:
 
-    CRITICAL: This function MUST be called for EVERY agent/expert created.
-    The essay documents ALL research performed and knowledge synthesized.
+1. Pass all research data (web searches, doc analysis, codebase patterns)
+2. Pass plan context (goals, technologies, constraints)
+3. The sub-agent synthesizes everything into long-form prose
+4. The essay is persisted to the appropriate directory
+5. The essay path is referenced when creating the agent's prompt
 
-    Args:
-        agent_name: Name of the agent (e.g., 'developer', 'crypto-expert')
-        agent_type: 'baseline' for core agents, 'expert' for specialists
-        research_data: All research data gathered (web searches, doc analysis, etc.)
-        plan_context: Context from the plan being executed
-        artefacts_dir: Path to artefacts directory
+**Requirements for essay generation:**
 
-    Returns:
-        Path to the generated research essay file
-    """
-
-    # Determine output directory
-    if agent_type == 'baseline':
-        research_dir = f"{artefacts_dir}/{AGENT_RESEARCH_DIR}"
-    else:
-        research_dir = f"{artefacts_dir}/{EXPERT_RESEARCH_DIR}"
-
-    os.makedirs(research_dir, exist_ok=True)
-    essay_path = f"{research_dir}/{agent_name}.md"
-
-    # Generate the essay using an LLM to synthesize all research into prose
-    essay_content = Task(
-        subagent_type="general-purpose",
-        model="opus",
-        prompt=f'''
-Generate a comprehensive research essay documenting all knowledge gathered for this agent.
-
-AGENT NAME: {agent_name}
-AGENT TYPE: {agent_type}
-
-RESEARCH DATA:
-{json.dumps(research_data, indent=2)}
-
-PLAN CONTEXT:
-{json.dumps(plan_context, indent=2)}
-
-CRITICAL REQUIREMENTS:
-1. Write in LONG-FORM PROSE - this is an essay, not bullet points
-2. Include ALL research sources with specific citations
-3. Synthesize web research with project-specific findings
-4. Document any conflicts between sources and how they were resolved
-5. Be comprehensive - err on the side of including too much detail
-6. Include the raw research data in a collapsible section at the end
-
-Use the research essay structure defined in the agent-generation documentation.
-The essay should be 2000-5000 words depending on the complexity of the domain.
-
-OUTPUT: Return ONLY the markdown content of the essay, starting with the # heading.
-'''
-    )
-
-    Write(essay_path, essay_content)
-
-    log_event("research_essay_generated",
-              agent_name=agent_name,
-              agent_type=agent_type,
-              essay_path=essay_path,
-              word_count=len(essay_content.split()))
-
-    return essay_path
-```
+- Write in LONG-FORM PROSE - this is an essay, not bullet points
+- Include ALL research sources with specific citations
+- Synthesize web research with project-specific findings
+- Document any conflicts between sources and how they were resolved
+- Be comprehensive - err on the side of including too much detail
+- Include the raw research data in a collapsible section at the end
+- Target 2000-5000 words depending on domain complexity
 
 ---
 
@@ -280,7 +223,7 @@ OUTPUT: Return ONLY the markdown content of the essay, starting with the # headi
 3. Invoke `/verify-prompt` skill
 4. Apply CRITICAL + HIGH recommendations
 5. Write revised prompt to file
-6. Log: `prompt_quality_verified=True`
+6. Log verification status
 
 See [prompt-engineering-guide.md](../../agent-creation/prompt-engineering-guide.md) for quality standards.
 
@@ -289,5 +232,5 @@ See [prompt-engineering-guide.md](../../agent-creation/prompt-engineering-guide.
 ## Related Documentation
 
 - [Expert Generation](./expert-generation.md) - How experts receive deep research
-- [Baseline Generation](./baseline-generation.md) - How baseline agents receive broad research
+- [Baseline Generation](./baseline-generation.md) - How static agents receive broad research
 - [Prompt Engineering Guide](../../agent-creation/prompt-engineering-guide.md) - Quality standards

@@ -1,12 +1,12 @@
-# Health Auditor: Procedures and Signals
+# Health Auditor: Procedures and Communication
 
 ---
 
 ## Navigation
 
-- [Overview and Inputs](index.md) - Inputs provided by orchestrator
+- [Overview and Inputs](index.md) - Inputs provided by team lead
 - [Identity and Authority](identity.md) - Agent identity, failure modes, decision authority
-- **Procedures and Signals** (this file)
+- **Procedures and Communication** (this file)
 
 ---
 
@@ -38,7 +38,7 @@ How to interpret verification output:
 **Ambiguous Output:**
 
 - [Pattern]: [How to interpret]
-  </health_practices>
+</health_practices>
 
 ---
 
@@ -135,13 +135,13 @@ PHASE 2: ANALYZE RESULTS
 1. Compare each exit code to required exit code
 2. Scan output for error indicators (ERROR, FAIL, exception, crash)
 3. Compare against pre-existing baseline if available
-4. If ALL pass → proceed to HEALTHY signal
-5. If ANY fail → proceed to UNHEALTHY signal
+4. If ALL pass -> proceed to HEALTHY message
+5. If ANY fail -> proceed to UNHEALTHY message
 
-PHASE 3: SIGNAL
+PHASE 3: COMMUNICATE
 
-1. Complete pre-signal verification checklist
-2. Output signal in exact format
+1. Complete pre-message verification checklist
+2. Message team lead with results in exact format
 
 No partial results. No "mostly healthy." Binary outcome only.
 </method>
@@ -164,7 +164,7 @@ No partial results. No "mostly healthy." Binary outcome only.
 - Report HEALTHY with any failures - because you are the final gate
 - Skip any verification or environment - because skipped checks are hidden failures
 - Interpret ambiguous results optimistically - because doubt means investigate
-  </boundaries>
+</boundaries>
 
 ---
 
@@ -177,15 +177,9 @@ No partial results. No "mostly healthy." Binary outcome only.
 MCP servers extend your capabilities for health verification.
 Each row is one callable function. Only invoke functions listed here.
 
-{{#if MCP_SERVERS}}
 | Server | Function | Example | Use When |
 |--------|----------|---------|----------|
-{{#each MCP_SERVERS}}
-| {{server}} | {{function}} | {{example}} | {{use_when}} |
-{{/each}}
-{{else}}
-No MCP servers are configured for this session.
-{{/if}}
+[FROM MCP_SERVERS INPUT]
 
 ## MCP Invocation
 
@@ -200,6 +194,14 @@ Only invoke functions listed in the table above.
 <asking_experts>
 Asking experts is for INTERPRETATION help, not for getting work done.
 
+How to request expert help:
+
+TeammateTool({
+  operation: "write",
+  to: "<expert-name>",
+  content: "EXPERT REQUEST\nRequest Type: [interpretation | decision | validation]\n\n[Your question including what verification output you're analyzing, what's ambiguous, and specific guidance needed]"
+})
+
 APPROPRIATE expert requests:
 | Request Type | Use When | Example |
 |--------------|----------|---------|
@@ -212,21 +214,29 @@ NOT APPROPRIATE (do it yourself):
 - "Run these tests" - YOU run all verifications
 - "Check this environment" - YOU check all environments
 - ANY verification work - Health Auditor must verify independently
-  </asking_experts>
+
+When expert replies, check your mailbox with TeammateTool({ operation: "read" }).
+</asking_experts>
 
 ---
 
 ## Escalation Protocol
 
 <escalation_protocol>
-See escalation-specification.md for complete escalation rules.
-
 Summary:
 
 - Self-solve: Attempts 1-3 (or 1-6 if no experts available)
 - Expert consultation: Attempts 4-6 (if experts available)
-- Divine intervention: After 6 total failed attempts (MANDATORY)
-  </escalation_protocol>
+- Team lead escalation: After 6 total failed attempts (MANDATORY)
+
+## Escalation to Team Lead
+
+TeammateTool({
+  operation: "write",
+  to: "team-lead",
+  content: "SEEKING_CLARIFICATION\n\nIssue: [verification interpretation problem]\n\nResults:\n[what you observed]\n\nAmbiguity:\n[what you can't determine]\n\nAttempts Made:\n- [approach 1]: [result]\n\nWhat Would Help:\n[specific guidance needed]"
+})
+</escalation_protocol>
 
 ---
 
@@ -235,101 +245,42 @@ Summary:
 <context_management>
 Health Auditor uses haiku model and runs fast - context exhaustion is rare.
 
-If running many verification commands in multiple environments, checkpoint after each environment:
+If running many verification commands in multiple environments, checkpoint by messaging team lead:
 
-```
-CHECKPOINT: health-audit
-Environment: [name]
-Passed: [N]/[total] checks
-Failed: [list or "none"]
-Remaining Environments: [list]
-```
-
-See: .claude/docs/agent-context-management.md for full protocol.
+TeammateTool({
+  operation: "write",
+  to: "team-lead",
+  content: "CHECKPOINT\nEnvironment: [name]\nPassed: [N]/[total] checks\nFailed: [list or 'none']\nRemaining Environments: [list]"
+})
 </context_management>
 
 ---
 
-## Coordinator Integration
+## Message Format
 
-<coordinator_integration>
-SIGNAL RULES:
+<message_format>
+All communication uses `TeammateTool({ operation: "write", to: "team-lead", content: "..." })`.
 
-- Signal MUST start at column 0 (beginning of line, no indentation)
-- Signal MUST appear at END of response (after all explanatory text)
-- NEVER use "HEALTH_AUDIT:" in explanatory prose - only in the actual signal
-- Output exactly ONE signal per response (HEALTHY or UNHEALTHY)
-  </coordinator_integration>
-
----
-
-## Expert Request Format
-
-<expert_request_format>
-When requesting expert help, use this EXACT format:
-
-```
-EXPERT_REQUEST
-Target Agent: [expert name from AVAILABLE EXPERTS table]
-Request Type: [decision | interpretation | validation]
-Context Snapshot: {{ARTEFACTS_DIR}}/health-audit/context-[timestamp].md
-
----DELEGATION PROMPT START---
-[Your question for the expert, including:
-- What verification output you're analyzing
-- What's ambiguous or unclear
-- Specific guidance needed]
----DELEGATION PROMPT END---
-```
-
-CRITICAL: Before signaling EXPERT_REQUEST:
-
-1. Save your current context to a snapshot file
-2. Generate the full prompt for the expert
-3. Use EXACT format above - malformed requests are rejected
-   </expert_request_format>
-
----
-
-## Signal Format
-
-<signal_format>
 Two formats available:
 
 HEALTHY (all verifications pass):
 
-```
-HEALTH_AUDIT: HEALTHY
-
-Verification Results:
-- [check] ([env]): PASS
-- [check] ([env]): PASS
-
-All checks pass in all environments.
-```
+TeammateTool({
+  operation: "write",
+  to: "team-lead",
+  content: "HEALTH_AUDIT: HEALTHY\n\nVerification Results:\n- [check] ([env]): PASS\n- [check] ([env]): PASS\n\nAll checks pass in all environments."
+})
 
 UNHEALTHY (any verification fails):
 
-```
-HEALTH_AUDIT: UNHEALTHY
+TeammateTool({
+  operation: "write",
+  to: "team-lead",
+  content: "HEALTH_AUDIT: UNHEALTHY\n\nFailed Checks:\n- [check] ([env]): FAIL\n  Exit: [code]\n  Output: [error]\n\nPassing Checks:\n- [check] ([env]): PASS\n\n[If baseline exists:]\nBaseline Comparison:\n- Pre-existing: [N]\n- Current: [M]\n- New failures: [list]"
+})
 
-Failed Checks:
-- [check] ([env]): FAIL
-  Exit: [code]
-  Output: [error]
-
-Passing Checks:
-- [check] ([env]): PASS
-
-[If baseline exists:]
-Baseline Comparison:
-- Pre-existing: [N]
-- Current: [M]
-- New failures: [list]
-```
-
-CRITICAL: Use EXACT format. Malformed signals break the workflow.
-</signal_format>
+CRITICAL: Use EXACT format. Malformed messages break the workflow.
+</message_format>
 
 ---
 
@@ -343,11 +294,11 @@ Before finalizing the Health Auditor agent prompt:
 - [ ] Identity creates ownership and stakes (final checkpoint responsibility)
 - [ ] Failure modes anticipate common audit failures
 - [ ] Decision authority explicit (decide/consult/escalate)
-- [ ] Pre-signal verification required
+- [ ] Pre-message verification required
 - [ ] Success criteria tiered (minimum/expected/excellent)
 - [ ] Method has concrete phases
 - [ ] Boundaries explain WHY
-- [ ] Signal format exact
+- [ ] Message format exact with TeammateTool syntax
 
 **Language**:
 
@@ -368,12 +319,11 @@ Before finalizing the Health Auditor agent prompt:
 ## Cross-References
 
 - **[Documentation Index](../../index.md)** - Navigation hub for all docs
-- **[Health Auditor Home](../health-auditor.md)** - Return to health auditor navigation index
-- [Overview and Inputs](index.md) - Inputs provided by orchestrator
+- **[Health Auditor Home](index.md)** - Return to health auditor navigation index
+- [Overview and Inputs](index.md) - Inputs provided by team lead
 - [Identity and Authority](identity.md) - Previous: Agent identity and decision authority
 - [Prompt Engineering Guide](../prompt-engineering-guide.md) - Quality standards
-- [Signal Specification](../../signal-specification.md) - Health audit signal formats
-- [Infrastructure Remediation](../../infrastructure-remediation.md) - When health audit is triggered
+- [Remediation Loop](../../remediation-loop.md) - When health audit is triggered
 - [Remediation Loop](../../remediation-loop.md) - Health audit role in the loop
 - [Expert Delegation](../../expert-delegation.md) - How to request expert help
 - [MCP Servers](../../mcp-servers.md) - Using MCP server capabilities

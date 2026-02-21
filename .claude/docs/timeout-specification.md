@@ -1,222 +1,108 @@
 # Timeout Specification
 
-All timeout values and their interactions are defined here.
+Timeout behavior in the native Agent Teams system.
 
-## Timeout Values
+## Native Timeouts
 
-| Timeout                   | Value               | Purpose                                  |
-|---------------------------|---------------------|------------------------------------------|
-| `AGENT_TIMEOUT`           | 900,000 ms (15 min) | Maximum agent execution time             |
-| `CHECKPOINT_INTERVAL`     | 300,000 ms (5 min)  | How often to request checkpoints         |
-| `CHECKPOINT_TIMEOUT`      | 30,000 ms (30 sec)  | How long to wait for checkpoint response |
-| `DELEGATION_TIMEOUT`      | 600,000 ms (10 min) | Maximum expert execution                 |
-| `DIVINE_RESPONSE_TIMEOUT` | None                | Human responses have no timeout          |
+The primary timeout mechanism is the **heartbeat timeout** (~5 min), which is built into the Agent Teams framework. When a teammate stops responding, the heartbeat timeout:
+- Detects the unresponsive teammate
+- Releases any tasks claimed by that teammate (auto-release)
+- Notifies the team lead
 
-## Timeout Interactions
+| Timeout | Mechanism | Purpose |
+|---|---|---|
+| Heartbeat timeout | Native (~5 min) | Detects unresponsive teammates, releases claimed tasks |
+| Review response timeout | Team lead monitoring | Detects stuck critic or auditor |
+| Shutdown timeout | `requestShutdown` | Graceful shutdown with timeout, then forced |
 
-### Agent Timeout vs Checkpoint Timeout
+## Review Response Monitoring
+
+The team lead tracks how long critic and auditor take to respond to review/audit requests. If no response arrives within a reasonable time:
+
+### Critic Timeout
+
+1. Team lead re-sends review request via `write`
+2. Tracks timeout count per task
+3. After 3 timeouts: bypass critic, send directly to auditor
+4. See [update-triggers.md](state/update-triggers.md) for the quality gate tradeoff
+
+### Auditor Timeout
+
+1. Team lead re-sends audit request via `write`
+2. Tracks timeout count per task
+3. After 3 timeouts: escalate via `AskUserQuestion`
+
+### Expert Stall Detection
+
+If an expert claims a task but does not signal `READY_FOR_REVIEW` or any other message for an extended period:
+1. Team lead can send a status inquiry via `write`
+2. If no response: heartbeat timeout handles it automatically
+3. Task auto-releases and becomes available for other experts
+
+## Escalation After Repeated Timeouts
+
+After 3 timeouts on the same task (any teammate type):
+
+The team lead escalates via `AskUserQuestion`:
 
 ```
-Timeline:
-0 min      5 min      10 min     15 min
-|----------|----------|----------|
-           ^          ^          ^
-           |          |          |
-           Checkpoint Checkpoint Agent
-           Request    Request    Timeout
-           (30s wait) (30s wait)
+Task <task-id> has timed out 3 times. Possible causes:
+- Task too large for a single expert
+- Unclear requirements
+- Infrastructure issue
+
+Options:
+1. Split task into smaller subtasks
+2. Clarify requirements
+3. Reassign to a different expert
+4. Skip task and continue
 ```
 
-**Rules**:
+## Context Windows
 
-1. Checkpoint timeout (30s) is independent of agent timeout (15 min)
-2. Agent timeout clock continues during checkpoint requests
-3. Missing a checkpoint does NOT extend agent timeout
-4. Missing a checkpoint triggers "stalled agent" warning
+Each teammate has a 1M token context window, managed natively:
 
-### Checkpoint Non-Response
+| Aspect | Behavior |
+|---|---|
+| Context size | 1M tokens per teammate |
+| Context isolation | Each teammate has its own window — no sharing |
+| Context persistence | NOT preserved across crashes |
+| Context recovery | Teammate respawned with its prompt (persisted on disk for experts) |
 
-```python
-def handle_checkpoint_timeout(agent_id: str, task_id: str):
-    """Handle agent not responding to checkpoint within 30 seconds."""
+No custom compaction, session pause, or usage tracking is needed. The native 1M token context is sufficient for most tasks.
 
-    log_event("checkpoint_timeout",
-              agent_id=agent_id,
-              task_id=task_id,
-              checkpoint_count=state['checkpoint_misses'].get(agent_id, 0) + 1)
+## What Replaces Custom Timeout Infrastructure
 
-    state['checkpoint_misses'][agent_id] = state['checkpoint_misses'].get(agent_id, 0) + 1
+| Old System | New System |
+|---|---|
+| `AGENT_TIMEOUT` (15 min) | Native heartbeat timeout (~5 min) |
+| `CHECKPOINT_INTERVAL` (5 min) mandatory | Optional CHECKPOINT signals — informational only, not mandatory |
+| `CHECKPOINT_TIMEOUT` (30 sec) | Not needed — CHECKPOINT signals are optional; native heartbeat handles detection |
+| `DELEGATION_TIMEOUT` (10 min) | Native heartbeat timeout |
+| `DIVINE_RESPONSE_TIMEOUT` (none) | Still none — human responses have no timeout |
+| `CONTEXT_THRESHOLD` (10%) | Not needed — native 1M token context management |
+| `SESSION_THRESHOLD` (10%) | Not needed — no custom session pause |
+| `STALL_THRESHOLD` (3 missed) | Heartbeat timeout handles stall detection |
+| `TIMEOUT_ESCALATION` (3 timeouts) | Team lead tracks and escalates after 3 failures |
+| Custom checkpoint miss tracking | Not needed — native heartbeat is the detection mechanism |
+| Stalled agent recovery procedure | Native task auto-release |
 
-    if state['checkpoint_misses'][agent_id] >= 3:
-        # Agent considered stalled after 3 missed checkpoints
-        log_event("agent_stalled",
-                  agent_id=agent_id,
-                  task_id=task_id,
-                  action="marked_for_restart")
-        state['stalled_agents'].append(agent_id)
-```
+**Key principle**: The old system required teammates to send mandatory checkpoints on a fixed interval. The new system uses the native heartbeat timeout (~5 min) as the primary detection mechanism. Teammates MAY send optional CHECKPOINT signals for team lead visibility, but missing a checkpoint does NOT trigger any recovery action.
 
-### Agent Timeout Reached
+## Shutdown Timeout
 
-```python
-def handle_agent_timeout(agent_id: str, task_id: str):
-    """Handle agent exceeding 15-minute execution limit."""
+When the team lead initiates shutdown:
 
-    log_event("agent_timeout",
-              agent_id=agent_id,
-              task_id=task_id,
-              elapsed_ms=AGENT_TIMEOUT)
+1. `TeammateTool({ operation: "requestShutdown", to: "<name>" })` for each teammate
+2. Teammate finishes current work and responds with `shutdown_approved`
+3. If no response within timeout: forced termination
+4. `TeammateTool({ operation: "cleanup" })` removes team resources
 
-    # Task returns to available pool
-    move_task_to_available(task_id, reason="agent_timeout")
-
-    # Agent slot freed for new dispatch
-    remove_from_active_agents(agent_id)
-
-    # Increment task's timeout counter
-    task = get_task(task_id)
-    task['timeout_count'] = task.get('timeout_count', 0) + 1
-
-    if task['timeout_count'] >= 3:
-        # Task has timed out 3 times - escalate
-        log_event("task_repeated_timeout",
-                  task_id=task_id,
-                  count=3,
-                  action="divine_intervention")
-        add_to_pending_divine_questions(task_id, "Task times out repeatedly")
-```
-
-## Delegation Timeout
-
-Experts have a shorter timeout (10 min) than baseline agents (15 min).
-
-```python
-def dispatch_expert(delegation: dict) -> str:
-    """Dispatch with delegation-specific timeout."""
-
-    return Task(
-        model=agent_model,
-        subagent_type=agent_name,
-        prompt=prompt,
-        timeout=DELEGATION_TIMEOUT  # 10 minutes, not 15
-    )
-```
-
-**Rationale**: Experts handle focused requests, not full tasks.
-
-## Session-Level Timeouts
-
-### Context Threshold
-
-| Threshold           | Value         | Action                  |
-|---------------------|---------------|-------------------------|
-| `CONTEXT_THRESHOLD` | 10% remaining | Trigger auto-compaction |
-| `SESSION_THRESHOLD` | 10% remaining | Trigger session pause   |
-
-### Compaction Timing
-
-```python
-def check_context_threshold():
-    """Check if compaction needed."""
-
-    usage = get_current_usage()
-
-    if usage['remaining_percentage'] <= CONTEXT_THRESHOLD:
-        # Collect checkpoints with timeout
-        checkpoints = collect_checkpoints_with_timeout(
-            agents=state['active_agents'],
-            timeout=CHECKPOINT_TIMEOUT
-        )
-
-        # Proceed even if some agents don't respond
-        trigger_compaction(checkpoints)
-```
-
-## Timeout State Tracking
-
-```json
-{
-  "timeout_tracking": {
-    "checkpoint_misses": {
-      "[agent_id]": 0
-    },
-    "stalled_agents": [],
-    "task_timeouts": {
-      "[task_id]": 0
-    }
-  }
-}
-```
-
-## Recovery Procedures
-
-### Stalled Agent Recovery
-
-```python
-def recover_stalled_agent(agent_id: str):
-    """Recover from agent that stopped responding."""
-
-    task_id = get_agent_task(agent_id)
-
-    # 1. Mark agent as terminated
-    terminate_agent(agent_id)
-
-    # 2. Return task to available pool
-    move_task_to_available(task_id, reason="agent_stalled")
-
-    # 3. Clear checkpoint miss counter
-    state['checkpoint_misses'].pop(agent_id, None)
-
-    # 4. Free slot for new dispatch
-    state['active_agents'].remove(agent_id)
-
-    log_event("stalled_agent_recovered",
-              agent_id=agent_id,
-              task_id=task_id)
-```
-
-### Repeated Timeout Escalation
-
-After 3 timeouts on the same task:
-
-```python
-def escalate_repeated_timeout(task_id: str):
-    """Escalate task that repeatedly times out."""
-
-    state['pending_divine_questions'].append({
-        'task_id': task_id,
-        'question': f"Task {task_id} has timed out 3 times. Possible causes: "
-                    "task too large, unclear requirements, or infrastructure issue. "
-                    "How should we proceed?",
-        'options': [
-            "Split task into smaller subtasks",
-            "Clarify requirements",
-            "Increase timeout for this task",
-            "Skip task and continue"
-        ],
-        'asked_at': datetime.now().isoformat()
-    })
-```
-
-## Timeout Configuration
-
-All timeouts are configurable in the orchestrator prompt:
-
-```markdown
-### Timeout Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_TIMEOUT` | 900000 | Agent execution limit (ms) |
-| `CHECKPOINT_INTERVAL` | 300000 | Checkpoint request frequency (ms) |
-| `CHECKPOINT_TIMEOUT` | 30000 | Checkpoint response wait (ms) |
-| `DELEGATION_TIMEOUT` | 600000 | Expert limit (ms) |
-| `STALL_THRESHOLD` | 3 | Missed checkpoints before stall |
-| `TIMEOUT_ESCALATION` | 3 | Timeouts before divine intervention |
-```
+---
 
 ## Cross-References
 
-- Checkpoint protocol: [task-delivery-loop.md](task-delivery-loop.md)
-- Session management: [session-management.md](session-management.md)
-- State tracking: [state-management.md](state-management.md)
+- [Progress Monitoring](agent-context-management.md#progress-monitoring-team-lead) - How the team lead monitors progress
+- [Session Management](session-management.md) - Session lifecycle
+- [State Management](state/index.md) - Task state tracking
+- [Team Architecture](team-architecture.md) - Failure handling

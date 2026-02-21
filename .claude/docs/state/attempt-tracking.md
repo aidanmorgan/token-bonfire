@@ -2,43 +2,40 @@
 
 [← Back to State Management](index.md)
 
-Track attempts across agent crashes and session restarts to enforce escalation paths.
+Track attempts across expert crashes and session restarts to enforce escalation paths. The team lead maintains attempt counts in its context, and they can be reconstructed from task list state and mailbox history on resume.
 
 ---
 
 ## Attempt Tracking Structure
 
-```json
-{
-  "task_attempts": {
-    "task-3-1-1": {
-      "self_solve_attempts": 2,
-      "delegation_attempts": 1,
-      "audit_failures": 1,
-      "critic_failures": 0,
-      "critic_timeouts": 0,
-      "incomplete_count": 0,
-      "signal_rejections": 1,
-      "last_attempt_at": "2025-01-16T10:30:00Z",
-      "escalation_level": "delegation",
-      "last_blocker": null,
-      "history": [...]
-    }
-  }
-}
-```
+The team lead tracks per-task attempt counts:
+
+| Field | Type | Description |
+|---|---|---|
+| `self_solve_attempts` | Integer | Times an expert attempted this task |
+| `audit_failures` | Integer | Times auditor rejected this task |
+| `critic_failures` | Integer | Times critic rejected this task |
+| `critic_timeouts` | Integer | Times critic timed out on this task |
+| `clarification_requests` | Integer | Times expert asked for clarification |
 
 ## Escalation Thresholds
 
-| Attempt Type          | Threshold | Escalation Action                      |
-|-----------------------|-----------|----------------------------------------|
-| `self_solve_attempts` | 3         | Escalate to delegation                 |
-| `delegation_attempts` | 3         | Escalate to divine intervention        |
-| `audit_failures`      | 3         | Halt task, require human review        |
-| `critic_failures`     | 3         | Halt task, require human review        |
-| `critic_timeouts`     | 3         | Re-dispatch critic with same task      |
-| `incomplete_count`    | 3         | Escalate to divine intervention        |
-| `signal_rejections`   | 5         | Notify coordinator of persistent issue |
+| Attempt Type | Threshold | Escalation Action |
+|---|---|---|
+| `self_solve_attempts` | 3 | Team lead investigates, considers reassigning to different expert |
+| `audit_failures` | 3 | Team lead investigates root cause, escalates via `AskUserQuestion` |
+| `critic_failures` | 3 | Team lead investigates root cause, escalates via `AskUserQuestion` |
+| `critic_timeouts` | 3 | Bypass critic, send directly to auditor |
+| `clarification_requests` | 3 | Team lead escalates to user via `AskUserQuestion` |
+
+## Persistence Across Crashes
+
+On resume, attempt tracking is partially reconstructable:
+- **Task status** persists in the shared task list (via plan slug)
+- **Expert prompts** persist on disk at `.claude/experts/<plan_slug>/`
+- **Attempt counts** in the team lead's context are lost on crash, but the team lead can infer state from task list status and take conservative action (e.g., if a task has been in `needs_rework` multiple times)
+
+The team lead should note repeated `needs_rework` cycles as a signal that escalation may be needed, even if exact counts are not preserved.
 
 ---
 
@@ -46,4 +43,4 @@ Track attempts across agent crashes and session restarts to enforce escalation p
 
 - [State Fields](fields.md) - All state field definitions
 - [Update Triggers](update-triggers.md) - When attempt counts are incremented
-- [Escalation Specification](../escalation-specification.md) - Detailed escalation rules
+- [Team Architecture](../team-architecture.md) - Failure handling

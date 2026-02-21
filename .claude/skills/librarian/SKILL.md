@@ -354,7 +354,7 @@ SEPARATION PLANNING:
 │       → Cross-references for related concepts
 │
 └── Separation output format:
-    SEPARATE: "state-management.md"
+    SEPARATE: "state/index.md"
     INTO:
       - state/fields.md: "What state fields exist" (lines 10-200)
       - state/updates.md: "When state changes" (lines 201-400)
@@ -384,7 +384,7 @@ MOVEMENT PLANNING:
 └── Movement output format:
     MOVE: "Signal parsing implementation"
     FROM: task-dispatch.md (lines 200-350)
-    TO: signals/parsing.md
+    TO: signals/index.md
     REASON: Parsing details don't belong in dispatch workflow
     ACTION: Move prose, leave brief reference in source
 ```
@@ -532,7 +532,7 @@ grep -r "old_anchor" .claude/ --include="*.md"
 
 **Scan locations (MANDATORY - do not skip any):**
 - `.claude/docs/` - All documentation
-- `.claude/agents/` - Generated agent files
+- `.claude/experts/` - Generated expert agent files
 - `.claude/skills/` - Skill definitions
 - `.claude/commands/` - Command definitions
 - `.claude/prompts/` - Prompt templates
@@ -607,7 +607,7 @@ Verification:
 
 Scanned Locations:
 ✓ .claude/docs/ ({N} files)
-✓ .claude/agents/ ({N} files)
+✓ .claude/experts/ ({N} files)
 ✓ .claude/skills/ ({N} files)
 ✓ .claude/commands/ ({N} files)
 ✓ .claude/prompts/ ({N} files)
@@ -704,7 +704,7 @@ REFERENCE INTEGRITY (MANDATORY):
 --------------------------------
 Locations scanned:
   ✓ .claude/docs/ ({N} files)
-  ✓ .claude/agents/ ({N} files)
+  ✓ .claude/experts/ ({N} files)
   ✓ .claude/skills/ ({N} files)
   ✓ .claude/commands/ ({N} files)
   ✓ .claude/prompts/ ({N} files)

@@ -2,70 +2,17 @@
 
 Configuration variables for the whole project, consistent between creating teams to implement plans.
 
-## Directory Structure
+## Team Configuration
 
-All plan-related files are organized under `.claude/bonfire/[plan]/`:
-
-```
-.claude/bonfire/[plan]/
-├── state.json              # Coordinator state persistence
-├── event-log.jsonl         # Event store for all operations
-├── .trash/                 # Deleted files (recoverable)
-│   └── [uuid]-[original-name]
-│       ├── content         # Original file content
-│       └── metadata.json   # Recovery metadata
-├── .scratch/               # Agent scratch files (temporary work)
-└── .artefacts/             # Inter-agent artifact transfer
-```
-
-## Core Files
-
-| Variable        | Value                      | Description                                      |
-|-----------------|----------------------------|--------------------------------------------------|
-| `TRASH_DIR`     | `{{PLAN_DIR}}/.trash/`     | Deleted files storage (recoverable via metadata) |
-| `SCRATCH_DIR`   | `{{PLAN_DIR}}/.scratch/`   | Agent scratch files for temporary work           |
-| `ARTEFACTS_DIR` | `{{PLAN_DIR}}/.artefacts/` | Inter-agent artifact transfer directory          |
-
-## Directory Derivation
-
-The `[plan]` component is derived from the plan file name:
-
-```python
-def derive_plan_directory(plan_file):
-    """Derive plan directory from plan file path."""
-    # Example: COMPREHENSIVE_IMPLEMENTATION_PLAN.md -> comprehensive-implementation-plan
-    basename = os.path.basename(plan_file)
-    name_without_ext = os.path.splitext(basename)[0]
-    slug = name_without_ext.lower().replace('_', '-')
-    return f".claude/bonfire/{slug}/"
-```
-
-## Thresholds
-
-| Variable                   | Value        | Description                                   |
-|----------------------------|--------------|-----------------------------------------------|
-| `CONTEXT_THRESHOLD`        | `10%`        | Trigger auto-compaction at this context level |
-| `SESSION_THRESHOLD`        | `10%`        | Trigger session pause at this session level   |
-| `RECENT_COMPLETION_WINDOW` | `60 minutes` | Re-audit tasks completed within this window   |
-
-## Parallel Execution Limits
-
-| Variable               | Value    | Description                                                     |
-|------------------------|----------|-----------------------------------------------------------------|
-| `ACTIVE_DEVELOPERS`    | `5`      | Maximum parallel developer agents                               |
-| `REMEDIATION_ATTEMPTS` | `10`     | Maximum remediation cycles before failure                       |
-| `TASK_FAILURE_LIMIT`   | `3`      | Maximum audit failures per task before abort                    |
-| `AGENT_TIMEOUT`        | `900000` | Agent timeout in milliseconds (15 minutes) - tracked internally |
-
-## Agent Models
-
-| Agent Type       | Model    | Description                          |
-|------------------|----------|--------------------------------------|
-| `coordinator`    | `opus`   | Orchestrates workflow, manages state |
-| `developer`      | `sonnet` | Implements tasks, writes code        |
-| `auditor`        | `opus`   | Validates completed work             |
-| `remediation`    | `sonnet` | Fixes infrastructure issues          |
-| `health_auditor` | `haiku`  | Runs verification commands           |
+| Variable              | Value    | Description                                                                 |
+|-----------------------|----------|-----------------------------------------------------------------------------|
+| `NUM_DEVELOPERS`      | `5`      | Number of parallel developer agents that write code                        |
+| `DEVELOPER_MODEL`     | `sonnet` | Model for developer agents                                                 |
+| `MAX_EXPERTS`         | `3`      | Maximum number of advisory expert agents (actual count determined by plan)  |
+| `EXPERT_MODEL`        | `sonnet` | Model for expert advisor and review pipeline agents                        |
+| `AUDITOR_MODEL`       | `opus`   | Model for auditor teammate                                                 |
+| `TASK_FAILURE_LIMIT`  | `3`      | Maximum review/audit failures per task before escalating to user            |
+| `REMEDIATION_ATTEMPTS`| `3`      | Maximum remediation cycles before escalating infrastructure issues to user  |
 
 ## Environments
 
@@ -78,19 +25,21 @@ def derive_plan_directory(plan_file):
 | Column      | Description                                                                                                                               |
 |-------------|-------------------------------------------------------------------------------------------------------------------------------------------|
 | Pattern     | Glob pattern matching files to provide                                                                                                    |
-| Agent       | Target agent type. Empty means all agents. Valid: `developer`, `auditor`, `remediation`                                                   |
-| Environment | Target environment from `ENVIRONMENTS`. Empty means all environments.                                                                     |
+| Agent       | Target agent type. Empty means all agents. Valid: `developer`, `expert`, `critic`, `auditor`                                              |
+| Environment | Target environment from Environments table. Empty means all environments.                                                                 |
 | Must Read   | If `Y`, agent must read file fully without summarization before starting work. If empty, file path is added to context as reference only. |
 | Purpose     | Why this document is provided                                                                                                             |
 
-| Pattern                   | Agent     | Environment | Must Read | Purpose                                                                            |
-|---------------------------|-----------|-------------|-----------|------------------------------------------------------------------------------------|
-| `design/rules.md`         |           |             | Y         | Python development standards and compliance requirements that all code must follow |
-| `design/architecture.md`  |           |             |           | System architecture showing component relationships and boundaries                 |
-| `ARCHITECTURE.md`         |           |             |           | High-level component overview and module structure                                 |
-| `design/testing-guide.md` | developer |             | Y         | Test writing standards and patterns                                                |
+| Pattern                   | Agent      | Environment | Must Read | Purpose                                                                            |
+|---------------------------|------------|-------------|-----------|------------------------------------------------------------------------------------|
+| `design/rules.md`         |            |             | Y         | Python development standards and compliance requirements that all code must follow |
+| `design/architecture.md`  |            |             |           | System architecture showing component relationships and boundaries                 |
+| `ARCHITECTURE.md`         |            |             |           | High-level component overview and module structure                                 |
+| `design/testing-guide.md` | developer  |             | Y         | Test writing standards and patterns                                                |
 
 ### Developer Commands
+
+Commands developer agents run after implementing a task (self-verification before signaling ready-for-review).
 
 | Task              | Environment | Command                     | Purpose                                                                                   |
 |-------------------|-------------|-----------------------------|-------------------------------------------------------------------------------------------|
@@ -101,12 +50,14 @@ def derive_plan_directory(plan_file):
 
 ### Verification Commands
 
+Commands the auditor runs to independently verify task completion.
+
 | Check             | Environment | Command                              | Exit Code | Purpose                                                                                      |
 |-------------------|-------------|--------------------------------------|-----------|----------------------------------------------------------------------------------------------|
 | Type Check        |             | `uv run pyright`                     | 0         | Type errors indicate incorrect assumptions about data flow that cause runtime failures       |
 | Unit Tests        |             | `uv run pytest tests/unit -v`        | 0         | Failing unit tests indicate broken functionality that blocks downstream work                 |
 | Integration Tests |             | `uv run pytest tests/integration -v` | 0         | Component interaction failures cause production bugs that are expensive to diagnose          |
-| E2E Tests         |             | `uv run pytest tests/e2e -v`         | 0         | End-to-end failures reveal broken user workflows that unit tests miss                        |
+| E2E Tests         |             | `uv run pytest tests/e2e -v`        | 0         | End-to-end failures reveal broken user workflows that unit tests miss                        |
 | Lint Check        |             | `uv run ruff check .`                | 0         | Lint violations indicate potential bugs or non-idiomatic code that causes maintenance issues |
 | Format Check      |             | `uv run ruff format --check .`       | 0         | Formatting inconsistencies cause merge conflicts and reduce code readability                 |
 
@@ -116,8 +67,6 @@ Variable: `MCP_SERVERS`
 
 MCP (Model Context Protocol) servers extend agent capabilities with specialized tools.
 Each row represents one callable function. Agents receive this table and may ONLY invoke functions listed here.
-
-For interpretation guidance, see: [MCP Servers Guide](.claude/docs/mcp-servers.md)
 
 | Server          | Function             | Example                                                                                       | Use When                                                                |
 |-----------------|----------------------|-----------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|

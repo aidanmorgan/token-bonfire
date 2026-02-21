@@ -1,13 +1,13 @@
-# Orchestrator Generation
+# Team Lead Generation
 
-How to bootstrap the Token Bonfire orchestrator with a plan file.
+How to bootstrap the Token Bonfire team lead with a plan file.
 
 ---
 
-## What is the Orchestrator?
+## What is the Team Lead?
 
-The **orchestrator** is the brain of Token Bonfire—a coordinator that transforms a plan file into a running multi-agent
-system.
+The **team lead** is the brain of Token Bonfire — it transforms a plan file into a running multi-agent
+team using Claude Code's native Agent Teams primitives.
 
 ### The Problem It Solves
 
@@ -20,19 +20,20 @@ A single LLM agent can implement code, but struggles with:
 
 ### The Solution: Specialized, Researched Agents
 
-The orchestrator solves this by creating **specialized agents at runtime**:
+The team lead solves this by creating **specialized agents at runtime**:
 
 1. **Researches** the technologies in your plan to gather best practices
 2. **Generates** agent prompts tailored to your specific project
-3. **Creates experts** for domains where baseline agents lack depth
-4. **Coordinates** the workflow: Developer → Critic → Auditor → Complete
+3. **Creates expert advisors** for domains where developers lack depth
+4. **Coordinates** the workflow: Developer -> Critic -> Ripple -> Auditor -> Complete
 
-Each agent has a focused role with clear boundaries. Developers don't review their own code—Critics do. Critics don't
-verify acceptance criteria—Auditors do. This separation creates genuine quality gates.
+Each teammate has a focused role with clear boundaries. Developers don't review their own code -- the Critic does.
+Developers don't verify acceptance criteria -- the Auditor does independently. This separation creates genuine quality
+gates.
 
 ### Why Research-Driven?
 
-Agents are only as good as their instructions. Instead of static prompts, the orchestrator:
+Agents are only as good as their instructions. Instead of static prompts, the team lead:
 
 - Researches current best practices for each technology
 - Synthesizes this research into agent-specific guidance
@@ -44,15 +45,15 @@ This means a Python project gets Python-specific best practices, not generic adv
 
 ## Overview
 
-The orchestrator is the central coordinator that:
+The team lead is the central coordinator that:
 
 1. Analyzes a plan to understand requirements
-2. **Generates ALL agent prompts** - both baseline agents and plan-specific experts
-3. Manages the task delivery loop
-4. Handles state persistence and recovery
+2. **Generates ALL agent prompts** - both role prompts and plan-specific experts
+3. Creates tasks via `TaskCreate` and manages the shared task list
+4. Spawns teammates via `Task()` with background execution
+5. Monitors progress via mailbox messages
 
-**CRITICAL**: The orchestrator GENERATES agent prompts during bootstrap. It does not rely on pre-existing agent
-definitions. Each session creates tailored agent definitions based on the specific plan being executed.
+**CRITICAL**: Static roles (developer, critic, auditor, etc.) use pre-existing `.claude/agents/*.md` definition files with YAML frontmatter. Only expert advisors are generated at runtime based on the specific plan being executed. The team lead composes agent-specific research but does NOT regenerate the static definition files.
 
 ---
 
@@ -62,35 +63,37 @@ definitions. Each session creates tailored agent definitions based on the specif
 |--------------------------------|--------------------------------------------------------|
 | Research & knowledge synthesis | [research-synthesis.md](research-synthesis.md)         |
 | Gap analysis for experts       | [gap-analysis-procedure.md](gap-analysis-procedure.md) |
-| Agent prompt generation        | [agent-generation.md](agent-generation.md)             |
-| Task quality assessment        | [task-quality.md](task-quality.md)                     |
-| State management               | [state-schema.md](state-schema.md)                     |
-| Event logging                  | [event-schema.md](event-schema.md)                     |
+| Agent prompt generation        | [agent-generation/index.md](agent-generation/index.md) |
+| Task quality assessment        | [../task-quality.md](../task-quality.md)               |
+| Task list schema               | [../state/index.md](../state/index.md)                 |
+| Communication messages         | [../signals/index.md](../signals/index.md)             |
 
 ---
 
-## Core Agents
+## Static Agents (Always Present)
 
-| Agent           | Role                 | Why Core                         |
+| Teammate        | Role                 | Why Always Needed                |
 |-----------------|----------------------|----------------------------------|
-| **Developer**   | Implements tasks     | Primary executor                 |
-| **Critic**      | Reviews code quality | Quality gate before audit        |
-| **Auditor**     | Formal verification  | Acceptance criteria verification |
-| **Remediation** | Fixes infrastructure | Build/test failures              |
+| **Developers**  | Implement tasks      | Primary executors (5 sonnet)     |
+| **Critic**      | Code quality review  | Quality gate (sonnet)            |
+| **Ripple**      | Second-order effects | Downstream impact analysis (sonnet) |
+| **Auditor**     | Verify acceptance    | AC verification (opus)           |
 
-These agents are created automatically in both NEW and RESUME flows.
+These teammates are spawned automatically in both NEW and RESUME flows.
 
-### Non-Core Default Agents
+### On-Demand Static Agents
 
-| Agent            | Role               | When Needed          |
-|------------------|--------------------|----------------------|
-| Business Analyst | Task expansion     | Underspecified tasks |
-| Health Auditor   | State verification | Recovery scenarios   |
+| Teammate         | Role               | When Needed          |
+|------------------|---------------------|----------------------|
+| Business Analyst | Task expansion      | Underspecified tasks |
+| Health Auditor   | State verification  | Recovery scenarios   |
+| Remediation      | Fix infrastructure  | Build/test failures  |
 
 ### Experts
 
 Experts are specialist agents created per-plan to fill gaps.
-See [expert-creation.md](../agent-creation/expert-creation.md).
+See [Expert Creation Guide](../agent-creation/expert-creation/index.md).
+Experts are persisted to `.claude/experts/<plan_slug>/`.
 
 ---
 
@@ -98,37 +101,30 @@ See [expert-creation.md](../agent-creation/expert-creation.md).
 
 | Scenario     | Detection                         | Action                                                                      |
 |--------------|-----------------------------------|-----------------------------------------------------------------------------|
-| **NEW**      | No state file exists              | Full bootstrap: parse plan, research, generate all agents, capture baseline |
-| **RESUME**   | State file exists, clean pause    | Load state, verify agents, continue from last position                      |
-| **RECOVERY** | State file exists, no clean pause | Recover state from event log, reconcile orphans, then resume                |
+| **NEW**      | No tasks in shared task list      | Full bootstrap: parse plan, research, generate all agents, create tasks     |
+| **RESUME**   | Tasks exist in shared task list   | Load existing tasks, verify prompts, spawn fresh teammates, continue        |
 
 ### Decision Tree
 
-1. State file exists?
-    - NO → NEW
-    - YES → Valid JSON?
-        - NO → RECOVERY → then RESUME
-        - YES → Clean pause recorded?
-            - YES → RESUME
-            - NO → RECOVERY → then RESUME
+1. Check shared task list via `TaskList`
+    - Empty -> NEW
+    - Has tasks -> RESUME
 2. Pre-flight validation
-    - FAIL → Halt with error
-    - PASS → Continue to session-specific flow
+    - FAIL -> Halt with error
+    - PASS -> Continue to session-specific flow
 
 ### Critical Steps by Session Type
 
-| Step                          | NEW | RESUME             | RECOVERY            |
-|-------------------------------|-----|--------------------|---------------------|
-| Pre-flight validation         | Yes | Yes                | Yes                 |
-| Load state                    | -   | Yes                | Reconstruct         |
-| Parse plan                    | Yes | Yes                | Yes                 |
-| Research best practices       | Yes | Yes                | Skip (use existing) |
-| Gap analysis                  | Yes | Yes (for new gaps) | Skip                |
-| Generate ALL agents           | Yes | Missing only       | Missing only        |
-| Capture pre-existing baseline | Yes | - (use existing)   | -                   |
-| Task quality assessment       | Yes | - (already done)   | -                   |
-| Recover orphaned agents       | -   | -                  | Yes                 |
-| Begin task loop               | Yes | Yes                | Yes                 |
+| Step                          | NEW | RESUME             |
+|-------------------------------|-----|--------------------|
+| Pre-flight validation         | Yes | Yes                |
+| Parse plan                    | Yes | Yes                |
+| Research best practices       | Yes | Skip (prompts are pre-existing) |
+| Gap analysis                  | Yes | Yes (for new gaps)              |
+| Generate expert advisors      | Yes | Missing only                    |
+| Create tasks via TaskCreate   | Yes | - (already exist)  |
+| Spawn teammates               | Yes | Yes (fresh)        |
+| Begin task loop               | Yes | Yes                |
 
 ---
 
@@ -136,19 +132,19 @@ See [expert-creation.md](../agent-creation/expert-creation.md).
 
 **NEW SESSION BOOTSTRAP**:
 
-1. **INITIALIZE STATE** - Create session ID, state file, event log
-2. **PARSE PLAN** - Extract tasks, dependencies, technologies, domains
-3. **RESEARCH BEST PRACTICES** - WebSearch for technologies in plan
-   → See [research-synthesis.md](research-synthesis.md)
-4. **GAP ANALYSIS** - Identify where baseline agents need expert support
-   → See [gap-analysis-procedure.md](gap-analysis-procedure.md)
-5. **AGENT GENERATION PHASE (CRITICAL)** - Generate expert prompts, baseline agent prompts, verify all created
-   → See [agent-generation.md](agent-generation.md)
-6. **ASSESS TASK QUALITY** - Classify tasks, spawn BA for underspecified ones
-   → See [task-quality.md](task-quality.md)
-7. **CAPTURE PRE-EXISTING BASELINE** - Run all verification commands before work begins
+1. **PARSE PLAN** - Extract tasks, dependencies, technologies, domains
+2. **RESEARCH BEST PRACTICES** - WebSearch for technologies in plan
+   -> See [research-synthesis.md](research-synthesis.md)
+3. **GAP ANALYSIS** - Identify where developers need expert advisory support
+   -> See [gap-analysis-procedure.md](gap-analysis-procedure.md)
+4. **AGENT GENERATION PHASE (CRITICAL)** - Generate expert advisor prompts, compose agent-specific research, verify all created
+   -> See [agent-generation/index.md](agent-generation/index.md)
+5. **ASSESS TASK QUALITY** - Classify tasks, spawn BA for underspecified ones
+   -> See [task-quality.md](task-quality.md)
+6. **CREATE TASKS** - Use `TaskCreate` for each task from the plan, set dependencies via `TaskUpdate({ addBlockedBy })`
+7. **SPAWN TEAMMATES** - Spawn developers, critic, auditor, and expert advisors as named teammates via `Task({ team_name, name, run_in_background: true })`
 8. **BEGIN TASK DELIVERY LOOP**
-   → See [Task Delivery Loop](../task-delivery-loop.md)
+   -> See [Task Delivery Loop](../task-delivery-loop.md)
 
 ---
 
@@ -156,12 +152,12 @@ See [expert-creation.md](../agent-creation/expert-creation.md).
 
 **RESUME SESSION FLOW**:
 
-1. **LOAD STATE** - Load existing state, update session ID
+1. **CHECK TASK LIST** - `TaskList` returns all existing tasks with current status
 2. **PRE-FLIGHT VALIDATION** - Verify environment is ready
-3. **RECOVERY CHECKS** - Validate state consistency
-4. **RE-PARSE PLAN** - Plan may have changed since last session
-5. **RESEARCH BEST PRACTICES** - Needed for any agent creation/updates
-6. **AGENT VERIFICATION & GENERATION** - Verify core agents exist, generate missing, re-run gap analysis
+3. **RE-PARSE PLAN** - Plan may have changed since last session
+4. **SKIP RESEARCH** - Do NOT re-run research synthesis (per team-lead.md: prompts are pre-existing)
+5. **AGENT VERIFICATION** - Verify static agent definitions and expert prompts exist; generate missing experts only
+6. **SPAWN FRESH TEAMMATES** - Spawn developers, critic, auditor, and expert advisors using persisted prompts
 7. **BEGIN TASK DELIVERY LOOP** - Continue from where we left off
 
 ---
@@ -173,7 +169,7 @@ See [expert-creation.md](../agent-creation/expert-creation.md).
 | Check                | What                                    | Blocking |
 |----------------------|-----------------------------------------|----------|
 | Plan file            | Exists and contains required sections   | Yes      |
-| Required directories | `.claude/agents`, `.claude/state`, etc. | Yes      |
+| Required directories | `.claude/agents`, `.claude/experts`     | Yes      |
 | Agent templates      | All creation templates exist            | Yes      |
 | Verification tools   | Basic tool availability                 | Warning  |
 | Environments         | Listed environments accessible          | Warning  |
@@ -182,119 +178,33 @@ See [environment-verification.md](../environment-verification.md) for details.
 
 ---
 
-## Pre-Existing Failures Baseline
-
-**NEW sessions only**: Capture baseline before any work begins.
-
-This distinguishes:
-
-- Pre-existing failures (existed before we started)
-- Task-introduced failures (caused by our work)
-
-See [recovery-procedures.md](../recovery-procedures.md) for baseline handling.
-
----
-
-## Session Type Detection
-
-```python
-def detect_session_type(plan_file: str) -> str:
-    """Determine session type: 'NEW' | 'RESUME' | 'RECOVERY'"""
-
-    state_file = get_state_file_path(plan_file)
-
-    if not os.path.exists(state_file):
-        return 'NEW'
-
-    try:
-        state = json.loads(Read(state_file))
-
-        if state.get('paused_at'):
-            return 'RESUME'
-
-        last_event = get_last_event(event_log_file)
-        if last_event and last_event.get('event_type') == 'session_pause':
-            return 'RESUME'
-
-        return 'RECOVERY'
-
-    except (json.JSONDecodeError, IOError):
-        return 'RECOVERY'
-```
-
----
-
-## Main Entry Point
-
-```python
-def start_orchestrator(plan_file: str) -> None:
-    """Start or resume orchestrator."""
-
-    session_type = detect_session_type(plan_file)
-
-    if session_type == 'RECOVERY':
-        state = coordinator_recovery()
-        session_type = 'RESUME'
-
-    # Pre-flight validation (both flows)
-    pre_flight_results = pre_flight_validation(plan_file, CONFIG)
-    if not pre_flight_results['passed']:
-        raise PreFlightValidationError(pre_flight_results['blocking_issues'])
-
-    artefacts_dir = get_artefacts_dir(plan_file)
-
-    if session_type == 'RESUME':
-        state = load_state(f"{artefacts_dir}/state.json")
-        best_practices = get_or_refresh_research(plan_file, artefacts_dir, force_refresh=False)
-        ensure_core_agents_exist(best_practices, state.get('experts', []))
-    else:
-        # NEW: Full bootstrap
-        state = initialize_orchestrator(plan_file, artefacts_dir)
-
-        # Research phase
-        best_practices = get_or_refresh_research(plan_file, artefacts_dir, force_refresh=True)
-        reference_docs = best_practices.get('reference_documentation', {})
-
-        # Gap analysis
-        gaps = analyze_gaps(plan_file, reference_docs=reference_docs)
-
-        # Generate all agents
-        experts = execute_agent_generation_phase(gaps, plan_file, best_practices, artefacts_dir)
-        capture_and_store_baseline(plan_file, CONFIG, state)
-
-    begin_task_loop(state)
-```
-
----
-
 ## Directory Structure After Bootstrap
 
 ```
 .claude/agents/
-├── developer.md
-├── critic.md
-├── auditor.md
-├── business-analyst.md
-├── remediation.md
-├── health-auditor.md
-└── experts/
-    └── [plan-specific experts].md
++-- developer.md
++-- critic.md
++-- ripple.md
++-- auditor.md
++-- remediation.md
++-- health-auditor.md
++-- business-analyst.md
 
-.claude/bonfire/[plan-name]/
-├── state.json
-├── events.jsonl
-├── best-practices-research.json
-├── agent-research/
-│   ├── developer.md          # Long-form research essay for Developer agent
-│   ├── critic.md             # Long-form research essay for Critic agent
-│   ├── auditor.md            # Long-form research essay for Auditor agent
-│   ├── remediation.md        # Long-form research essay for Remediation agent
-│   └── health-auditor.md     # Long-form research essay for Health Auditor agent
-└── expert-research/
-    ├── [expert-name].md      # Long-form research essay for each expert
-    ├── crypto-expert.md      # Example: Cryptography expert research
-    ├── api-versioning-expert.md  # Example: API versioning expert research
-    └── ...
+.claude/experts/<plan_slug>/
++-- [plan-specific experts].md
+
+.claude/bonfire/<plan-slug>/
++-- best-practices-research.json
++-- agent-research/
+|   +-- developer.md           # Long-form research essay for Developer
+|   +-- critic.md              # Long-form research essay for Critic
+|   +-- auditor.md             # Long-form research essay for Auditor
+|   +-- remediation.md         # Long-form research essay for Remediation
+|   +-- health-auditor.md      # Long-form research essay for Health Auditor
++-- expert-research/
+    +-- [expert-name].md       # Long-form research essay for each expert
+    +-- crypto-expert.md       # Example: Cryptography expert research
+    +-- api-versioning-expert.md  # Example: API versioning expert research
 ```
 
 ### Research Essay Contents
@@ -307,7 +217,7 @@ Each research essay in `agent-research/` and `expert-research/` contains:
 | **Research Sources**             | Tables of all project docs, web searches, and codebase patterns analyzed |
 | **Knowledge Synthesis**          | Long-form prose synthesizing all sources into coherent guidance          |
 | **Project-Specific Adaptations** | How this project differs from standard practices                         |
-| **Delegation Guidance**          | (Baseline agents) Which experts to consult and when                      |
+| **Delegation Guidance**          | (Static agents) Which experts to consult and when                        |
 | **Quality Criteria**             | What "good" looks like for this agent's outputs                          |
 | **Research Gaps**                | Areas where research was limited or assumptions were made                |
 | **Raw Research Data**            | Collapsible section with full research transcripts                       |
@@ -323,20 +233,18 @@ These essays serve as:
 
 ## Related Documentation
 
-### Orchestrator Sub-Documents
+### Sub-Documents
 
 - [research-synthesis.md](research-synthesis.md) - Knowledge gathering and synthesis
 - [gap-analysis-procedure.md](gap-analysis-procedure.md) - Expert identification
-- [agent-generation.md](agent-generation.md) - Agent prompt creation
-- [task-quality.md](task-quality.md) - Task assessment
-- [state-schema.md](state-schema.md) - State file format
-- [event-schema.md](event-schema.md) - Event log format
+- [agent-generation/index.md](agent-generation/index.md) - Agent prompt creation
+- [../task-quality.md](../task-quality.md) - Task assessment
+- [../state/index.md](../state/index.md) - Task list schema
+- [../signals/index.md](../signals/index.md) - Communication message reference
 
 ### External References
 
 - [Task Delivery Loop](../task-delivery-loop.md) - Main execution loop
-- [Expert Creation](../agent-creation/expert-creation.md) - Creating expert agents
-- [State Management](../state-management.md) - State persistence
-- [Recovery Procedures](../recovery-procedures.md) - Error recovery
-- [Session Management](../session-management.md) - Pause/resume protocols
+- [Expert Creation](../agent-creation/expert-creation/index.md) - Creating expert agents
+- [Team Architecture](../team-architecture.md) - Team structure and communication
 - [Environment Verification](../environment-verification.md) - Environment checks

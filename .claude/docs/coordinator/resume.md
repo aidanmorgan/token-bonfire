@@ -1,200 +1,108 @@
-# Coordinator Resume
+# Team Lead Resume
 
-Resume session procedures when state file exists.
+Resume session procedures when tasks already exist in `TaskList`.
 
 ---
 
 ## Navigation
 
-- [Startup Overview](startup-overview.md) - Overview and decision logic
 - [Fresh Start](fresh-start.md) - Fresh session initialization
 - **[Resume](resume.md)** - This file
-- [Coordinator Configuration](../coordinator-configuration.md) - Configuration values
-- [State Management](../state-management.md) - State tracking
+- [Team Lead Configuration](../coordinator-configuration.md) - Configuration values
+- [Team Architecture](../team-architecture.md) - Team structure and communication
 
 ---
 
-## RESUME FROM STATE (State File Exists)
+## RESUME FROM EXISTING TASKS (Tasks Exist in TaskList)
 
-**CRITICAL**: The coordinator must properly restore state and handle interrupted work.
+**CRITICAL**: The team lead must properly restore state from `TaskList` and handle interrupted work.
 
-### Step 1: Load State File
+### Step 1: Load Task State
 
-Read `{{STATE_FILE}}` and restore coordinator memory.
+Call `TaskList` to retrieve all tasks and their current status. This is the source of truth for what work has been done, what is in progress, and what remains.
 
-### Step 2: Generate New Session ID
+### Step 2: Verify Agent Definitions Exist
 
-Create a new UUID for this session, preserving the previous one:
+Check that all required agent definition files exist.
 
-```json
-{
-  "session_id": "<new UUID>",
-  "session_started_at": "<current ISO-8601 timestamp>",
-  "previous_session_id": "<session_id from loaded state>",
-  "session_resume_count": "<previous count + 1>"
-}
-```
+**Required agent definitions:**
 
-### Step 3: Log Session Resume Event
-
-```json
-{
-  "event": "session_resumed",
-  "session_id": "<new session ID>",
-  "previous_session_id": "<old session ID>",
-  "resumed_at": "<ISO-8601>",
-  "state_saved_at": "<saved_at from state file>"
-}
-```
-
-### Step 4: Verify Agent Files Exist
-
-Check that all required agent files exist.
-
-```python
-REQUIRED_AGENTS = [
-    ("developer", ".claude/agents/developer.md"),
-    ("auditor", ".claude/agents/auditor.md"),
-    ("business-analyst", ".claude/agents/business-analyst.md"),
-    ("remediation", ".claude/agents/remediation.md"),
-    ("health-auditor", ".claude/agents/health-auditor.md"),
-    ("critic", ".claude/agents/critic.md"),
-]
-
-missing_agents = []
-for name, path in REQUIRED_AGENTS:
-    if not os.path.exists(path):
-        missing_agents.append(name)
-```
+| Teammate         | File Path                          |
+|------------------|------------------------------------|
+| Developer        | `.claude/agents/developer.md`      |
+| Critic           | `.claude/agents/critic.md`         |
+| Auditor          | `.claude/agents/auditor.md`        |
 
 **Decision Logic:**
 
-- If ALL agents exist → Use existing agents, proceed to step 5
-- If ANY agent is missing → Regenerate ALL agents AND experts
+- If ALL definitions exist -> Use existing, proceed to step 3
+- If ANY definition is missing -> Cannot proceed (agent definitions are checked into the repo)
 
-**If agents need regeneration:**
+**Also verify expert prompts exist:**
 
-1. Run best practices research (see FRESH START step 4)
-2. Run gap analysis (see FRESH START step 5) - includes deleting existing experts
-3. Create experts (see FRESH START step 6)
-4. Create ALL agent files with expert list embedded (see FRESH START step 7)
-5. Update state with new `agents_regenerated_at` timestamp
+Check the `.claude/experts/{{PLAN_NAME}}/` directory for expected expert prompt files based on the plan.
 
-Log the check result:
+For missing expert prompts only, run gap analysis and create the missing ones. Existing expert prompts are reused since they were created for this same plan.
 
-```json
-{
-  "event": "resume_agent_check",
-  "missing_agents": ["critic"],
-  "decision": "regenerate_all" | "use_existing"
-}
-```
+### Step 3: Re-spawn the Team
 
-**If using existing agents:** Also verify experts exist:
-
-```python
-# Check if experts from state still exist
-missing_experts = []
-for expert in state.get('available_experts', []):
-    expert_path = f".claude/agents/experts/{expert['name']}.md"
-    if not os.path.exists(expert_path):
-        missing_experts.append(expert['name'])
-
-# If any experts missing, recreate just the missing ones
-# (unlike agents, we don't regenerate all experts if some are missing)
-```
-
-For missing experts only, run gap analysis and create the missing experts.
-Existing experts are reused since they were created for this same plan.
-
-### Step 5: Handle In-Progress Tasks
-
-All tasks in `in_progress_tasks` are considered **INCOMPLETE** and must be restarted:
+All named teammates must be re-spawned since they do not persist across sessions:
 
 ```
-FOR EACH task in in_progress_tasks:
-  1. Move task back to available_tasks
-  2. Clear any associated agent tracking
-  3. Log event: task_restarted_on_resume
-     - task_id
-     - previous_status (implementing, awaiting-audit, etc.)
-     - reason: "session_interrupted"
+Task({ team_name: "bonfire", name: "critic", run_in_background: true, ... })
+Task({ team_name: "bonfire", name: "auditor", run_in_background: true, ... })
+Task({ team_name: "bonfire", name: "business-analyst", run_in_background: true, ... })
+Task({ team_name: "bonfire", name: "remediation", run_in_background: true, ... })
+Task({ team_name: "bonfire", name: "health-auditor", run_in_background: true, ... })
+
+# Re-spawn expert agents
+for each expert prompt file in .claude/experts/{{PLAN_NAME}}/:
+    Task({ team_name: "bonfire", name: expert.name, run_in_background: true,
+           prompt: Read(expert prompt file) })
 ```
 
-**Rationale**: We cannot know the state of interrupted agents. Partial work may exist but is unreliable. Starting
-fresh is safer.
+### Step 4: Handle In-Progress Tasks
 
-### Step 6: Handle Pending Audit Tasks
+All tasks with status `in_progress` in `TaskList` are considered **INCOMPLETE** and must be restarted:
 
-Tasks in `pending_audit` are treated as incomplete since the audit never happened:
+For each in-progress task:
+1. Call `TaskUpdate({ taskId, status: "pending" })` to reset it
+2. The task becomes available for developer assignment again
 
-```
-FOR EACH task in pending_audit:
-  1. Move task back to available_tasks
-  2. Log event: task_restarted_on_resume
-     - task_id
-     - previous_status: "pending_audit"
-     - reason: "audit_interrupted"
-```
+**Rationale**: We cannot know the state of interrupted teammates. Partial work may exist but is unreliable. Starting fresh is safer.
 
-### Step 7: Re-Verify Recent Completions
+### Step 5: Handle In-Review Tasks
 
-Find the last event timestamp in `{{EVENT_LOG_FILE}}`. Tasks completed within
-`{{RECENT_COMPLETION_WINDOW}}` of that timestamp must be re-audited:
+Since review pipeline stages are tracked in the team lead context (not as `TaskUpdate` statuses), tasks in the shared task list will only be `in_progress` or `completed` when the session resumes. Any task that was mid-review is treated as incomplete since the review never completed:
 
-```
-last_event_time = timestamp of final event in EVENT_LOG_FILE
+For each task that was `in_progress` (already handled in Step 4, which resets to `pending`), the team lead restarts the full Developer -> Critic -> Ripple -> Auditor pipeline from scratch. No special handling is needed for review pipeline state — it is reconstructed as developers re-implement and re-signal.
 
-FOR EACH task_id, completion_data in completed_tasks:
-  IF (last_event_time - completion_data.completed_at) <= {{RECENT_COMPLETION_WINDOW}}:
-    1. Move task from completed_tasks to pending_audit
-    2. Log event: task_reverification_required
-       - task_id
-       - completed_at
-       - last_event_time
-       - time_since_completion
-       - reason: "completed_near_session_end"
-```
+### Step 6: Re-Verify Recent Completions
 
-**Rationale**: Tasks completed near session end may have passed audit but subsequent work could have broken them.
-Re-verification ensures integrity.
+Tasks completed recently (within `{{RECENT_COMPLETION_WINDOW}}`) should be re-audited to ensure subsequent work did not break them:
 
-### Step 8: Reconcile State with Plan
+For each recently completed task:
+1. Route to `auditor` teammate via mailbox for re-verification (do NOT reset status to `pending` unless the auditor fails — `completed` status is only cleared if the re-audit fails)
+2. If re-audit fails: `TaskUpdate({ taskId, status: "in_progress" })` to allow rework
 
-Check if `{{PLAN_FILE}}` has changed since state was saved:
+**Rationale**: Tasks completed near session end may have passed audit but subsequent work could have broken them. Re-verification ensures integrity.
 
-- If new tasks added → add to `available_tasks` or `blocked_tasks` as appropriate
-- If tasks removed → remove from all tracking (log warning)
-- If task specs changed → mark as needing re-implementation if already complete
+### Step 7: Reconcile Tasks with Plan
 
-### Step 9: Clear Stale Agent Tracking
+Check if `{{PLAN_FILE}}` has changed since the tasks were created:
 
-Reset all `active_*` fields since those agents are gone:
+- If new tasks added -> create via `TaskCreate` with appropriate `blockedBy`
+- If tasks removed -> update status to reflect removal (log warning)
+- If task specs changed -> mark as needing re-implementation if already complete
 
-```json
-{
-  "active_developers": {},
-  "active_auditors": {},
-  "active_business_analysts": {},
-  "active_experts": {},
-  "active_remediation": null
-}
-```
+### Step 8: Proceed to Execution Loop
 
-### Step 10: Save Updated State
-
-Persist the reconciled state before proceeding.
-
-### Step 11: Proceed to Execution Loop
-
-See [State Management](../state-management.md) for state field details.
+Begin the main loop: developers claim available tasks, monitor mailbox for results, route through Developer -> Critic -> Ripple -> Auditor pipeline.
 
 ---
 
 ## Related Documentation
 
-- [Startup Overview](startup-overview.md) - Overview and decision logic
 - [Fresh Start](fresh-start.md) - Fresh session initialization
-- [Coordinator Configuration](../coordinator-configuration.md) - Configuration values
-- [State Management](../state-management.md) - State tracking
-- [Recovery Procedures](../recovery-procedures.md) - Error recovery
+- [Team Lead Configuration](../coordinator-configuration.md) - Configuration values
+- [Team Architecture](../team-architecture.md) - Team structure and communication

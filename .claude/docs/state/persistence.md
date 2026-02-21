@@ -2,53 +2,73 @@
 
 [← Back to State Management](index.md)
 
-State mutations must be atomic to survive coordinator crashes.
+State persists automatically via native Agent Teams primitives. No custom state files or atomic write procedures are needed.
 
 ---
 
-## Atomic State Updates
+## Persistence Mechanisms
 
-### Write Procedure
+### Shared Task List (primary state)
 
-```python
-def save_state_atomic(state):
-    temp_path = f"{STATE_FILE}.tmp"
+The shared task list is the central state store. It is keyed by the **plan slug** — a deterministic, URL-safe string derived from the plan title. Key properties:
 
-    # 1. Write to temp file with fsync
-    with open(temp_path, 'w') as f:
-        json.dump(state, f, indent=2)
-        f.flush()
-        os.fsync(f.fileno())
+- **Persists on disk** — tasks survive crashes and session restarts
+- **Native atomic claiming** — concurrent claims by multiple developers are safe
+- **Auto-unblocking** — dependencies release automatically when blocking tasks complete
+- **Deterministic slug** — same plan title always produces the same slug, so re-running loads the same task list
 
-    # 2. Atomic rename (POSIX guarantees atomicity)
-    os.rename(temp_path, STATE_FILE)
+Task state transitions via `TaskUpdate({ taskId, status })` use only three values:
+- `pending` → `in_progress` → `completed`
+- `completed` (terminal — only set by team lead after `AUDIT_PASSED`)
+- `in_progress` → `pending` (reset on resume, or when rework is needed)
+
+The review pipeline stages (critic, ripple, audit) are tracked by the team lead in its own context as routing state — they are NOT status values in `TaskUpdate`.
+
+### Expert Prompt Files (persisted on disk)
+
+Expert definitions are saved to `.claude/experts/<plan_slug>/`:
+```
+.claude/experts/
+  user-auth-implementation/
+    auth-expert.md
+    database-expert.md
+    api-expert.md
 ```
 
-### Recovery on Resume
+On resume, these files are loaded from disk — no regeneration needed. This preserves the deep research investment.
 
-```python
-def load_state_with_recovery():
-    temp_path = f"{STATE_FILE}.tmp"
+### Teammate Context (ephemeral)
 
-    # Check for incomplete write
-    if os.path.exists(temp_path):
-        os.remove(temp_path)  # Discard incomplete
+Each teammate has its own 1M token context window. This context is:
+- **Not persisted** across crashes or restarts
+- **Self-contained** via the spawn prompt (expert identity, domain knowledge, configuration)
+- **Recoverable** by respawning the teammate using the persisted prompt files
 
-    if os.path.exists(STATE_FILE):
-        return json.load(open(STATE_FILE))
+### Team Lead Context (ephemeral but reconstructable)
 
-    # Reconstruct from event log if no state file
-    if os.path.exists(EVENT_LOG_FILE):
-        return reconstruct_state_from_events()
+The team lead tracks review pipeline state, failure counts, and infrastructure status in its context. On resume:
+1. Call `TaskList` to reconstruct task state
+2. Load expert files from disk to reconstruct the roster
+3. Respawn teammates using persisted prompts
+4. Developers reclaim pending work automatically
 
-    return None  # Fresh start
-```
+---
+
+## Recovery on Resume
+
+Recovery is automatic via the plan slug:
+
+1. Re-run `/bonfire $PLAN_FILE` — bootstrapper produces the same `plan_slug`
+2. Team lead finds expert files at `.claude/experts/<plan_slug>/` — loads them (no regeneration)
+3. Team lead calls `TaskList` — finds existing tasks with all progress intact
+4. Spawns fresh teammates using persisted prompts — developers claim pending tasks
+5. Completed tasks stay completed; orphaned in-progress tasks auto-release after heartbeat timeout
 
 ---
 
 ## Related Documentation
 
-- [Update Triggers](update-triggers.md) - When state is persisted
-- [Recovery Procedures](../recovery-procedures.md) - Error recovery
-- [State Schema](../orchestrator/state-schema.md) - Complete state file format
-- [Event Schema](../orchestrator/event-schema.md) - Event log format
+- [Update Triggers](update-triggers.md) - When state transitions occur
+- [Recovery Procedures](../recovery/index.md) - Error recovery
+- [State Fields](fields.md) - Task list field reference
+- [Team Architecture](../team-architecture.md) - Resume and crash recovery details

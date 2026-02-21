@@ -1,76 +1,55 @@
 # Conflict Handling
 
-[← Back to Concurrency Index](index.md)
+[<-- Back to Concurrency Index](index.md)
 
-Runtime conflict detection and resolution when developers discover file access issues during implementation.
+Runtime conflict detection and resolution when experts discover file access issues during implementation.
 
 ## File Conflict Signal
 
-If a developer discovers they need a locked file during work:
+If an expert discovers they need a file outside their task's ownership scope:
 
 ```
-FILE CONFLICT: [task ID]
+FILE_CONFLICT: [file_path]
 
-Discovered Need: [file path]
-Reason: [why this file is needed]
-Currently Locked By: [conflicting task if known]
-
-Cannot proceed without access to this file.
+Task: [task_id]
+I Need To: [description of needed change]
+Reason: [why this file must be modified]
+Can Wait: [YES | NO]
 ```
 
-### Coordinator Response
+This is sent as a mailbox message via `TeammateTool({ operation: "write", to: "team-lead" })`.
 
-On receiving FILE CONFLICT:
+### Team Lead Response
 
-```python
-def handle_file_conflict_signal(task_id, file_path):
-    """Handle developer-reported file conflict."""
+On receiving `FILE_CONFLICT`, the team lead:
 
-    # Find who has the lock
-    lock_holder = find_lock_holder(file_path)
+1. **Identifies the owner**: Check which expert's task owns the conflicting file (from task descriptions)
 
-    if lock_holder is None:
-        # No conflict - developer may proceed
-        return "No conflict detected. Proceed with modification."
+2. **If no conflict exists** (file is not owned by another active task):
+   - `write` to the requesting expert: "No conflict detected. Proceed with modification."
 
-    if lock_holder["status"] == "awaiting-audit":
-        # Will resolve soon
-        return f"File locked by {lock_holder['task_id']} (awaiting audit). "
-               f"Estimated availability: soon. Continue with other work."
+3. **If the owning task is nearly complete** (already in review or audit):
+   - `write` to the requesting expert: "File owned by [task-id] (in review). Wait for completion — dependency will auto-unblock."
 
-    # Active conflict
-    options = [
-        "1. Wait for task completion",
-        "2. Coordinate with concurrent developer",
-        "3. Restructure approach to avoid shared file"
-    ]
+4. **If active conflict exists**:
+   - `write` to both experts to coordinate:
+     - Assign a single owner for the file
+     - The other expert yields and works on non-conflicting parts
+     - Or restructure to avoid the shared file
 
-    log_event("file_conflict_escalated", task_id=task_id, file=file_path,
-              holder=lock_holder["task_id"])
-
-    # May need divine clarification for complex conflicts
-    return generate_conflict_guidance(task_id, lock_holder, options)
-```
+5. **For shared files** (`__init__.py`, config, type exports):
+   - `write` to the requesting expert: "Shared file. Make additive-only changes (append imports/exports, never restructure). Read current state first."
 
 ## Merge Conflict Recovery
 
-If git merge conflicts occur despite precautions:
+If git merge conflicts occur despite precautions, the team lead routes to `remediation`:
 
-```python
-def handle_merge_conflict(task_id, conflicting_files):
-    """Handle unexpected merge conflicts."""
-
-    log_event("merge_conflict", task_id=task_id, files=conflicting_files)
-
-    # Dispatch remediation agent to resolve
-    dispatch_remediation_agent({
-        "issue_type": "merge_conflict",
-        "task_id": task_id,
-        "conflicting_files": conflicting_files,
-        "instruction": "Resolve merge conflicts preserving both changes where possible"
-    })
 ```
+TeammateTool({ operation: "write", to: "remediation", message: "MERGE_CONFLICT\n\nFiles: [list]\nTask: [task_id]\nResolve merge conflicts preserving both changes where possible." })
+```
+
+The `remediation` teammate resolves the conflicts and signals `REMEDIATION_COMPLETE` when done.
 
 ---
 
-[← Back to Concurrency Index](index.md)
+[<-- Back to Concurrency Index](index.md)

@@ -1,91 +1,77 @@
-# State File Recovery
+# Task List Recovery
 
-Procedures for detecting and recovering from state file corruption or loss.
+Procedures for auditing and recovering task state from the native shared task list.
 
 ## Overview
 
-The state file maintains the current operational state of the coordinator. When corrupted or missing, it can be
-reconstructed from the event log, which serves as the authoritative record.
+In the native Agent Teams system, task state persists in the shared task list (keyed by plan slug). There is no custom state file to corrupt or reconstruct. The team lead audits task state on resume by calling `TaskList`.
 
 See also:
 
-- [Event Log Recovery](event-log-recovery.md) - Event log as source of truth for reconstruction
 - [Session Recovery](session-recovery.md) - Complete session recovery procedures
 - [Recovery Index](index.md) - Overview of all recovery procedures
 
 ---
 
-## Corruption Detection
+## Task State Audit
 
-```python
-def validate_state_file(state_file_path: str) -> ValidationResult:
-    """Validate state file integrity."""
+On resume, the team lead calls `TaskList` and audits each task:
 
-    if not os.path.exists(state_file_path):
-        return ValidationResult(status='missing', recoverable=True)
+### Status Categories
 
-    try:
-        with open(state_file_path, 'r') as f:
-            content = f.read()
+The shared task list only stores three valid status values via `TaskUpdate`:
 
-        state = json.loads(content)
+| Status | Meaning on Resume | Action |
+|---|---|---|
+| `completed` | Task finished in a previous session | No action needed — skip |
+| `pending` (unblocked) | Available for developers to claim | Will be claimed by fresh developers |
+| `pending` (blocked) | Waiting for dependencies | Will auto-unblock when blockers complete |
+| `in_progress` | Orphaned — developer that claimed it crashed | Auto-releases after heartbeat timeout (~5 min) |
 
-        # Validate required fields
-        required_fields = ['session_id', 'saved_at', 'completed_tasks', 'available_tasks']
-        missing = [f for f in required_fields if f not in state]
+**Note**: Review pipeline stages (`in_critic_review`, `in_ripple_review`, `in_audit`, `needs_rework`) are NOT task statuses — they are tracked by the team lead in its context. When the session crashes, this context is lost. On resume, any task that was mid-review will appear as `in_progress` in the task list and is treated as incomplete (reset to `pending` per the resume procedure).
 
-        if missing:
-            return ValidationResult(
-                status='incomplete',
-                recoverable=True,
-                missing_fields=missing
-            )
+### Orphaned In-Progress Tasks
 
-        return ValidationResult(status='valid', state=state)
+Tasks stuck in `in_progress` with no active developer are the most common resume issue. Resolution:
 
-    except json.JSONDecodeError as e:
-        return ValidationResult(
-            status='corrupted',
-            recoverable=True,
-            error=str(e)
-        )
-```
+1. The native heartbeat timeout (~5 min) automatically releases orphaned tasks
+2. Fresh developers will then be able to claim them
+3. The team lead does NOT need to manually change task status — the native system handles it
+4. Partial work from the crashed developer remains in the file system (git working tree)
 
-## Recovery from Corrupted State
+### Review Pipeline Reconstruction
 
-```python
-def recover_corrupted_state(state_file_path: str, event_log_path: str):
-    """Recover state from event log."""
+Since review pipeline state is stored in team lead context (not the task list), it cannot be reconstructed on resume. Instead:
 
-    # 1. Backup corrupted state
-    backup_path = f"{state_file_path}.corrupted.{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    if os.path.exists(state_file_path):
-        shutil.copy(state_file_path, backup_path)
+- Tasks that were mid-review will be `in_progress` in the task list and auto-release after heartbeat timeout
+- Fresh developers claim them and run the full Developer -> Critic -> Ripple -> Auditor pipeline again
+- This is safe — the auditor always verifies final state, not intermediate review history
 
-    # 2. Reconstruct from event log
-    state = reconstruct_state_from_events(event_log_path)
+### Completed Task Verification
 
-    # 3. Add session info
-    state['session_id'] = str(uuid.uuid4())
-    state['session_started_at'] = datetime.now().isoformat()
-    state['previous_session_id'] = 'recovered'
-    state['session_resume_count'] = 0
-    state['recovered_from'] = 'event_log'
-    state['recovery_timestamp'] = datetime.now().isoformat()
+For recently completed tasks (completed near the end of the previous session), the team lead may optionally:
 
-    # 4. Save recovered state
-    save_state(state, state_file_path)
+1. Ask the auditor to re-verify the most recent completions
+2. This catches edge cases where a task was marked complete but the crash occurred before all effects settled
 
-    log_event("state_recovered_from_event_log",
-              backup_path=backup_path)
+This is optional — the shared task list state is reliable.
 
-    return state
-```
+---
+
+## What Replaces Custom State Recovery
+
+| Old System | New System |
+|---|---|
+| Custom JSON state file (`STATE_FILE`) | Native shared task list via `TaskList` |
+| `save_state()` / `load_state()` | `TaskUpdate({ taskId, status })` for transitions |
+| Atomic writes with temp files | Native file-locked task updates |
+| State file corruption detection | Not needed — native persistence |
+| State reconstruction from event log | Not needed — `TaskList` returns current state |
 
 ---
 
 ## Cross-References
 
-- [Event Log Recovery](event-log-recovery.md) - Event reconstruction procedures
 - [Session Recovery](session-recovery.md) - Complete recovery orchestration
-- [State Management](../state-management.md) - State schema and persistence
+- [State Management](../state/index.md) - Task state tracking
+- [Team Architecture](../team-architecture.md) - Resume behavior

@@ -1,6 +1,6 @@
 # Remediation Agent - Practices and Workflow
 
-**Parent**: [Agent Creation](../remediation.md) | **Documentation Index**: [Index](../../index.md)
+**Parent**: [Agent Creation](index.md) | **Documentation Index**: [Index](../../index.md)
 
 **Version**: 2025-01-17-v2
 
@@ -11,7 +11,7 @@
 - [Overview and Inputs](index.md) - Overview and inputs
 - [Identity and Authority](identity.md) - Agent identity, failure modes, decision authority
 - **[Practices and Workflow](practices.md)** (this file)
-- [Signals and Delegation](signals.md) - Signal formats, delegation, boundaries
+- [Communication and Delegation](signals.md) - Message formats, delegation, boundaries
 
 ---
 
@@ -29,7 +29,7 @@
 **EXPECTED** (normal good work):
 - Fix is minimal and targeted
 - Documentation of what was wrong and how it was fixed
-- Health Auditor confirms HEALTHY
+- Health auditor confirms HEALTHY
 
 **EXCELLENT** (what you aspire to):
 - Prevented issue from recurring
@@ -46,9 +46,7 @@ EXECUTION ENVIRONMENTS:
 
 | Name | Description | How to Execute |
 |------|-------------|----------------|
-{{#each ENVIRONMENTS}}
-| {{name}} | {{description}} | {{how_to_execute}} |
-{{/each}}
+[FROM ENVIRONMENTS INPUT]
 
 CRITICAL - Environment Execution Rules:
 1. When a command has EMPTY Environment column: Run in EVERY environment listed above
@@ -90,7 +88,7 @@ How to identify the true source of failures:
 How to apply correct fixes without side effects:
 
 | Issue | Fix Approach | Verification |
-|-------|-------------|--------------]
+|-------|-------------|--------------|
 | [Common issue] | [Correct fix] | [How to verify fix works] |
 | [Error type] | [Resolution pattern] | [Success indicator] |
 
@@ -164,11 +162,11 @@ PHASE 4: VERIFY
 4. Only proceed when ALL pass
 Checkpoint: Does EVERY command pass in EVERY environment?
 
-PHASE 5: SIGNAL
+PHASE 5: COMMUNICATE
 1. Document all fixes applied
 2. Confirm all verifications pass
-3. Signal completion
-4. Health Auditor will verify independently
+3. Message team lead with completion
+4. Health auditor will verify independently
 ```
 
 ---
@@ -176,6 +174,6 @@ PHASE 5: SIGNAL
 ## Cross-References
 
 - **[Documentation Index](../../index.md)** - Navigation hub for all docs
-- **[Remediation Agent Creation](../remediation.md)** - Main remediation document
+- **[Remediation Agent Creation](index.md)** - Main remediation document
 - [Remediation Loop](../../remediation-loop.md) - Infrastructure repair cycle
 - [Task Quality](../../task-quality.md) - Task quality and success measurement

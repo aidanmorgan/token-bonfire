@@ -2,371 +2,181 @@
 
 [← Back to State Management](index.md)
 
-Update state, persist to `{{STATE_FILE}}`, and append to `{{EVENT_LOG_FILE}}` at these events.
+State updates use native Agent Teams primitives: `TaskUpdate` for task state transitions and `TeammateTool({ operation: "write" })` for inter-agent communication.
 
 ---
 
-## Developer Dispatch
+## Developer Dispatch (Task Claimed)
 
-1. Add task to `in_progress_tasks` with agent ID, status "implementing"
-2. Remove task from `available_tasks`
-3. Update `blocked_tasks` to remove this task
-4. Save state immediately
-5. Log event: `developer_dispatched`
+When a developer claims a task from the shared task list:
+
+1. Developer calls `TaskUpdate({ taskId, status: "in_progress" })` — native atomic claiming
+2. Task automatically moves from `pending` to `in_progress`
+3. No manual blocking/unblocking needed — native dependency tracking handles this
 
 ## Developer Ready for Review
 
-1. Update task status to "awaiting-review"
-2. Add task to `pending_critique` queue
-3. Save state
-4. Log event: `developer_ready_for_review`
+When a developer signals `READY_FOR_REVIEW` via mailbox:
 
-## Developer TASK_INCOMPLETE
+1. Team lead receives the message
+2. Team lead tracks task as `pending_review` in its review pipeline (team lead context only — not a `TaskUpdate` status)
+3. Team lead sends review request to `critic` via `write` (with task ID, acceptance criteria, modified files, environment)
 
-When developer signals TASK_INCOMPLETE (blocked, missing info, etc.):
+## Developer NEED_CLARIFICATION
 
-1. Parse blocker details from signal (blocker, attempted, needed)
-2. Increment `incomplete_count` for this task in attempt tracking
-3. Update task status to "blocked"
-4. Route based on blocker category (see below)
-5. Save state
-6. Fill actor slots with other available tasks
+When a developer signals `NEED_CLARIFICATION`:
+
+1. Team lead reads the question from the mailbox message
+2. Route based on blocker category:
 
 **Blocker Categories and Handlers**:
 
-| Category                | Action                       | Escalation              |
-|-------------------------|------------------------------|-------------------------|
-| `missing_info`          | Escalate immediately         | Divine clarification    |
-| `blocked_by_dependency` | Add to `blocked_tasks`, wait | After 3 attempts        |
-| `infrastructure`        | Enter remediation loop       | After remediation limit |
-| `out_of_scope`          | Escalate immediately         | Divine clarification    |
+| Category | Action | Escalation |
+|---|---|---|
+| Missing info / ambiguous requirements | Route to `business-analyst` via `write`, or escalate via `AskUserQuestion` | After 3 attempts |
+| Blocked by dependency | Check if dependency is already `completed` in task list; if not, developer waits | After 3 attempts |
+| Infrastructure issue | Route to `remediation` via `write` | After remediation limit |
+| Out of scope | Escalate via `AskUserQuestion` | Immediate |
 
-**Handler: `blocked_by_dependency`**
+**Blocked by dependency handling:**
 
-```python
-def handle_blocked_by_dependency(task_id, blocker_task_id, incomplete_count):
-    """Handle task blocked by another task's completion."""
+- Team lead calls `TaskGet` to check if the blocking task is already `completed`
+- If completed: inform developer via `write` that the dependency is ready
+- If not completed: the native `addBlockedBy` ensures the task auto-unblocks when the dependency completes
+- After 3 attempts with the same blocker: escalate via `AskUserQuestion`
 
-    if blocker_task_id in completed_tasks:
-        # Dependency already complete - retry immediately
-        log_event("developer_incomplete",
-                  task_id=task_id,
-                  blocker="blocked_by_dependency",
-                  blocker_task=blocker_task_id,
-                  note="Dependency was already complete, retrying")
-        available_tasks.append(task_id)
-        return
+**Missing info / out of scope handling:**
 
-    if incomplete_count >= 3:
-        # Same dependency blocked 3 times - escalate
-        log_event("developer_incomplete",
-                  task_id=task_id,
-                  blocker="blocked_by_dependency",
-                  blocker_task=blocker_task_id,
-                  escalate=True)
-        escalate_to_divine(
-            task_id=task_id,
-            question=f"Task {task_id} blocked by {blocker_task_id} after 3 attempts",
-            options=["Wait longer", "Re-prioritize blocker", "Restructure tasks"]
-        )
-        return
+- Team lead escalates to the user via `AskUserQuestion` tool
+- Response is forwarded to the developer via `write`
 
-    # Add to blocked_tasks - will auto-unblock when dependency completes
-    if task_id not in blocked_tasks:
-        blocked_tasks[task_id] = []
-    if blocker_task_id not in blocked_tasks[task_id]:
-        blocked_tasks[task_id].append(blocker_task_id)
+**Infrastructure blocker handling:**
 
-    # Remove from available (if present) and in_progress
-    if task_id in available_tasks:
-        available_tasks.remove(task_id)
-    remove_from_in_progress(task_id)
-
-    log_event("developer_incomplete",
-              task_id=task_id,
-              blocker="blocked_by_dependency",
-              blocker_task=blocker_task_id,
-              action="added_to_blocked_tasks")
-```
-
-**Handler: `missing_info` / `out_of_scope`**
-
-```python
-def handle_missing_info_or_out_of_scope(task_id, blocker_category, details):
-    """Handle tasks that need divine guidance immediately."""
-
-    log_event("developer_incomplete",
-              task_id=task_id,
-              blocker=blocker_category,
-              details=details,
-              escalate=True)
-
-    escalate_to_divine(
-        task_id=task_id,
-        question=f"Task {task_id}: {blocker_category}",
-        context=details,
-        options=["Provide clarification", "Restructure task", "Remove from plan"]
-    )
-```
-
-**Handler: `infrastructure`**
-
-```python
-def handle_infrastructure_blocker(task_id, issue_details):
-    """Handle infrastructure blockers by entering remediation."""
-
-    log_event("developer_incomplete",
-              task_id=task_id,
-              blocker="infrastructure",
-              issue=issue_details)
-
-    # Enter remediation loop (same as INFRA_BLOCKED signal)
-    handle_infrastructure_block(issue_details, reporter_id=task_id)
-```
+- Team lead sends details to `remediation` teammate via `write`
+- Same as `INFRA_BLOCKED` signal flow
 
 ## Critic Review Complete
 
-**REVIEW_PASSED:**
+**REVIEW_PASS:**
 
-1. Remove task from `pending_critique`
-2. Update task status to "awaiting-audit"
-3. Add task to `pending_audit` queue
-4. Save state
-5. Log event: `critic_pass`
+1. Team lead receives `REVIEW_PASS` from critic via mailbox
+2. Team lead tracks task as `in_ripple_review` in its review pipeline (team lead context only)
+3. Team lead sends ripple analysis request to `ripple` via `write` (with task ID, modified files, summary, critic assessment)
 
-**REVIEW_FAILED:**
+**REVIEW_FAIL:**
 
-1. Remove task from `pending_critique`
-2. Update task status to "implementing" for rework
-3. Increment failure count in `critique_failures`
-4. Save state
-5. Log event: `critic_fail`
+1. Team lead receives `REVIEW_FAIL` from critic via mailbox
+2. Team lead forwards feedback to the owning developer via `write`
+3. Team lead tracks task as `needs_rework` in its review pipeline (team lead context only); task status via `TaskUpdate` remains `in_progress`
+4. Team lead increments critique failure count in its context
+
+## Ripple Review Complete
+
+**RIPPLE_PASSED:**
+
+1. Team lead receives `RIPPLE_PASSED` from ripple via mailbox
+2. Team lead tracks task as `pending_audit` in its review pipeline (team lead context only)
+3. Team lead sends audit request to `auditor` via `write` (with task ID, acceptance criteria, modified files, environment)
+
+**RIPPLE_FAILED:**
+
+1. Team lead receives `RIPPLE_FAILED` from ripple via mailbox
+2. Team lead forwards feedback to the owning developer via `write`
+3. Team lead tracks task as `needs_rework` in its review pipeline (team lead context only); task status via `TaskUpdate` remains `in_progress`
+4. Team lead increments ripple failure count in its context
 
 ## Critic Timeout
 
-When a Critic agent times out (no response within timeout period):
+When a critic does not respond within a reasonable time:
 
-1. Increment `critic_timeouts` for this task
-2. If `critic_timeouts` < 3:
-    - Log event: `critic_timeout` with attempt number
-    - Re-dispatch fresh Critic with same task context
-    - Task remains in `pending_critique`
-3. If `critic_timeouts` >= 3:
-    - Log event: `critic_timeout` with `escalate: true`
-    - **Skip Critic and proceed to Auditor** (task was already implemented, only review timed out)
-    - **Remove task from `pending_critique`** (explicit removal FIRST)
-    - Add task to `pending_audit`
-    - Update task status to `awaiting-audit`
-    - Log event: `critic_bypassed` with reason `timeout_limit_exceeded`
-    - Dispatch Auditor immediately
+1. Team lead increments critic timeout count for this task
+2. If timeout count < 3:
+    - Team lead re-sends review request to `critic` via `write`
+    - Team lead continues tracking task as `pending_review` in its review pipeline (no `TaskUpdate` needed)
+3. If timeout count >= 3:
+    - **Skip critic and proceed to auditor** (implementation is complete, only review timed out)
+    - Team lead sends audit request directly to `auditor` via `write`
+    - Team lead tracks task as `pending_audit` in its review pipeline (team lead context only)
 
-   ```python
-   # Explicit state transition
-   if task_id in pending_critique:
-       pending_critique.remove(task_id)
-   pending_audit.append(task_id)
-   update_task_status(task_id, "awaiting-audit")
-   ```
+   **Note**: Do NOT send back to expert — the implementation is complete, only the code review timed out. The auditor will verify acceptance criteria regardless.
 
-   **Note**: Do NOT move back to developer - the implementation is complete, only critic review failed. Auditor will
-   verify if implementation meets acceptance criteria regardless of code quality review.
-4. Save state
-
-**Rationale**: Critic timeouts are typically transient (context exhaustion, network issues). Retry with a fresh agent
-before penalizing the developer's work.
-
-**Quality Gate Tradeoff**: When critic is bypassed after 3 timeouts, the code quality review is skipped but the Auditor
-still verifies acceptance criteria. This is an intentional tradeoff:
-
+**Quality Gate Tradeoff**: When critic is bypassed after 3 timeouts:
 - **Pros**: Progress is not blocked indefinitely by transient issues
 - **Cons**: Code quality issues that don't affect functionality may ship
-- **Mitigation**: Auditor failure will catch functional issues; quality issues can be addressed in subsequent
-  refactoring tasks
-- **Alternative**: If stricter quality control is required, change this to escalate to divine intervention instead of
-  bypassing
+- **Mitigation**: Auditor failure will catch functional issues; quality issues can be addressed later
+- **Alternative**: If stricter quality control is required, escalate via `AskUserQuestion` instead of bypassing
 
 ## Auditor PASS (Task Complete)
 
 **This is the ONLY point where a task becomes complete.**
 
-1. Remove task from `pending_audit`
-2. Remove task from `in_progress_tasks`
-3. Add task to `completed_tasks` ← **Task officially complete**
-4. Unblock dependent tasks (see below)
-5. Save state
-6. Log event: `task_complete`
+1. Team lead receives `AUDIT_PASSED` from auditor via mailbox
+2. Team lead calls `TaskUpdate({ taskId, status: "completed" })` — **task officially complete**
+3. Dependencies auto-unblock: tasks that were `blockedBy` this task automatically become available
+4. Newly unblocked tasks can be claimed by developers immediately
 
-**Step 4: Unblock Dependents**
-
-```python
-def unblock_dependents(completed_task_id):
-    """Unblock tasks that were waiting for this task to complete."""
-
-    newly_available = []
-
-    for blocked_task_id, blockers in list(blocked_tasks.items()):
-        if completed_task_id in blockers:
-            blockers.remove(completed_task_id)
-
-            if not blockers:
-                # All blockers cleared - task is now available
-                del blocked_tasks[blocked_task_id]
-                available_tasks.append(blocked_task_id)
-                newly_available.append(blocked_task_id)
-
-                log_event("task_unblocked",
-                          task_id=blocked_task_id,
-                          unblocked_by=completed_task_id)
-
-    return newly_available
-```
-
-**IMPORTANT**: This handles both:
-
-- Static `blocked_by` dependencies from the plan
-- Dynamic blockers added via TASK_INCOMPLETE `blocked_by_dependency`
+**IMPORTANT**: The native `addBlockedBy` mechanism handles both:
+- Static dependencies from the plan
+- Dynamic blockers added during execution
 
 ## Auditor FAIL
 
-1. Update task status to "implementing" for rework
-2. Remove task from `pending_audit`
-3. Increment failure count in `audit_failures`
-4. Update attempt tracking: increment `audit_failures`
-5. Check escalation threshold (3 failures = halt)
-6. Save state
-7. Log event: `auditor_fail`
+1. Team lead receives `AUDIT_FAILED` from auditor via mailbox
+2. Team lead forwards failure feedback to the owning developer via `write`
+3. Team lead tracks task as `needs_rework` in its review pipeline (team lead context only); task status via `TaskUpdate` is reset to `in_progress` for the developer to rework
+4. Team lead increments audit failure count in its context
+5. Check escalation threshold (3 failures = investigate root cause, consider escalating)
 
 ## Auditor BLOCKED
 
-1. Set `infrastructure_blocked` to true
-2. Record `infrastructure_issue` with failure details
-3. Compare against baseline (pre-existing vs task-introduced)
-4. Record blocked task state for resume
-5. Save state
-6. Log events: `auditor_blocked`, `infrastructure_blocked`
+1. Team lead receives `AUDIT_BLOCKED` from auditor via mailbox
+2. Team lead sets `infrastructure_blocked` flag in its context
+3. Team lead sends issue details to `remediation` teammate via `write`
+4. Pauses new task assignments until infrastructure is restored
 
 ## Remediation/Health Audit
 
-**Constants:**
+**On REMEDIATION_COMPLETE (from remediation teammate):**
 
-```python
-REMEDIATION_ATTEMPTS_LIMIT = 3  # Max remediation cycles before escalation
-```
+1. Team lead sends verification request to `health-auditor` via `write`
 
-**Handler: DISPATCH_HEALTH_AUDITOR** (on REMEDIATION_COMPLETE signal)
+**On HEALTH_AUDIT: HEALTHY (from health-auditor teammate):**
 
-1. Dispatch Health Auditor agent
-2. Log event: `health_audit_dispatched`
+1. Team lead clears `infrastructure_blocked` flag
+2. Team lead resets `remediation_attempt_count` to 0
+3. Resumes normal development flow — developers can claim tasks again
 
-**Handler: EXIT_REMEDIATION** (on HEALTH_AUDIT: HEALTHY signal)
+**On HEALTH_AUDIT: UNHEALTHY (from health-auditor teammate):**
 
-1. Set `infrastructure_blocked` to false
-2. Clear `active_remediation` and `infrastructure_issue`
-3. Reset `remediation_attempt_count` to 0
-4. Resume any blocked tasks
-5. Save state
-6. Log events: `health_audit_pass`, `infrastructure_restored`
-
-**Handler: RETRY_REMEDIATION** (on HEALTH_AUDIT: UNHEALTHY signal)
-
-1. Increment `remediation_attempt_count`
-2. If `remediation_attempt_count` > `REMEDIATION_ATTEMPTS`:
-    - Log event: `remediation_exhausted`
-    - Signal `SEEKING_DIVINE_CLARIFICATION` with infrastructure details
-    - Add to `pending_divine_questions`
+1. Team lead increments `remediation_attempt_count`
+2. If count > 3:
+    - Escalate via `AskUserQuestion` with infrastructure details
 3. Else:
-    - Dispatch Remediation agent with updated context
-    - Log event: `remediation_dispatched`
-4. Save state
-5. Log event: `health_audit_fail`
+    - Send updated context to `remediation` teammate via `write` for retry
 
-## Divine Intervention
+## User Escalation
 
-**Handler: AWAIT_DIVINE_RESPONSE** (on SEEKING_DIVINE_CLARIFICATION signal)
+**On SEEKING_DIVINE_CLARIFICATION (from any teammate):**
 
-1. Parse question details from agent output
-2. Update agent status to "awaiting-divine-guidance" in `in_progress_tasks`
-3. Add question to `pending_divine_questions`:
-   ```python
-   pending_divine_questions.append({
-       'agent_id': agent_id,
-       'task_id': task_id,
-       'question': parsed_question,
-       'options': parsed_options,
-       'context': parsed_context,
-       'timestamp': datetime.now().isoformat(),
-       'response': None
-   })
-   ```
-4. Save state
-5. Log event: `agent_seeks_guidance`
-6. Invoke `AskUserQuestion` tool with question and options
-7. Block task progress until response received
+1. Team lead parses question details from mailbox message
+2. Team lead invokes `AskUserQuestion` tool with question and options
+3. Task progress blocked until response received
 
-**Divine response received:**
+**When user responds:**
 
-1. Record response in pending question entry
-2. Format response for agent consumption
-3. Resume agent with divine guidance prompt
-4. Update agent status to "implementing"
-5. Remove from `pending_divine_questions`
-6. Save state
-7. Log event: `divine_response_received`
+1. Team lead formats response
+2. Team lead sends guidance to the requesting teammate via `write`
 
-## Expert Delegation
+## Expert Delegation (business-analyst)
 
-**Request accepted:**
+**On EXPANDED_TASK_SPECIFICATION (from business-analyst):**
 
-1. Add to `active_experts`
-2. Increment `delegations` count in `expert_stats`
-3. Spawn expert
-4. Log event: `expert_delegated`
+1. Team lead updates task description via `TaskUpdate`
+2. Team lead routes the expanded spec to the owning developer via `write`
 
-**Request queued (agent busy):**
+**On SEEKING_DIVINE_CLARIFICATION (from business-analyst):**
 
-1. Add to `pending_delegation_requests`
-2. Notify baseline agent of position
-3. Log event: `delegation_queued`
-
-**Expert complete:**
-
-1. Parse output for deliverables
-2. Remove from `active_experts`
-3. Update `expert_stats`
-4. **Process delegation queue** (see below)
-5. Deliver results to delegating agent
-6. Save state
-7. Log event: `expert_complete`
-
-```python
-def process_delegation_queue(completed_expert_id):
-    """Check queue and dispatch next pending request for this expert type."""
-
-    completed_expert_type = expert_stats[completed_expert_id]['type']
-
-    # Find next queued request for this expert type
-    for i, request in enumerate(pending_delegation_requests):
-        if request['target_expert'] == completed_expert_type:
-            # Found a waiting request - dispatch it
-            pending_delegation_requests.pop(i)
-
-            # Dispatch the expert
-            active_experts[generate_expert_id()] = {
-                'type': completed_expert_type,
-                'requesting_agent': request['requesting_agent'],
-                'task_id': request['task_id'],
-                'dispatched_at': datetime.now().isoformat()
-            }
-
-            log_event("delegation_dequeued",
-                      expert_type=completed_expert_type,
-                      requesting_agent=request['requesting_agent'],
-                      waited_since=request['queued_at'])
-
-            # Dispatch the expert agent
-            dispatch_expert(completed_expert_type, request)
-            break  # Only dispatch one at a time
-```
+1. Same user escalation flow as above
 
 ---
 
@@ -374,5 +184,5 @@ def process_delegation_queue(completed_expert_id):
 
 - [State Fields](fields.md) - All state field definitions
 - [Attempt Tracking](attempt-tracking.md) - Attempt tracking and escalation
-- [Persistence](persistence.md) - Atomic updates and recovery
-- [Event Schema](../orchestrator/event-schema.md) - Event log format
+- [Persistence](persistence.md) - Native tool state persistence
+- [Team Architecture](../team-architecture.md) - Communication protocol

@@ -1,7 +1,7 @@
 # MCP Servers Guide
 
-This document explains how to interpret and use the `MCP_SERVERS` table provided at agent dispatch time.
-The actual available servers are configured per-environment and provided in the orchestrator prompt.
+This document explains how to interpret and use the `MCP_SERVERS` table provided to teammates.
+The actual available servers are configured per-environment and provided in the team configuration.
 
 ---
 
@@ -17,7 +17,7 @@ MCP (Model Context Protocol) servers extend agent capabilities beyond native Cla
 
 ## How You Receive MCP Information
 
-At dispatch time, you receive an `MCP_SERVERS` table listing available functions:
+Your task description or team instructions include an `MCP_SERVERS` table listing available functions:
 
 ```
 MCP_SERVERS:
@@ -132,39 +132,50 @@ When an MCP call fails:
 1. **Check the error message** - It may indicate parameter issues
 2. **Verify you matched the example syntax** - Parameters are order and type sensitive
 3. **Fall back to native tools** - If appropriate for the operation
-4. **Report in your signal** - Include MCP failures in your status
+4. **Report in your status** - Include MCP failures in your mailbox messages
 
 ---
 
-## Agent-Specific Guidance
+## Teammate-Specific Guidance
 
-### Developer Agents
+### Developers
 
 Check your `MCP_SERVERS` table for:
 
 - Container execution functions (for verification commands with container environments)
 - Sequential execution functions (for complex build/test sequences)
 
-### Auditor Agents
+### Critic
 
 Check your `MCP_SERVERS` table for:
 
-- Container execution (running tests in container environments)
+- Container execution (running linters or code analysis in container environments)
 - CI/GitHub functions (checking PR status)
 
-### Remediation Agents
+### Ripple
+
+Ripple is a read-only analyst and does not execute commands in containers. It uses native tools (`Grep`, `Glob`, `Read`) to trace imports, find callers, and identify downstream consumers. Ripple does NOT need MCP functions for its analysis. If MCP functions for code search or indexing are available, ripple may optionally use them to accelerate impact tracing, but this is never required.
+
+### Auditor
+
+Check your `MCP_SERVERS` table for:
+
+- Container execution (running verification commands in container environments)
+- CI/GitHub functions (checking PR status)
+
+### Remediation Teammate
 
 Check your `MCP_SERVERS` table for:
 
 - Container execution (diagnosing container issues)
 - Sequential execution (running diagnostic sequences)
 
-### Expert Agents
+### Expert Advisors
 
 Check your `MCP_SERVERS` table for:
 
 - Memory/persistence functions (caching research)
-- Domain-specific functions relevant to your expertise
+- Domain-specific functions relevant to your advisory expertise
 
 ---
 
@@ -173,8 +184,8 @@ Check your `MCP_SERVERS` table for:
 This guide explains the MCP concept and invocation pattern. The actual available servers and functions are:
 
 1. Defined in `base_variables.md` for the environment
-2. Populated into the orchestrator prompt at generation time
-3. Provided to you in the `MCP_SERVERS` table at dispatch
+2. Populated into the team configuration at generation time
+3. Provided to you in the `MCP_SERVERS` table in your instructions
 
 **Always consult your provided table, not this guide, for what's available.**
 
@@ -182,6 +193,5 @@ This guide explains the MCP concept and invocation pattern. The actual available
 
 ## Cross-References
 
-- [Agent Conduct](agent-conduct.md) - General agent behavior rules
 - [Environment Verification](environment-verification.md) - Multi-environment execution
-- [State Management](state-management.md) - When to use MCP memory vs state file
+- [Team Architecture](team-architecture.md) - Team structure and communication

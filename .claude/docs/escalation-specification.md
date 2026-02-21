@@ -1,12 +1,10 @@
 # Escalation Specification
 
-Clear rules for when and how agents escalate issues, including divine clarification procedures.
+Clear rules for when and how teammates escalate issues, including user clarification procedures.
 
 **Related Documents:**
 
-- [signal-specification.md](signal-specification.md) - Signal formats
-- [expert-delegation.md](expert-delegation.md) - Expert consultation
-- [agent-definitions.md](agent-definitions.md) - Agent types and capabilities
+- [expert-delegation.md](expert-delegation.md) - Developer-to-expert advisor consultation
 
 ---
 
@@ -15,8 +13,8 @@ Clear rules for when and how agents escalate issues, including divine clarificat
 **Escalation Ladder**:
 
 1. Self-Solve (1-3 attempts)
-2. ↓ If unsuccessful: Expert Delegation (4-6 attempts) [if experts available]
-3. ↓ If unsuccessful: Divine Intervention (MANDATORY after 6 total attempts)
+2. If unsuccessful: Expert Advisor Consultation (4-6 attempts) [if expert advisors available]
+3. If unsuccessful: User Clarification (MANDATORY after 6 total attempts)
 
 ---
 
@@ -26,51 +24,52 @@ Clear rules for when and how agents escalate issues, including divine clarificat
 |---------------------------|-----------------------------------------------------------|
 | What counts as an attempt | A DISTINCT approach (different tool, method, or strategy) |
 | What doesn't count        | Retrying the same approach, fixing typos                  |
-| Maximum self-solve        | 3 attempts (or 6 if no experts available)                 |
-| Maximum delegation        | 3 attempts (try different experts)                        |
-| Maximum total             | 6 attempts before divine intervention                     |
+| Maximum self-solve        | 3 attempts (or 6 if no expert advisors available)         |
+| Maximum consultation      | 3 attempts (try different expert advisors)                |
+| Maximum total             | 6 attempts before user clarification                      |
 
 ---
 
-## Escalation by Agent Type
+## Escalation by Teammate Type
 
-### Baseline Agents (WITH Experts Available)
+### Developers/Critic/Ripple/Auditor (WITH Expert Advisors Available)
 
-| Phase             | Attempts  | Action                            |
-|-------------------|-----------|-----------------------------------|
-| Self-Solve        | 1-3       | Try different approaches yourself |
-| Expert Delegation | 4-6       | Request help from experts         |
-| Divine            | After 6   | MANDATORY escalation to human     |
+| Phase                    | Attempts  | Action                                  |
+|--------------------------|-----------|------------------------------------------|
+| Self-Solve               | 1-3       | Try different approaches yourself       |
+| Expert Advisor Consult   | 4-6       | Send NEED_EXPERT_ADVICE to team lead    |
+| User Clarification       | After 6   | MANDATORY escalation to team lead       |
 
-**Note**: "After 6" means if all 6 attempts fail, divine intervention is MANDATORY before any further work.
+**Note**: "After 6" means if all 6 attempts fail, escalation to the team lead is MANDATORY.
 
-**After 3 delegation attempts all return EXPERT_UNSUCCESSFUL:**
+**After 3 consultation attempts all unsuccessful:**
 
 ```
-MANDATORY: Signal SEEKING_DIVINE_CLARIFICATION
+MANDATORY: Message team lead with SEEKING_DIVINE_CLARIFICATION
 DO NOT: Continue trying different approaches
-DO NOT: Retry the same experts
+DO NOT: Retry the same expert advisors
 ```
 
-### Baseline Agents (WITHOUT Experts)
+### Developers/Critic/Ripple/Auditor (WITHOUT Expert Advisors)
 
-| Phase      | Attempts | Action                            |
-|------------|----------|-----------------------------------|
-| Self-Solve | 1-6      | Try different approaches yourself |
-| Divine     | After 6  | MANDATORY escalation to human     |
+| Phase      | Attempts | Action                             |
+|------------|----------|-------------------------------------|
+| Self-Solve | 1-6      | Try different approaches yourself  |
+| User       | After 6  | MANDATORY escalation to team lead  |
 
-### Expert Agents
+### Expert Advisor Agents
 
 | Phase      | Attempts | Action                     |
 |------------|----------|----------------------------|
 | Self-Solve | 1-3      | Try different approaches   |
-| Fail       | 4+       | Signal EXPERT_UNSUCCESSFUL |
+| Fail       | 4+       | Reply unable to help       |
 
-**Expert agents CANNOT:**
+**Expert advisor agents CANNOT:**
 
 - Delegate to other agents
-- Escalate to divine intervention
+- Escalate to the user
 - Request additional resources
+- Write or modify code (advisory only)
 
 ---
 
@@ -78,13 +77,14 @@ DO NOT: Retry the same experts
 
 These situations REQUIRE immediate escalation (no more attempts):
 
-| Trigger                       | Signal                       | Reason                  |
-|-------------------------------|------------------------------|-------------------------|
-| 6 total failed attempts       | SEEKING_DIVINE_CLARIFICATION | Exhausted all options   |
-| 3 EXPERT_UNSUCCESSFUL         | SEEKING_DIVINE_CLARIFICATION | All experts failed      |
-| Circular dependency detected  | SEEKING_DIVINE_CLARIFICATION | Cannot resolve          |
-| Security concern              | SEEKING_DIVINE_CLARIFICATION | Requires human judgment |
-| Ambiguous acceptance criteria | SEEKING_DIVINE_CLARIFICATION | Cannot verify           |
+| Trigger                       | Action                               | Reason                  |
+|-------------------------------|--------------------------------------|-------------------------|
+| 6 total failed attempts       | Message team lead for clarification  | Exhausted all options   |
+| 3 expert advisor consults fail| Message team lead for clarification  | All expert advisors failed |
+| Ripple rejects same task 3+   | Message team lead for clarification  | Investigate if changes need broader scope |
+| Circular dependency detected  | Message team lead for clarification  | Cannot resolve          |
+| Security concern              | Message team lead for clarification  | Requires human judgment |
+| Ambiguous acceptance criteria | Message team lead for clarification  | Cannot verify           |
 
 ---
 
@@ -93,7 +93,7 @@ These situations REQUIRE immediate escalation (no more attempts):
 Each attempt must be documented:
 
 ```markdown
-ATTEMPT [N]: [Self-Solve | Expert Delegation]
+ATTEMPT [N]: [Self-Solve | Expert Advisor Consultation]
 Approach: [what was tried]
 Outcome: [result]
 Why Different: [how this differs from previous attempts]
@@ -101,17 +101,17 @@ Why Different: [how this differs from previous attempts]
 
 ---
 
-## Escalation Signal Format
+## Escalation Message Format
 
-When escalating to divine intervention:
+When escalating to the team lead:
 
 ```
 SEEKING_DIVINE_CLARIFICATION
 
 Task: [task_id]
-Agent: [agent_type]
+Teammate: [name]
 
-Question: [specific question for human]
+Question: [specific question for user]
 
 Context:
 [relevant background]
@@ -122,7 +122,7 @@ Options Considered:
 
 Attempts Made:
 - Self-solve: [N] attempts
-- Expert delegation: [N] attempts (if applicable)
+- Expert advisor consultation: [N] attempts (if applicable)
 
 What Would Help:
 [specific guidance needed]
@@ -130,206 +130,109 @@ What Would Help:
 
 ---
 
-## Divine Clarification Procedure
+## User Clarification Procedure
 
-When an agent signals for divine clarification, the coordinator acts as intermediary between the agent and the human.
+When a teammate messages the team lead seeking clarification, the team lead acts as intermediary.
 
-### Coordinator Procedure
+### Team Lead Procedure
 
-1. **Detect Signal**: Parse "SEEKING_DIVINE_CLARIFICATION" from agent output
-2. **Log Event**: `agent_seeks_guidance` with agent_id, task_id, question
-3. **Update State**: Add to `pending_divine_questions`
-4. **Request Human Input**: Use AskUserQuestion tool
+1. **Detect Message**: Read mailbox for "SEEKING_DIVINE_CLARIFICATION" from teammate
+2. **Track Question**: Add to pending questions in team lead context
+3. **Request User Input**: Ask the user directly
 
-```
-AskUserQuestion:
-Context: Agent [agent_id] working on [task_id] requires guidance
-Question: [agent's question]
-Options: [agent's options]
-```
-
-5. **Receive Response**: Get human answer
-6. **Log Event**: `divine_response_received`
-7. **Deliver Response**: Resume agent with guidance
+4. **Receive Response**: Get user answer
+5. **Deliver Response**: Message teammate via `TeammateTool write` with guidance
 
 ```
-DIVINE RESPONSE
-
-Task: [task ID]
-Agent: [agent ID]
-
-Question: [original question]
-Guidance: [human response]
-
-Resume work incorporating this guidance.
+TeammateTool({
+  operation: "write",
+  to: "<teammate-name>",
+  content: "USER GUIDANCE\n\nTask: [task ID]\n\nQuestion: [original question]\nGuidance: [user response]\n\nResume work incorporating this guidance."
+})
 ```
 
-8. **Clean Up**: Remove from `pending_divine_questions`
-9. **Log Event**: `agent_resumes_with_guidance`
-10. **Resume Operations**: Call `fill_actor_slots()` to resume normal task dispatch
+6. **Clean Up**: Remove from pending questions
+7. **Resume Operations**: Continue monitoring the task loop
 
-**CRITICAL**: Step 10 is essential. Without it, the coordinator remains paused after divine response, only processing
-the single resumed task. New available work will not be dispatched.
-
-```python
-# After delivering divine response:
-pending_divine_questions.remove(question_for_task)
-log_event("agent_resumes_with_guidance", ...)
-
-# MUST resume normal operations
-if not pending_divine_questions:  # No more pending questions
-    fill_actor_slots()  # Resume dispatching available tasks
-```
+**CRITICAL**: After delivering guidance, the team lead must resume normal operations and continue monitoring
+the task loop. Without this, the team lead remains paused.
 
 ### Output Formats
 
-**On divine clarification request:**
+**On clarification request:**
 
 ```
-DIVINE CLARIFICATION REQUESTED
+CLARIFICATION REQUESTED
 
-Agent: [agent ID]
+Teammate: [name]
 Task: [task ID]
 Question: [summary]
 
-Awaiting human guidance...
+Asking user for guidance...
 ```
 
-**On divine response delivery:**
+**On guidance delivery:**
 
 ```
-DIVINE GUIDANCE DELIVERED
+GUIDANCE DELIVERED
 
-Agent: [agent ID]
+Teammate: [name]
 Task: [task ID]
 Guidance: [response summary]
 
-Agent resuming work with guidance.
+Teammate resuming work with guidance.
 ```
 
 ---
 
 ## Handling Pending Questions
 
-Questions awaiting divine response persist in `pending_divine_questions`. On coordinator resume:
+Questions awaiting user response are tracked by the team lead. On resume:
 
-1. Check `pending_divine_questions` for unanswered questions
-2. For each pending question, request human input again
-3. Deliver responses before resuming associated agents
+1. Check pending questions for unanswered items
+2. For each pending question, ask the user again
+3. Deliver responses before resuming associated teammates
 
 ### Multiple Pending Questions
 
-When multiple agents have pending questions, process in order received. Each question is independent.
+When multiple teammates have pending questions, process in order received. Each question is independent.
 
 ---
 
-## Escalation Tracking in State
+## Escalation Tracking
 
-```json
-{
-  "escalation_tracking": {
-    "[task_id]": {
-      "self_solve_attempts": 2,
-      "expert_attempts": 1,
-      "total_attempts": 3,
-      "experts_tried": ["crypto-expert", "protocol-expert"],
-      "last_attempt_type": "expert_delegation",
-      "last_attempt_outcome": "EXPERT_UNSUCCESSFUL"
-    }
-  },
-  "pending_divine_questions": [
-    {
-      "task_id": "task-1-1",
-      "agent_id": "dev-123",
-      "question": "...",
-      "options": ["..."],
-      "requested_at": "2025-01-16T10:30:00Z"
-    }
-  ]
-}
-```
+The team lead tracks escalation state in its context:
+
+- Per-task self-solve attempt count
+- Per-task expert advisor consultation attempt count
+- Total attempts per task
+- Which expert advisors have been tried
+- Pending questions awaiting user response
 
 ---
 
-## Post-Divine Clarification Flow
+## Post-Clarification Flow
 
-After divine clarification is received:
+After user clarification is received:
 
-1. Log event: `divine_clarification_received`
-2. Resume agent with clarification in prompt
-3. **Reset attempt counters** for that specific issue (see below)
-4. Update task status from `awaiting-divine-guidance` to `implementing`
-5. Do NOT reset counters for unrelated issues
+1. Deliver guidance to the teammate via mailbox message
+2. **Reset attempt counters** for that specific issue
+3. Update task status - the developer can resume work
+4. Do NOT reset counters for unrelated issues
 
-### Reset Escalation Counters
-
-```python
-def reset_escalation_counters(task_id):
-    """Reset attempt counters after divine clarification is received."""
-
-    if task_id in escalation_tracking:
-        # Reset all counters for fresh start with divine guidance
-        escalation_tracking[task_id] = {
-            'self_solve_attempts': 0,
-            'delegation_attempts': 0,
-            'total_attempts': 0,
-            'experts_tried': [],  # Keep expert history for reference
-            'last_attempt_type': None,
-            'last_attempt_outcome': 'divine_guidance_received',
-            'divine_clarifications_received': escalation_tracking[task_id].get('divine_clarifications_received', 0) + 1
-        }
-
-        log_event("escalation_counters_reset",
-                  task_id=task_id,
-                  reason="divine_clarification_received")
-
-    # Also reset incomplete count if this was a TASK_INCOMPLETE escalation
-    if task_id in task_attempts:
-        task_attempts[task_id]['incomplete_count'] = 0
-
-    save_state()
-```
-
-**IMPORTANT**: Without this reset, the agent will immediately re-escalate on any subsequent failure since counters are
-still at threshold.
+**IMPORTANT**: Without resetting counters, the teammate will immediately re-escalate on any subsequent failure since
+counters are still at threshold.
 
 ---
 
-## Task Status During Divine Intervention
+## Task Status During Clarification
 
-When an agent escalates to divine intervention, the task status must be updated to prevent re-dispatch:
-
-```python
-def escalate_to_divine(task_id, question, options, context=None):
-    """Escalate to human with proper state tracking."""
-
-    # Update task status to prevent re-dispatch
-    update_task_status(task_id, "awaiting-divine-guidance")
-
-    # Add to pending questions
-    pending_divine_questions.append({
-        'task_id': task_id,
-        'question': question,
-        'options': options,
-        'context': context,
-        'escalated_at': datetime.now().isoformat()
-    })
-
-    log_event("agent_seeks_guidance",
-              task_id=task_id,
-              question=question)
-
-    save_state()
-
-    # Invoke human question
-    AskUserQuestion(question=question, options=options)
-```
+When a teammate escalates, the task should not be available for other developers to claim. The team lead ensures
+the task remains in a blocked state until guidance is delivered.
 
 ---
 
 ## Cross-References
 
-- [signal-specification.md](signal-specification.md) - Signal formats
-- [expert-delegation.md](expert-delegation.md) - Expert consultation process
-- [agent-definitions.md](agent-definitions.md) - Agent types
-- [state-management.md](state-management.md) - State tracking
+- [expert-delegation.md](expert-delegation.md) - Developer-to-expert advisor consultation process
+- [team-architecture.md](team-architecture.md) - Team structure

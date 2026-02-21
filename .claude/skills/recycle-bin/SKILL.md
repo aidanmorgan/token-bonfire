@@ -1,3 +1,8 @@
+---
+name: recycle-bin
+description: Recover accidentally deleted files from the recycle bin.
+---
+
 # Recycle Bin - File Recovery Skill
 
 Recover accidentally deleted files from the recycle bin. Use this skill proactively when you detect that a file has been

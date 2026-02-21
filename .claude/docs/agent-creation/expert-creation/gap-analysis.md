@@ -6,7 +6,7 @@
 
 ## Overview
 
-Before creating an expert, the orchestrator runs gap analysis to identify where default agents will need expert support.
+Before creating an expert, the team lead runs gap analysis to identify where baseline teammates will need expert support.
 
 ---
 
@@ -15,11 +15,11 @@ Before creating an expert, the orchestrator runs gap analysis to identify where 
 Use this prompt to analyze the implementation plan:
 
 ```
-Analyze this implementation plan to identify where default agents will need expert support.
+Analyze this implementation plan to identify where baseline teammates will need expert support.
 
 PLAN: {{PLAN_FILE}}
 
-DEFAULT AGENT LIMITATIONS:
+BASELINE TEAMMATE LIMITATIONS:
 
 Developer:
 - May not know domain-specific best practices
@@ -28,25 +28,29 @@ Developer:
 
 Critic:
 - May not recognize domain-specific quality issues
-- Cannot judge domain-specific correctness
+- Cannot judge domain-specific correctness at code review depth
+
+Ripple:
+- May not recognize domain-specific downstream impacts
+- Cannot judge second-order effects requiring deep domain knowledge
 
 Auditor:
 - May not recognize domain-specific correctness
-- Cannot verify specialized implementations
+- Cannot verify specialized implementations against acceptance criteria
 
 IDENTIFY:
 
 1. **Expertise Gaps**
    - What specialized knowledge do tasks require?
-   - What domains have best practices default agents won't know?
+   - What domains have best practices baseline teammates won't know?
    - What areas have pitfalls requiring expert awareness?
 
 2. **Decision Points**
-   - Where will default agents face choices they can't make alone?
+   - Where will baseline teammates face choices they can't make alone?
    - What trade-offs require domain expertise?
 
 3. **Verification Gaps**
-   - What aspects can't default agents verify correctly?
+   - What aspects can't baseline teammates verify correctly?
    - Where does "correct" require domain knowledge?
 
 OUTPUT:
@@ -55,14 +59,14 @@ GAP ANALYSIS: [Plan Name]
 
 Gap 1: [Name]
 - Affected Tasks: [task IDs]
-- Default Agent Limitation: [which agent, what they can't do]
+- Baseline Teammate Limitation: [which teammate, what they can't do]
 - Expertise Required: [specific knowledge needed]
 
 RECOMMENDED EXPERTS:
 
 1. [Expert Name]
    - Fills Gap: [which gap]
-   - Supports: [which default agents]
+   - Supports: [which baseline teammates]
    - Expertise Focus: [specific to plan]
    - Delegation Triggers: [when to ask]
 ```
@@ -80,7 +84,7 @@ Identify specialized knowledge that tasks require:
     - Project-specific conventions
     - Methodological knowledge (testing, quality)
 
-- **What domains have best practices default agents won't know?**
+- **What domains have best practices baseline teammates won't know?**
     - Domain-specific patterns
     - Industry standards
     - Framework-specific approaches
@@ -92,9 +96,9 @@ Identify specialized knowledge that tasks require:
 
 ### 2. Decision Points
 
-Identify where default agents will face choices they can't make alone:
+Identify where baseline teammates will face choices they can't make alone:
 
-- **Where will default agents face choices they can't make alone?**
+- **Where will baseline teammates face choices they can't make alone?**
     - Architecture decisions
     - Technology selection
     - Trade-off evaluation
@@ -106,9 +110,9 @@ Identify where default agents will face choices they can't make alone:
 
 ### 3. Verification Gaps
 
-Identify what aspects default agents can't verify correctly:
+Identify what aspects baseline teammates can't verify correctly:
 
-- **What aspects can't default agents verify correctly?**
+- **What aspects can't baseline teammates verify correctly?**
     - Domain-specific correctness
     - Best practice compliance
     - Edge case handling
@@ -127,32 +131,33 @@ GAP ANALYSIS: [Plan Name]
 
 Gap 1: [Gap Name]
 - Affected Tasks: [task-001, task-002]
-- Default Agent Limitation: Developer may not know secure key derivation practices
+- Baseline Teammate Limitation: Developer may not know secure key derivation practices
 - Expertise Required: Cryptographic best practices, key management
 
 Gap 2: [Gap Name]
 - Affected Tasks: [task-003]
-- Default Agent Limitation: Critic cannot judge protocol correctness
+- Baseline Teammate Limitation: Critic and Auditor cannot judge protocol correctness
 - Expertise Required: Protocol design, state machine verification
 
 RECOMMENDED EXPERTS:
 
 1. crypto-expert
    - Fills Gap: Gap 1
-   - Supports: Developer (implementation), Critic (review), Auditor (verification)
+   - Supports: Developer (implementation advice), Critic (quality review), Ripple (downstream impact), Auditor (verification)
    - Expertise Focus: Cryptographic primitives, key management for THIS plan
    - Delegation Triggers:
      - Developer: When implementing encryption/hashing
-     - Critic: When reviewing security-sensitive code
+     - Critic: When reviewing cryptographic code quality
      - Auditor: When verifying cryptographic correctness
 
 2. protocol-expert
    - Fills Gap: Gap 2
-   - Supports: Developer (design), Critic (correctness)
+   - Supports: Developer (design advice), Critic (review), Ripple (downstream impact), Auditor (correctness)
    - Expertise Focus: Protocol state machines, message formats for THIS plan
    - Delegation Triggers:
      - Developer: When designing protocol flows
-     - Critic: When reviewing protocol implementation
+     - Critic: When reviewing protocol code quality
+     - Auditor: When verifying protocol implementation
 ```
 
 ---
@@ -165,10 +170,10 @@ The gap analysis output provides inputs for expert creation:
 |--------------------------|----------------------------------|
 | Gap name                 | Expert identity, expertise focus |
 | Affected tasks           | `AFFECTED_TASKS` input           |
-| Default agent limitation | Expert identity rationale        |
+| Baseline teammate limit  | Expert identity rationale        |
 | Expertise required       | Guides domain research           |
 | Recommended experts      | Expert names and types           |
-| Supports                 | `SUPPORTING_AGENTS` input        |
+| Supports                 | `SUPPORTING_TEAMMATES` input     |
 | Delegation triggers      | Expert's `<who_asks_me>` section |
 
 ---

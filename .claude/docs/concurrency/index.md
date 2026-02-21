@@ -1,69 +1,47 @@
 # Concurrent File Modification
 
-With `{{ACTIVE_DEVELOPERS}}` parallel developers, file conflicts are possible. This document provides an overview of how
-the coordinator prevents and handles concurrent modifications.
+With multiple named developers working in parallel, file conflicts are possible. This document provides an overview of how
+the team lead and native Agent Teams primitives prevent and handle concurrent modifications.
 
 ## Overview
 
-The concurrency system uses a file-locking protocol to prevent conflicts when multiple developers work in parallel. The
-system includes:
+The concurrency system relies on three mechanisms:
 
-- **File Lock Protocol**: Pre-dispatch analysis and conflict detection
-- **Queue Management**: Timeout handling for tasks waiting on locked files
-- **Conflict Handling**: Runtime conflict detection and resolution
-- **Race Safety**: Prevention of race conditions in parallel operations
+- **File Ownership**: Tasks specify which files each developer owns; developers only modify files within their scope
+- **Task Dependencies**: Native `TaskUpdate({ addBlockedBy })` serializes access to shared files
+- **Conflict Handling**: Developers signal `FILE_CONFLICT` to the team lead, who coordinates resolution via mailbox
+- **Named Teammate Ownership**: Each task is claimed by a specific named developer — no anonymous agents racing for work
 
 ## Navigation
 
-- [File Locks](file-locks.md) - File lock protocol and lifecycle
-- [Queue Management](queue-management.md) - Queue timeout handling
-- [Conflict Handling](conflict-handling.md) - Runtime conflict handling
-- [Race Safety](race-safety.md) - Race condition prevention and best practices
+- [File Ownership](file-ownership.md) - File ownership protocol and task decomposition
+- [Task Dependencies](queue-management.md) - Native task dependency management
+- [Conflict Handling](conflict-handling.md) - Runtime conflict handling via mailbox
+- [Race Safety](race-safety.md) - Race condition prevention with named teammates
 
 ## Quick Reference
 
-### File Lock States
+### File Ownership States
 
-1. **Locked** - File is actively being modified by a developer
-2. **Releasing** - Developer completed work, awaiting review/audit
-3. **Released** - File available for modification
+1. **Owned** - File is actively being modified by a named developer as part of their claimed task
+2. **Released** - Developer's task completed, file available for other tasks
+3. **Shared** - File is a common resource (e.g., `__init__.py`, config) — additive-only changes allowed
 
 ### Conflict Resolution Options
 
-- **QUEUE** - Wait for conflicting task to complete
-- **COORDINATE** - Dispatch with explicit coordination instructions
-- **SKIP** - Select different task instead
+- **WAIT** - Developer waits for the owning task to complete (dependency auto-unblocks)
+- **COORDINATE** - Team lead assigns single owner via mailbox, other developer yields
+- **ADDITIVE** - Both developers make additive-only changes to shared files (append imports, never restructure)
 
-### Queue Behavior
+### Task Dependencies
 
-- **Timeout**: 30 minutes maximum wait
-- **Max Retries**: 3 timeouts before escalation
-- **Escalation**: Divine intervention after retry exhaustion
+Dependencies are managed via native `TaskUpdate({ addBlockedBy })`:
+- Blocking tasks automatically unblock dependents when marked `completed`
+- No manual queue management or timeout handling needed
+- The bootstrapper script sets up initial dependencies from the plan file's `Blocked By` fields
 
 ## State Tracking
 
-File locks and queued tasks are tracked in `{{STATE_FILE}}`:
+Task state is tracked in the **shared task list** via `TaskCreate`/`TaskUpdate`/`TaskList`/`TaskGet`. File ownership is encoded in task descriptions (file ownership boundaries).
 
-```json
-{
-  "in_progress_tasks": [
-    {
-      "task_id": "task-3",
-      "developer_id": "dev-agent-1",
-      "status": "implementing",
-      "locked_files": ["src/auth/authenticator.py"],
-      "lock_acquired_at": "ISO-8601"
-    }
-  ],
-  "queued_for_file_conflict": [
-    {
-      "task_id": "task-7",
-      "waiting_for": "task-3",
-      "conflicting_files": ["src/auth/authenticator.py"],
-      "queued_at": "ISO-8601",
-      "timeout_at": "ISO-8601",
-      "queue_retry_count": 0
-    }
-  ]
-}
-```
+No custom state file is needed — the native task list provides all coordination state.

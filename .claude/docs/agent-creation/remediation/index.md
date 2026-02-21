@@ -1,6 +1,6 @@
 # Remediation Agent Creation - Overview and Inputs
 
-**Parent**: [Agent Creation](../remediation.md) | **Documentation Index**: [Index](../../index.md)
+**Parent**: [Agent Creation](index.md) | **Documentation Index**: [Index](../../index.md)
 
 **Version**: 2025-01-17-v2
 
@@ -11,7 +11,7 @@
 - **[Overview and Inputs](index.md)** (this file)
 - [Identity and Authority](identity.md) - Agent identity, failure modes, decision authority
 - [Practices and Workflow](practices.md) - Success criteria, practices, workflow
-- [Signals and Delegation](signals.md) - Signal formats, delegation, boundaries
+- [Communication and Delegation](signals.md) - Message formats, delegation, boundaries
 
 ---
 
@@ -24,18 +24,16 @@ file must know EXACTLY how to diagnose and fix infrastructure issues.
 
 **CRITICAL**: You are creating a **BROAD BUT SHALLOW** agent.
 See [Agent vs Expert](../prompt-engineering-guide.md#agent-vs-expert-the-depth-distinction) for why this matters.
-Remediation agents handle many infrastructure issues competently but are NOT domain experts—they must recognize when to
+Remediation agents handle many infrastructure issues competently but are NOT domain experts -- they must recognize when to
 ask for expert help.
 
 ---
 
-## Inputs Provided by Orchestrator
+## Inputs Provided by Team Lead
 
 | Input                     | Description                        | Use In                            |
 |---------------------------|------------------------------------|-----------------------------------|
 | `BEST_PRACTICES_RESEARCH` | Comprehensive remediation research | `<remediation_practices>` section |
-| `SIGNAL_SPECIFICATION`    | Exact signal formats               | `<signal_format>` section         |
-| `DELEGATION_PROTOCOL`     | How to request expert help         | `<asking_experts>` section        |
 | `AVAILABLE_EXPERTS`       | Experts for this plan              | `<expert_awareness>` section      |
 | `ENVIRONMENTS`            | Execution environments             | `<environments>` section          |
 | `VERIFICATION_COMMANDS`   | Commands that must pass            | `<success_criteria>` section      |
@@ -47,33 +45,33 @@ The `BEST_PRACTICES_RESEARCH` input contains **comprehensive** research for each
 
 ```
 BEST_PRACTICES_RESEARCH:
-├── [Technology 1]
-│   ├── DIAGNOSIS
-│   │   ├── Debugging techniques
-│   │   ├── Error diagnosis strategies
-│   │   ├── Troubleshooting common issues
-│   │   ├── Log analysis for debugging
-│   │   └── Root cause analysis methods
-│   │
-│   ├── FIXING
-│   │   ├── Common error fixes
-│   │   ├── Build failure resolution
-│   │   ├── Test failure debugging
-│   │   ├── Dependency conflict resolution
-│   │   └── Environment configuration fixes
-│   │
-│   └── PREVENTION
-│       ├── Preventing common errors
-│       ├── CI/CD best practices
-│       ├── Infrastructure reliability patterns
-│       ├── Reproducible builds setup
-│       └── Environment consistency practices
-│
-├── [Technology 2]
-│   └── ... (same structure)
-│
-└── Cross-cutting
-    └── General infrastructure debugging patterns
++-- [Technology 1]
+|   +-- DIAGNOSIS
+|   |   +-- Debugging techniques
+|   |   +-- Error diagnosis strategies
+|   |   +-- Troubleshooting common issues
+|   |   +-- Log analysis for debugging
+|   |   +-- Root cause analysis methods
+|   |
+|   +-- FIXING
+|   |   +-- Common error fixes
+|   |   +-- Build failure resolution
+|   |   +-- Test failure debugging
+|   |   +-- Dependency conflict resolution
+|   |   +-- Environment configuration fixes
+|   |
+|   +-- PREVENTION
+|       +-- Preventing common errors
+|       +-- CI/CD best practices
+|       +-- Infrastructure reliability patterns
+|       +-- Reproducible builds setup
+|       +-- Environment consistency practices
+|
++-- [Technology 2]
+|   +-- ... (same structure)
+|
++-- Cross-cutting
+    +-- General infrastructure debugging patterns
 ```
 
 ---
@@ -81,7 +79,7 @@ BEST_PRACTICES_RESEARCH:
 ## Creation Prompt
 
 ```
-You are creating a Remediation agent for the Token Bonfire orchestration system.
+You are creating a Remediation agent for the Token Bonfire system.
 
 **YOUR MISSION**: Write a mission-oriented agent prompt that creates remediation agents who:
 1. Own the unblocking - feel personal responsibility for restoring infrastructure
@@ -94,7 +92,7 @@ You are creating a Remediation agent for the Token Bonfire orchestration system.
 
 ---
 
-## INPUTS (provided by orchestrator)
+## INPUTS (provided by team lead)
 
 ### Best Practices Research
 
@@ -102,20 +100,6 @@ This research guides your diagnosis and fixing approach.
 
 BEST_PRACTICES_RESEARCH:
 {{BEST_PRACTICES_RESEARCH}}
-
-### Signal Specification
-
-Remediation MUST use these EXACT signal formats.
-
-SIGNAL_SPECIFICATION:
-{{SIGNAL_SPECIFICATION}}
-
-### Delegation Protocol
-
-How to request expert help when stuck.
-
-DELEGATION_PROTOCOL:
-{{DELEGATION_PROTOCOL}}
 
 ### Available Experts
 
@@ -149,7 +133,7 @@ MCP_SERVERS:
 
 ## STEP 1: Understand the Remediation Role
 
-The remediation agent is **BROAD BUT SHALLOW** (see [Agent vs Expert](../prompt-engineering-guide.md#agent-vs-expert-the-depth-distinction))—competent at fixing many infrastructure issues from research, but NOT a domain expert. They must recognize when to delegate.
+The remediation agent is **BROAD BUT SHALLOW** -- competent at fixing many infrastructure issues from research, but NOT a domain expert. They must recognize when to delegate.
 
 Remediation is URGENT:
 - The entire workflow is BLOCKED until infrastructure is fixed
@@ -162,8 +146,7 @@ Remediation is URGENT:
 ## Cross-References
 
 - **[Documentation Index](../../index.md)** - Navigation hub for all docs
-- **[Remediation Agent Creation](../remediation.md)** - Main remediation document
+- **[Remediation Agent Creation](index.md)** - Main remediation document
 - [Prompt Engineering Guide](../prompt-engineering-guide.md) - How to write effective prompts
-- [Signal Specification](../../signal-specification.md) - Remediation signal formats
 - [Remediation Loop](../../remediation-loop.md) - Infrastructure repair cycle
 - [Expert Delegation](../../expert-delegation.md) - How to request expert help

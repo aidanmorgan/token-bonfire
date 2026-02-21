@@ -7,21 +7,20 @@ Next: [Prompt Structure](prompt-structure.md)
 
 ## Overview
 
-After gap analysis, the orchestrator gathers comprehensive inputs and performs deep research to create the expert agent.
+After gap analysis, the team lead gathers comprehensive inputs and performs deep research to create the expert agent.
 
 ---
 
-## Inputs Provided by Orchestrator
+## Inputs Provided by Team Lead
 
 | Input                    | Description                                             | Use In                         |
 |--------------------------|---------------------------------------------------------|--------------------------------|
 | `GAP_ANALYSIS`           | What gap this expert fills                              | `<expert_identity>` section    |
 | `AFFECTED_TASKS`         | Task IDs that need this expertise                       | `<plan_context>` section       |
-| `SUPPORTING_AGENTS`      | Which default agents delegate to this expert            | `<who_asks_me>` section        |
+| `SUPPORTING_TEAMMATES`   | Which baseline teammates delegate to this expert        | `<who_asks_me>` section        |
 | `DEEP_DOMAIN_RESEARCH`   | **Comprehensive** domain-specific knowledge (see below) | `<expertise>` section          |
 | `REFERENCE_DOC_INSIGHTS` | Insights from plan's reference documentation            | `<plan_context>` section       |
 | `DECISION_FRAMEWORKS`    | Expert-level decision patterns for the domain           | `<decision_authority>` section |
-| `SIGNAL_SPECIFICATION`   | Exact signal formats                                    | `<signal_format>` section      |
 | `PLAN_FILE`              | The implementation plan                                 | Context for advice             |
 | `MCP_SERVERS`            | Available MCP servers for extended capabilities         | `<mcp_servers>` section        |
 
@@ -29,10 +28,10 @@ After gap analysis, the orchestrator gathers comprehensive inputs and performs d
 
 ## Deep Domain Research (CRITICAL)
 
-Unlike baseline agents who receive general best practices, **experts receive deep, comprehensive research**:
+Unlike baseline teammates who receive general best practices, **experts receive deep, comprehensive research**:
 
 ```
-BASELINE AGENT RESEARCH:
+BASELINE DEVELOPER RESEARCH:
 - "Use type hints in Python"
 - "Avoid mutable default arguments"
 - "Follow PEP8"
@@ -48,7 +47,7 @@ EXPERT RESEARCH (much deeper):
 - Verification criteria that only domain experts would know
 ```
 
-The orchestrator performs **additional specialized research** for each expert beyond what baseline agents receive.
+The team lead performs **additional specialized research** for each expert beyond what baseline teammates receive.
 
 ---
 
@@ -195,7 +194,7 @@ For Methodology Experts, research must include:
 
 4. SYNTHESIZE
    - Become authoritative interpreter
-   - Create guidance for different agents
+   - Create guidance for different teammates
    - Document when to be strict vs. flexible
    - Prepare expert opinions on edge cases
 ```
@@ -231,14 +230,14 @@ For Methodology Experts, research must include:
 
 ## Input Template for Expert Creation
 
-After research, the orchestrator provides these inputs to the expert creation sub-agent:
+After research, the team lead provides these inputs to the expert creation sub-agent:
 
 ```markdown
-## INPUTS (provided by orchestrator)
+## INPUTS (provided by team lead)
 
 ### Gap Being Filled
 
-This expert exists because default agents have this limitation:
+This expert exists because baseline teammates have this limitation:
 
 GAP_ANALYSIS:
 {{GAP_ANALYSIS}}
@@ -250,16 +249,16 @@ Tasks that need this expertise:
 AFFECTED_TASKS:
 {{AFFECTED_TASKS}}
 
-### Default Agents Who Will Delegate
+### Teammates Who Will Delegate
 
-These default agents will ask for help:
+These baseline teammates will ask for help:
 
-SUPPORTING_AGENTS:
-{{SUPPORTING_AGENTS}}
+SUPPORTING_TEAMMATES:
+{{SUPPORTING_TEAMMATES}}
 
 ### Deep Domain Research (COMPREHENSIVE)
 
-This is your PRIMARY INPUT. This research is DEEPER than what baseline agents receive.
+This is your PRIMARY INPUT. This research is DEEPER than what baseline teammates receive.
 Use this to build AUTHORITATIVE expertise into the expert agent.
 
 DEEP_DOMAIN_RESEARCH:
@@ -292,13 +291,6 @@ DECISION_FRAMEWORKS:
 
 These frameworks enable the expert to make AUTHORITATIVE decisions, not guesses.
 
-### Signal Specification
-
-Experts MUST use these EXACT formats:
-
-SIGNAL_SPECIFICATION:
-{{SIGNAL_SPECIFICATION}}
-
 ### MCP Servers
 
 Available MCP servers that extend expert capabilities beyond native tools.
@@ -317,8 +309,8 @@ See: `.claude/docs/mcp-servers.md` for detailed usage guidance.
 
 If a domain expert read the research, would they think:
 
-- "This is surface-level knowledge anyone could find" → **NOT DEEP ENOUGH**
-- "This demonstrates genuine expertise and nuanced understanding" → **CORRECT DEPTH**
+- "This is surface-level knowledge anyone could find" -> **NOT DEEP ENOUGH**
+- "This demonstrates genuine expertise and nuanced understanding" -> **CORRECT DEPTH**
 
 ### Completeness Test
 

@@ -1,84 +1,87 @@
 # Recovery System Overview
 
-This directory contains comprehensive recovery procedures for handling various failure scenarios in the Token Bonfire
-coordination system.
+This directory contains recovery procedures for handling various failure scenarios in the Token Bonfire coordination system.
 
 ## Purpose
 
-The recovery system ensures the coordinator can gracefully handle and recover from:
+Recovery in the native Agent Teams system is largely automatic because:
+- The **shared task list** persists on disk, keyed by plan slug
+- **Expert prompt files** persist at `.claude/experts/<plan_slug>/`
+- **Dependencies auto-unblock** when blocking tasks complete
+- **Orphaned in-progress tasks** auto-release after heartbeat timeout (~5 min)
 
-- File corruption (event logs, state files, plan files)
-- Missing files (agent definitions, configuration)
+The recovery system ensures the team lead can gracefully handle:
 - Session interruptions and restarts
+- Missing expert prompt files
 - Pre-existing infrastructure failures
-- Inconsistent state across multiple data sources
+- Crashed teammates
 
 ## Recovery Documents
 
 ### Core Recovery Procedures
 
-1. **[Event Log Recovery](event-log-recovery.md)**
-    - Corruption detection and validation
-    - Recovery from truncation
-    - Reconstruction when missing
-    - State reconstruction from events
+1. **[Task List Recovery](state-recovery.md)**
+    - Auditing task state on resume
+    - Handling orphaned in-progress tasks
+    - Verifying completed tasks
 
-2. **[State Recovery](state-recovery.md)**
-    - State file corruption detection
-    - Recovery from corrupted state files
-    - State reconstruction from event log
-
-3. **[Agent Recovery](agent-file-recovery.md)**
-    - Missing agent definition files
-    - Agent file recreation from templates
-    - Critic-specific recovery procedures
+2. **[Agent Recovery](agent-file-recovery.md)**
+    - Missing expert prompt files
+    - Plan file validation
+    - Expert regeneration when needed
 
 ### Failure Management
 
-4. **[Baseline Failures](baseline-failures.md)**
+3. **[Baseline Failures](baseline-failures.md)**
     - Pre-existing failure baseline capture
     - Classification of failures (pre-existing vs task-introduced)
     - Handling strategies based on failure type
-    - Session start procedures with baseline
 
-5. **[Session Recovery](session-recovery.md)**
-    - Pending queue reconstruction (critique/audit)
+4. **[Session Recovery](session-recovery.md)**
     - Complete session recovery orchestration
+    - Resume detection and mode selection
     - Recovery summary and reporting
 
 ## Recovery Philosophy
 
 The recovery system follows these principles:
 
-1. **Event Log as Source of Truth**: When conflicts occur, the event log is the authoritative record
-2. **Fail Safe, Not Silent**: Recovery operations log their actions and outcomes
-3. **Backward Compatible**: Unknown event types are logged but don't fail recovery
-4. **Baseline Awareness**: Distinguish between inherited problems and newly introduced issues
-5. **Automatic Where Possible**: Recover without human intervention when safe to do so
+1. **Task List as Source of Truth**: The native shared task list (keyed by plan slug) is the authoritative record
+2. **Expert Files as Knowledge Store**: Persisted expert prompts at `.claude/experts/<plan_slug>/` preserve domain research
+3. **Automatic Resume**: Re-running `/bonfire $PLAN_FILE` produces the same slug, loads existing state
+4. **Fail Safe, Not Silent**: Recovery operations report their findings to the user
+5. **Baseline Awareness**: Distinguish between inherited problems and newly introduced issues
 
 ## Recovery Flow
 
 ```
-Session Start
-    ↓
-Validate Event Log ────→ Corrupted? ──→ Recover from truncation
-    ↓                                          ↓
-Validate State File ───→ Corrupted? ──→ Reconstruct from events
-    ↓                                          ↓
-Validate Plan File ────→ Missing? ────→ HALT (not recoverable)
-    ↓                                          ↓
-Validate Agent Files ──→ Missing? ────→ Recreate from templates
-    ↓                                          ↓
-Reconstruct Queues ────→ Restore pending critique/audit tasks
-    ↓                                          ↓
-Capture/Load Baseline ─→ Track pre-existing failures
-    ↓
-Continue Session
+Resume (re-run /bonfire $PLAN_FILE)
+    |
+    v
+Parse plan -> same plan_slug
+    |
+    v
+Check expert files on disk -> Missing? -> Regenerate from plan
+    |                                          |
+    v                                          v
+Call TaskList -> Audit task state         Generate expert prompts
+    |                                          |
+    v                                          v
+Spawn fresh teammates from prompts       Create tasks if needed
+    |
+    v
+Experts claim pending tasks
+    |
+    v
+Orphaned in-progress tasks auto-release (~5 min)
+    |
+    v
+Continue execution
 ```
 
 ## Cross-References
 
-- [Event Logging](../event-logging.md) - Event structure and logging procedures
-- [State Management](../state-management.md) - State schema and persistence
-- [Session Management](../session-management.md) - Session lifecycle management
-- [Agent Definitions](../agent-definitions.md) - Agent file structure
+- [Communication Protocol](../communication-protocol.md) - Inter-agent messaging
+- [State Management](../state/index.md) - Task state tracking
+- [Session Management](../session-management.md) - Session lifecycle
+- [Team Architecture](../team-architecture.md) - Resume and crash recovery details

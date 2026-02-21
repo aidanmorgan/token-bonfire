@@ -1,15 +1,15 @@
-# Auditor Agent - Verification Practices and Method
+# Auditor - Verification Practices and Method
 
-**Part of**: [Auditor Meta-Prompt](../auditor.md)
+**Part of**: [Auditor Meta-Prompt](index.md)
 
 ---
 
 ## Navigation
 
 - **[Index](index.md)** - Meta-prompt overview, inputs, and navigation
-- **[Identity](identity.md)** - Identity, authority, pre-signal verification
+- **[Identity](identity.md)** - Identity, authority, pre-message verification
 - **[Verification](verification.md)** - Verification practices, environments, method (this file)
-- **[Signals](signals.md)** - Signal formats, expert delegation, boundaries
+- **[Communication](signals.md)** - Message formats, expert delegation, boundaries
 
 ---
 
@@ -36,7 +36,7 @@ How to execute verification correctly:
 - [Environment requirement]: [How to verify]
 
 **Continuous Testing:**
-- [Practice]: [How to apply during audit]
+- [Practice]: [How to apply during review]
 
 ### VALIDATION (Behavior Confirmation)
 
@@ -73,35 +73,18 @@ How to make definitive pass/fail decisions:
 
 ### <environments> (REQUIRED)
 
+## Environment Execution Protocol
+
+See [environment-execution-protocol.md](../../environment-execution-protocol.md) for the complete multi-environment execution procedure.
+
+**Agent-specific outcome**: When any environment fails, the result is `AUDIT_FAILED`.
+
 ```markdown
 ## Execution Environments
 
 | Name | Description | How to Execute |
 |------|-------------|----------------|
 [FROM ENVIRONMENTS INPUT]
-
-## CRITICAL - Environment Execution Protocol
-
-**When a verification command has an EMPTY Environment column:**
-1. You MUST execute the command in EVERY environment listed above
-2. Execute in Mac environment first → record ACTUAL exit code
-3. Execute in Devcontainer environment → record ACTUAL exit code
-4. BOTH must return the required exit code
-5. FAILURE IN ANY ENVIRONMENT = AUDIT_FAILED
-
-**When a command specifies a SPECIFIC environment (e.g., "Mac"):**
-1. Execute ONLY in that specific environment
-2. Other environments are excluded by design
-
-**How to Execute in Each Environment:**
-- Mac: Run command directly in your shell
-- Devcontainer: Use `mcp__devcontainers__devcontainer_exec(workspace_folder="/project", command="...")`
-
-**YOU MUST BUILD THE ENVIRONMENT VERIFICATION MATRIX:**
-For each command, add a row for each required environment showing the ACTUAL exit code.
-This matrix is MANDATORY in your AUDIT_PASSED signal.
-
-**FAILURE TO RUN IN ALL REQUIRED ENVIRONMENTS IS AN AUDIT FAILURE.**
 ```
 
 ### <verification_commands> (REQUIRED)
@@ -125,8 +108,8 @@ Execute ALL commands. Document pass/fail for each in each environment.
 
 If ANY found in modified code, task FAILS immediately:
 
-- TODO comments (why is this being audited if it's not done?)
-- FIXME comments (why is this being audited if it's not fixed?)
+- TODO comments (why is this being reviewed if it's not done?)
+- FIXME comments (why is this being reviewed if it's not fixed?)
 - Placeholder implementations (pass, ..., NotImplementedError, "not implemented")
 - Commented-out code (delete it or use it)
 - Debugging artifacts (print(), console.log(), debugger, logging.debug with secrets)
@@ -178,8 +161,8 @@ For EACH verification command:
   4. Record the ACTUAL exit code for each execution
 
 Step-by-step for each command with empty Environment column:
-  a. Run command in Mac environment → record ACTUAL exit code
-  b. Run command in Devcontainer environment → record ACTUAL exit code
+  a. Run command in Mac environment -> record ACTUAL exit code
+  b. Run command in Devcontainer environment -> record ACTUAL exit code
   c. Compare each exit code to the Required Exit Code
   d. BOTH must match - failure in either = AUDIT_FAILED
 
@@ -200,12 +183,12 @@ PHASE 5: DOMAIN VERIFICATION (if needed)
 Checkpoint: Is every domain-specific criterion verified?
 
 PHASE 6: JUDGMENT
-Complete pre-signal verification, then:
-- If ANY quality tell found → FAIL
-- If ANY criterion lacks evidence → FAIL
-- If ANY verification command fails → FAIL
-- If ANY doubt exists → FAIL
-- Only if ALL checks pass with NO exceptions → PASS
+Complete pre-message verification, then:
+- If ANY quality tell found -> FAIL
+- If ANY criterion lacks evidence -> FAIL
+- If ANY verification command fails -> FAIL
+- If ANY doubt exists -> FAIL
+- Only if ALL checks pass with NO exceptions -> PASS
 ```
 
 ### <calibration> (REQUIRED)
@@ -242,5 +225,4 @@ Decision framework: If edge cases aren't specified, FAIL with question asking wh
 
 - **[Documentation Index](../../index.md)** - Navigation hub for all docs
 - [Prompt Engineering Guide](../prompt-engineering-guide.md) - How to write effective prompts
-- [Signal Specification](../../signal-specification.md) - Auditor signal formats
-- [Review Audit Flow](../../review-audit-flow.md) - Auditor's role in the workflow
+- [Expert Delegation](../../expert-delegation.md) - How the auditor requests expert help

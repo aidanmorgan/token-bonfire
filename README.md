@@ -4,12 +4,11 @@ An experiment to use one prompt to automatically create a team of agentic engine
 
 You don't need to define agents, just provide `token-bonfire` a plan file and it will do the rest, including:
 
-- Creating agent definitions
-- Dispatching parallel developers
-- Validating work completion
-- Repairing broken infrastructure
-- Monitoring API usage
-- Compaction and recovery from crashes
+- Creating named expert agents tailored to your plan
+- Spawning a parallel team via native Agent Teams
+- Validating work through a staged review pipeline
+- Repairing broken infrastructure automatically
+- Resuming automatically from crashes via slug-based task lists
 
 ## How It Works
 
@@ -24,22 +23,26 @@ flowchart TB
         Parse[Parse Plan]
         Research[Research Best Practices]
         Gap[Gap Analysis]
-        CreateExperts[Create Experts]
-        CreateAgents[Create Agents]
+        CreateExperts[Create Expert Advisor Prompts]
+        CreateRoles[Create Role Prompts]
     end
 
-    subgraph Execution["Execution Loop"]
-        Coord[Coordinator]
+    subgraph Execution["Team Execution"]
+        Lead[Team Lead]
 
-        subgraph Agents["Parallel Agents (up to 5)"]
-            Dev1[Developer]
-            Dev2[Developer]
-            Dev3[Developer]
+        subgraph Developers["Developers (up to 5)"]
+            Dev1[dev-1]
+            Dev2[dev-2]
+            Dev3[dev-3]
+        end
+
+        subgraph Advisors["Expert Advisors (up to 3)"]
+            Exp1[auth-expert]
+            Exp2[db-expert]
         end
 
         Critic[Critic]
         Auditor[Auditor]
-        Expert[Expert]
     end
 
     subgraph Outcomes
@@ -49,9 +52,9 @@ flowchart TB
     end
 
     subgraph Recovery
-        Remediation[Remediation Agent]
-        State[(State File)]
-        Events[(Event Log)]
+        Remediation[Remediation Teammate]
+        TaskList[(Shared Task List)]
+        Mailbox[(Mailbox Messages)]
     end
 
     Plan --> Parse
@@ -59,38 +62,38 @@ flowchart TB
     Parse --> Research
     Research --> Gap
     Gap --> CreateExperts
-    CreateExperts --> CreateAgents
-    CreateAgents --> Coord
+    CreateExperts --> CreateRoles
+    CreateRoles --> Lead
 
-    Coord -->|Dispatch| Agents
+    Lead -->|Dispatch via task list| Developers
     Dev1 & Dev2 & Dev3 -->|READY_FOR_REVIEW| Critic
-    Critic -->|REVIEW_PASSED| Auditor
+    Dev1 & Dev2 & Dev3 -.->|NEED_EXPERT_ADVICE| Advisors
+    Advisors -.->|EXPERT_ADVICE_PROVIDED| Developers
+    Critic -->|REVIEW_PASSED| Ripple
+    Ripple[Ripple]
+    Ripple -->|RIPPLE_PASSED| Auditor
+    Ripple -->|RIPPLE_FAILED| Rework
     Critic -->|REVIEW_FAILED| Rework
     Auditor -->|AUDIT_PASSED| Complete
     Auditor -->|AUDIT_FAILED| Rework
     Auditor -->|AUDIT_BLOCKED| Blocked
 
-    Rework -->|Retry| Agents
+    Rework -->|Retry| Developers
     Blocked --> Remediation
-    Remediation -->|REMEDIATION_COMPLETE| Coord
+    Remediation -->|REMEDIATION_COMPLETE| Lead
 
-    Dev1 & Dev2 & Dev3 -.->|EXPERT_REQUEST| Expert
-    Expert -.->|EXPERT_ADVICE| Dev1 & Dev2 & Dev3
-
-    Coord --> State
-    Coord --> Events
-    State -.->|Resume| Coord
-    Events -.->|Recovery| State
+    Lead --> TaskList
+    Lead --> Mailbox
+    TaskList -.->|Resume| Lead
 ```
 
 ### Flow Summary
 
-1. **Bootstrap**: The orchestrator parses your plan, researches best practices for the technologies involved, identifies knowledge gaps, and creates specialized agents
-2. **Dispatch**: Up to 5 developer agents work in parallel on available tasks
-3. **Review**: Completed work goes through Critic (code quality) then Auditor (acceptance criteria)
+1. **Bootstrap**: The team lead parses your plan, researches best practices for the technologies involved, identifies knowledge gaps, and creates specialized expert advisor agents
+2. **Implementation**: Developers claim tasks from the shared task list and implement them. Named expert advisors provide domain guidance via mailbox when developers need help.
+3. **Review**: Completed work goes through the Critic (code quality), then the Ripple (second-order effects), then the Auditor (acceptance criteria verification)
 4. **Routing**: Passed work is marked complete; failed work returns for rework; blocked work triggers remediation
-5. **Expert Consultation**: Any agent can request help from plan-specific experts
-6. **State Persistence**: All state is persisted for crash recovery and session resumption
+5. **Resume**: All state lives in the shared task list (named by plan slug) — re-running the same plan automatically resumes
 
 ## Getting Started
 
@@ -114,7 +117,7 @@ This is an experimental project to explore how far LLMs can be pushed with meta-
 - **Agents can and will make mistakes.** They might delete the wrong files, introduce bugs, or misunderstand
   requirements. Always review changes before committing.
 - **The `--dangerously-skip-permissions` flag exists for a reason.** You're disabling safety guardrails. Make backups.
-- **This will burn through your API quota.** Parallel agents + opus auditors + expert consultations = significant API usage.
+- **This will burn through your API quota.** Parallel developers + expert advisors + opus auditor + research phases = significant API usage.
 
 ## Quick Start
 
@@ -128,21 +131,19 @@ vim my_plan.md
 # 3. Launch Claude Code with permissions disabled
 claude --dangerously-skip-permissions
 
-# 4. Run the coordinator
+# 4. Run the team lead
 /bonfire my_plan.md
 ```
 
-The coordinator will:
+The team lead will:
 
-- Create agent definition files in `.claude/agents/`
-- Create experts to support the core agents in `.claude/agents/experts/`
-- Initialize state tracking in `.claude/bonfire/[plan]/`
-- Parse your plan and identify all tasks
-- Hire a team of expert agents to implement the plan, specifically for that plan
-- Dispatch up to 5 parallel developer agents
-- Route completed work through auditors
+- Parse your plan via `generate-orchestrator.py` and create tasks via `TaskCreate`
+- Research technologies and generate named expert prompts in `.claude/experts/<plan_slug>/`
+- Spawn teammates using native agent definitions in `.claude/agents/`
+- Spawn all teammates via `TeammateTool` and begin parallel execution
+- Route completed work through the critic, ripple, and auditor
 - Handle infrastructure issues automatically
-- Persist state for crash recovery
+- Resume automatically from crashes (slug-based task list persists progress)
 
 ## Contents
 
@@ -150,7 +151,7 @@ The coordinator will:
 
 **[`.claude/commands/bonfire.md`](.claude/commands/bonfire.md)**
 
-The slash command to launch the coordinator. Run with `/bonfire <plan_file>`.
+The slash command to launch the team lead. Run with `/bonfire <plan_file>`.
 
 **[`.claude/commands/recycle-bin.md`](.claude/commands/recycle-bin.md)**
 
@@ -172,7 +173,7 @@ Manage the recycle bin hook for file deletion protection:
 
 **[`.claude/skills/bonfire/SKILL.md`](.claude/skills/bonfire/SKILL.md)**
 
-The core skill that generates and runs the orchestrator.
+The core skill that generates and runs the team lead.
 
 **[`.claude/skills/recycle-bin/SKILL.md`](.claude/skills/recycle-bin/SKILL.md)**
 
@@ -183,24 +184,33 @@ it notices a missing file or failed build due to deletion.
 
 **[`.claude/base_variables.md`](.claude/base_variables.md)**
 
-Project-specific configuration: environments, verification commands, MCP servers, agent models, and thresholds.
+Project-specific configuration: environments, verification commands, MCP servers, team models, and thresholds.
+
+### Agent Definitions
+
+**[`.claude/agents/`](.claude/agents/)**
+
+Native agent definitions with YAML frontmatter (model, tools, memory, permissions) and role instructions:
+
+| Agent | File | Role |
+|-------|------|------|
+| Developer | [`.claude/agents/developer.md`](.claude/agents/developer.md) | Implementation loop — claims tasks, writes code, self-verifies |
+| Critic | [`.claude/agents/critic.md`](.claude/agents/critic.md) | Code quality review — bugs, style, error handling, dead code |
+| Ripple | [`.claude/agents/ripple.md`](.claude/agents/ripple.md) | Second-order effects — downstream breakage, API contract drift |
+| Auditor | [`.claude/agents/auditor.md`](.claude/agents/auditor.md) | Acceptance criteria verification — sole completion authority |
+| Business Analyst | [`.claude/agents/business-analyst.md`](.claude/agents/business-analyst.md) | Requirement expansion — underspecified task specs |
+| Remediation | [`.claude/agents/remediation.md`](.claude/agents/remediation.md) | Infrastructure repair — fixes verification failures |
+| Health Auditor | [`.claude/agents/health-auditor.md`](.claude/agents/health-auditor.md) | Health verification — binary pass/fail after remediation |
 
 ### Prompts
 
-**[`.claude/prompts/master_prompt_template.md`](.claude/prompts/master_prompt_template.md)**
+**[`.claude/prompts/team-lead.md`](.claude/prompts/team-lead.md)**
 
-The template that contains the prompt that will be run to orchestrate the team. This is what pulls the entire system together.
+The team lead prompt — the main session that orchestrates the entire team.
 
-- **Parallel Execution**: Run up to 5 developer agents simultaneously
-- **Code Review**: Developer work passes through Critic before Auditor
-- **Automatic Auditing**: Auditor validates acceptance criteria before marking complete
-- **Expert Consultation**: On-demand specialist agents for domain-specific knowledge
-- **Infrastructure Remediation**: Automatic detection and repair of broken builds, failing tests, or linter errors
-- **Session Management**: Automatic compaction when context runs low, with state persistence and recovery
-- **Usage Monitoring**: Track API usage to avoid mid-task interruptions
-- **MCP Integration**: Extended capabilities via Model Context Protocol servers
-- **Divine Clarification**: Escalation protocol for ambiguous requirements or blocking decisions to ask a human what to
-  do.
+**[`.claude/prompts/expert.md`](.claude/prompts/expert.md)**
+
+The expert advisor prompt — the advisory loop used by named expert advisors (answer questions, provide guidance, never write code). Expert advisors use inline prompts (not native agent definitions) because they are dynamically generated per plan.
 
 ### Reference Documents
 
@@ -208,42 +218,40 @@ The template that contains the prompt that will be run to orchestrate the team. 
 
 Core documentation for the orchestration system:
 
-| Document                      | Purpose                                                  |
-|-------------------------------|----------------------------------------------------------|
-| `index.md`                    | Documentation hub with navigation to all other docs      |
-| `agent-definitions.md`        | Agent types and their roles in the system                |
-| `agent-conduct.md`            | Behavioral rules all agents must follow                  |
-| `agent-coordination.md`       | How agents delegate work and communicate                 |
-| `signal-specification.md`     | Complete signal format reference for all agent types     |
-| `task-delivery-loop.md`       | The core dispatch -> review -> audit -> route cycle      |
-| `state-management.md`         | State persistence, atomic updates, crash recovery        |
-| `session-management.md`       | Compaction, pause/resume, coordinator recovery           |
-| `error-classification.md`     | Error categories and recovery strategies                 |
-| `escalation-specification.md` | When and how agents escalate (experts -> divine)         |
-| `expert-delegation.md`        | Protocol for agents requesting expert help               |
-| `mcp-servers.md`              | Guide for using MCP servers to extend agent capabilities |
+| Document                      | Purpose                                                      |
+|-------------------------------|--------------------------------------------------------------|
+| `index.md`                    | Documentation hub with navigation to all other docs          |
+| `team-architecture.md`        | Team structure, communication, task lifecycle                |
+| `plan-format.md`              | Plan file format specification                               |
+| `troubleshooting.md`          | Common issues and recovery procedures                        |
+| `signal-specification.md`     | Signal format reference (mailbox messages)                   |
+| `task-delivery-loop.md`       | The core dispatch -> review -> route cycle                   |
+| `state-management.md`         | Task state via native TaskList/TaskUpdate/TaskGet            |
+| `error-classification.md`     | Error categories and recovery strategies                     |
+| `escalation-specification.md` | When and how teammates escalate                              |
+| `expert-delegation.md`        | Protocol for teammates requesting expert help                |
 
 **[`.claude/docs/agent-creation/`](.claude/docs/agent-creation/)**
 
-Meta-prompts that instruct the orchestrator how to create agents:
+Meta-prompts that instruct the team lead how to create teammate prompts:
 
-| Document                      | Purpose                                                    |
-|-------------------------------|------------------------------------------------------------|
-| `prompt-engineering-guide.md` | Guidelines for writing effective agent prompts             |
-| `developer.md`                | Meta-prompt to create developer agents                     |
-| `critic.md`                   | Meta-prompt to create critic agents (code review)          |
-| `auditor.md`                  | Meta-prompt to create auditor agents (acceptance criteria) |
-| `business-analyst.md`         | Meta-prompt to create BA agents (task expansion)           |
-| `remediation.md`              | Meta-prompt to create remediation agents (infra repair)    |
-| `health-auditor.md`           | Meta-prompt to create health auditor agents (verification) |
-| `expert-creation.md`          | Meta-prompt to create plan-specific expert agents          |
+| Document                      | Purpose                                                      |
+|-------------------------------|--------------------------------------------------------------|
+| `prompt-engineering-guide.md` | Guidelines for writing effective teammate prompts            |
+| `developer.md`                | Meta-prompt to create developer agent prompts                |
+| `critic.md`                   | Meta-prompt to create critic prompts (code review)           |
+| `ripple.md`                   | Ripple role instructions (second-order effects analysis)     |
+| `auditor.md`                  | Meta-prompt to create auditor prompts (acceptance criteria)  |
+| `business-analyst.md`         | Meta-prompt to create BA prompts (task expansion)            |
+| `remediation.md`              | Meta-prompt to create remediation prompts (infra repair)     |
+| `health-auditor.md`           | Meta-prompt to create health auditor prompts (verification)  |
+| `expert-creation.md`          | Meta-prompt to create plan-specific expert prompts           |
 
 ### Scripts
 
 **[`.claude/scripts/generate-orchestrator.py`](.claude/scripts/generate-orchestrator.py)**
 
-Generates the orchestrator prompt from the template and base variables. Called by `/bonfire` to create a plan-specific
-orchestrator with all configuration populated.
+Parses the plan file into a JSON task manifest. Called by `/bonfire` to extract tasks, dependencies, and acceptance criteria.
 
 ```bash
 python .claude/scripts/generate-orchestrator.py my_plan.md
@@ -251,8 +259,7 @@ python .claude/scripts/generate-orchestrator.py my_plan.md
 
 **[`.claude/scripts/get-claude-usage.py`](.claude/scripts/get-claude-usage.py)**
 
-Fetches current Claude Code session usage from the Anthropic API. Used by the coordinator to monitor remaining capacity
-and trigger session pauses before hitting limits.
+Fetches current Claude Code session usage from the Anthropic API. Used by the team lead to monitor remaining capacity.
 
 **[`.claude/scripts/manage-recycle-bin.py`](.claude/scripts/manage-recycle-bin.py)**
 
@@ -300,7 +307,7 @@ Each task should have clear acceptance criteria that can be verified programmati
 **Why 2-hour chunks?**
 - Large enough to be meaningful units of work
 - Small enough that a single agent can complete without context exhaustion
-- Provides natural checkpoints for the audit cycle
+- Provides natural checkpoints for the review cycle
 - Reduces wasted work if a task fails review
 
 ### Plan Structure
@@ -314,58 +321,55 @@ The plan should include:
 
 ### Task Quality
 
-If tasks are underspecified, the orchestrator will automatically spawn a Business Analyst agent to expand them into implementable specifications before dispatching developers.
+If tasks are underspecified, the team lead will automatically spawn a Business Analyst teammate to expand them into implementable specifications before dispatching developers.
 
-## Agent System
+## Team Structure
 
-The coordinator spawns specialized agents via Claude's Task tool. Each agent has a specific role:
+The team lead spawns named teammates via Claude's native Agent Teams (`TeammateTool`). Each teammate has a specific role:
 
-| Agent                | Model  | Role                                                                |
-|----------------------|--------|---------------------------------------------------------------------|
-| **Developer**        | sonnet | Implements tasks, writes tests, follows acceptance criteria         |
-| **Critic**           | sonnet | Reviews code quality, catches issues before audit                   |
-| **Auditor**          | opus   | Validates acceptance criteria, runs verifications, gates completion |
-| **Business Analyst** | sonnet | Expands underspecified tasks into implementable specs               |
-| **Remediation**      | sonnet | Fixes broken infrastructure (tests, lints, builds)                  |
-| **Health Auditor**   | haiku  | Quick verification that infrastructure is healthy                   |
-| **Experts**          | sonnet | Plan-specific specialists created on-demand for domain knowledge    |
+| Teammate               | Model  | Role                                                                |
+|------------------------|--------|---------------------------------------------------------------------|
+| **Developer** (`dev-N`)| sonnet | Claims tasks, implements code, writes tests, self-verifies          |
+| **Expert** (named)     | sonnet | Domain advisor — answers questions, provides guidance, never writes code |
+| **Critic**             | sonnet | Reviews code quality — bugs, style, error handling, dead code       |
+| **Ripple**             | sonnet | Analyzes second-order effects — downstream breakage, API drift      |
+| **Auditor**            | opus   | Validates acceptance criteria, runs verifications, gates completion  |
+| **Business Analyst**   | sonnet | Expands underspecified tasks into implementable specs               |
+| **Remediation**        | sonnet | Fixes broken infrastructure (tests, lints, builds)                  |
+| **Health Auditor**     | haiku  | Quick verification that infrastructure is healthy                   |
 
-The flow is: Developer -> Critic (code review) -> Auditor (acceptance criteria) -> Complete
+The flow is: Developer implements -> Critic reviews code quality -> Ripple analyzes second-order effects -> Auditor verifies acceptance criteria -> Complete
 
-Experts are created per-plan based on gap analysis. If a developer needs help with cryptography, the orchestrator
-creates a cryptography expert. All agents can request expert help when they hit knowledge gaps.
+Developers are generic — any developer can claim any task. Named expert advisors are generated from plan research and gap analysis. If the plan involves cryptography, the team lead creates a `crypto-expert` advisor. Developers consult experts when they need domain-specific guidance.
 
-### Signal Protocol
+### Communication Protocol
 
-Agents communicate with the coordinator via structured signals:
+Teammates communicate with the team lead via mailbox messages (`TeammateTool write`):
 
 ```
 READY_FOR_REVIEW: task-1-1-1     # Developer finished implementing
+NEED_EXPERT_ADVICE: auth-expert  # Developer needs domain guidance
+EXPERT_ADVICE_PROVIDED: task-1   # Expert advisor responds with guidance
 REVIEW_PASSED: task-1-1-1        # Critic approved code quality
 REVIEW_FAILED: task-1-1-1        # Critic found quality issues
+RIPPLE_PASSED: task-1-1-1        # Ripple found no downstream breakage
+RIPPLE_FAILED: task-1-1-1        # Ripple found second-order issues
 AUDIT_PASSED: task-1-1-1         # Auditor verified acceptance criteria
 AUDIT_FAILED: task-1-1-1         # Auditor found issues
 AUDIT_BLOCKED: task-1-1-1        # Pre-existing infrastructure problems
 INFRA_BLOCKED: task-1-1-1        # Developer blocked by infra
 REMEDIATION_COMPLETE             # Infrastructure fixed
 HEALTH_AUDIT: HEALTHY            # All verifications pass
-EXPERT_REQUEST                   # Agent needs expert help
-EXPERT_ADVICE: request-id        # Expert provided guidance
-SEEKING_DIVINE_CLARIFICATION     # Agent needs human input
+SEEKING_DIVINE_CLARIFICATION     # Teammate needs human input
 ```
 
 ## State Management
 
-The coordinator persists state to survive crashes and context compaction:
+All state is managed through Claude Code's native shared task list, named using the plan slug:
 
-```
-.claude/bonfire/[plan]/
-├── state.json          # Current coordinator state
-├── event-log.jsonl     # Append-only event history
-├── .trash/             # Deleted files (recoverable)
-├── .scratch/           # Agent temporary files
-└── .artefacts/         # Inter-agent artifacts
-```
+- **Task tracking**: `TaskCreate` / `TaskUpdate` / `TaskList` / `TaskGet`
+- **Communication**: `TeammateTool write` (mailbox messages between teammates)
+- **Expert prompts**: Persisted to `.claude/experts/<plan_slug>/` for reuse across sessions
 
 ### Recovery
 
@@ -373,24 +377,23 @@ If Claude crashes mid-execution:
 
 1. Restart Claude Code
 2. Run `/bonfire <same-plan-file>`
-3. Coordinator detects existing state and resumes
+3. The team lead detects existing tasks (same plan slug) and resumes automatically
 
-The event log allows reconstruction of state even if `state.json` is corrupted.
+No custom state files or event logs — the shared task list IS the state.
 
 ## Configuration
 
-Edit **[`.claude/base_variables.md`](.claude/base_variables.md)** to configure your project. The
-`generate-orchestrator.py` script populates the orchestrator template with these values.
+Edit **[`.claude/base_variables.md`](.claude/base_variables.md)** to configure your project.
 
 ### Key Variables
 
-| Variable               | Default | Description                                |
-|------------------------|---------|--------------------------------------------|
-| `ACTIVE_DEVELOPERS`    | 5       | Max parallel developer agents              |
-| `TASK_FAILURE_LIMIT`   | 3       | Audit failures before giving up on a task  |
-| `REMEDIATION_ATTEMPTS` | 10      | Infrastructure fix attempts before halting |
-| `AGENT_TIMEOUT`        | 900000  | Agent timeout in ms (15 minutes)           |
-| `CONTEXT_THRESHOLD`    | 10%     | Trigger compaction when context this low   |
+| Variable           | Default  | Description                                              |
+|--------------------|----------|----------------------------------------------------------|
+| `NUM_DEVELOPERS`   | 5        | Number of parallel developer agents                      |
+| `DEVELOPER_MODEL`  | sonnet   | Model for developer agents                               |
+| `MAX_EXPERTS`      | 3        | Maximum number of advisory expert agents                 |
+| `EXPERT_MODEL`     | sonnet   | Model for expert advisor and review pipeline agents      |
+| `AUDITOR_MODEL`    | opus     | Model for auditor teammate                               |
 
 ### Verification Commands
 
@@ -427,33 +430,25 @@ MCP (Model Context Protocol) servers extend agent capabilities. Define available
 3. Create your plan file with tasks, dependencies, and acceptance criteria
 4. Start Claude Code and run `/bonfire <plan_file>`
 
-The coordinator will parse your plan, dispatch parallel developers, validate completions, and manage the entire workflow
-automatically.
+The team lead will parse your plan, spawn developers and expert advisor teammates, route work through the staged review pipeline, and manage the entire workflow automatically.
 
 ## Troubleshooting
 
-### "Agent timeout" errors
+### Tasks keep failing review
 
-Increase `AGENT_TIMEOUT` or break tasks into smaller pieces. Complex tasks may exceed the 15-minute default.
-
-### Tasks keep failing audit
-
-Check your acceptance criteria. Vague criteria like "works correctly" give auditors nothing to verify. Be specific: "
-returns 200 OK with JSON body containing `user_id`".
+Check your acceptance criteria. Vague criteria like "works correctly" give the auditor nothing to verify. Be specific: "returns 200 OK with JSON body containing `user_id`".
 
 ### Infrastructure remediation loop
 
-If remediation keeps failing, you may have deep issues. Check the event log at
-`.claude/bonfire/[plan]/event-log.jsonl` to see what's being attempted.
-
-### State corruption
-
-Delete `.claude/bonfire/[plan]/state.json` and restart. The coordinator will rebuild from the event log.
+If remediation keeps failing, you may have deep issues. Check the team lead's mailbox output to see what's being attempted.
 
 ### Context window exhaustion
 
-The coordinator auto-compacts, but very long plans may still exhaust context. Consider breaking into multiple plan files
-or increasing compaction frequency.
+Each teammate has a native 1M token context window. Very long plans may still exhaust context. Consider breaking into multiple plan files.
+
+### Crash recovery
+
+Just re-run `/bonfire <same-plan-file>`. The team lead will detect existing tasks in the shared task list (same plan slug) and resume where it left off. Expert prompts are persisted on disk and reused.
 
 ## Requirements
 

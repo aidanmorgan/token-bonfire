@@ -1,174 +1,57 @@
-# Queue Management
+# Task Dependencies
 
-[← Back to Concurrency Index](index.md)
+[<-- Back to Concurrency Index](index.md)
 
-Queued tasks have a timeout to prevent indefinite waits when file conflicts occur.
+Task dependencies use native Agent Teams primitives to manage blocking and unblocking. No custom queue management, timeouts, or retry tracking is needed.
 
-## Queue Timeout Handling
+## Native Dependency Management
 
-### Constants
+### Setting Dependencies
 
-```python
-FILE_CONFLICT_QUEUE_TIMEOUT_MINUTES = 30  # Max time to wait for file availability
+Dependencies are set via `TaskUpdate({ addBlockedBy })` during task creation:
+
+```
+TaskUpdate({ taskId: "task-7", addBlockedBy: ["task-3"] })
 ```
 
-### Queue Entry Creation
+This tells the system that `task-7` cannot start until `task-3` is completed.
 
-```python
-def queue_task_for_conflict(task_id, waiting_for, conflicting_files):
-    """Queue a task with timeout."""
+### Automatic Unblocking
 
-    now = datetime.now()
-    timeout = now + timedelta(minutes=FILE_CONFLICT_QUEUE_TIMEOUT_MINUTES)
+When a blocking task is marked `completed` via `TaskUpdate({ status: "completed" })`, all tasks that were `blockedBy` it automatically become available. No manual unblocking, notification, or queue processing is needed.
 
-    queued_for_file_conflict.append({
-        "task_id": task_id,
-        "waiting_for": waiting_for,
-        "conflicting_files": conflicting_files,
-        "queued_at": now.isoformat(),
-        "timeout_at": timeout.isoformat()
-    })
+### Dependency Source
 
-    log_event("task_queued_for_conflict",
-              task_id=task_id,
-              waiting_for=waiting_for,
-              conflicting_files=conflicting_files,
-              timeout_at=timeout.isoformat())
+The bootstrapper script (`generate-orchestrator.py`) parses `Blocked By` fields from the plan file and includes them in the task manifest. The team lead uses these during `TaskCreate` to set up the initial dependency graph.
 
-    save_state()
-```
+## How Experts See Dependencies
 
-### Timeout Check (Run in Main Loop)
+When an expert calls `TaskList`, tasks with unresolved dependencies appear with their blocked status. Experts:
 
-```python
-MAX_QUEUE_RETRIES = 3  # After 3 timeouts, escalate instead of re-queue
+1. **Skip blocked tasks** when claiming work
+2. **Prefer their applicable tasks** that are pending and unblocked
+3. **Claim via** `TaskUpdate({ status: "in_progress" })` which uses file locking to prevent race conditions
 
-# CRITICAL: queue_retry_tracker must be in state for persistence
-# Initialize if not present: state['queue_retry_tracker'] = state.get('queue_retry_tracker', {})
+If all of an expert's applicable tasks are blocked, they may claim other unblocked tasks where their expertise is relevant, or check their mailbox for review feedback on previously submitted work.
 
-def check_queue_timeouts():
-    """Check for timed-out queued tasks. Call in main coordinator loop.
+## File Conflict as Implicit Dependency
 
-    IMPORTANT: This function uses state['queue_retry_tracker'] which is persisted
-    to survive crashes and session restarts. The in-memory queue_retry_tracker
-    is synchronized with state on every save.
-    """
+When an expert signals `FILE_CONFLICT` and the team lead determines the expert should wait:
 
-    now = datetime.now()
+1. The team lead can add a dependency: `TaskUpdate({ taskId: "<waiting-task>", addBlockedBy: ["<owning-task>"] })`
+2. The waiting task is automatically unblocked when the owning task completes
+3. No custom timeout or retry logic is needed
 
-    # Ensure queue_retry_tracker exists in state (for recovery scenarios)
-    if 'queue_retry_tracker' not in state:
-        state['queue_retry_tracker'] = {}
+## Deadlock Prevention
 
-    for queued in list(queued_for_file_conflict):
-        timeout_at = datetime.fromisoformat(queued["timeout_at"])
+Circular dependencies are prevented at plan parse time by the bootstrapper script:
 
-        if now >= timeout_at:
-            # Get retry count from state (persistent) not just queued entry
-            task_id = queued["task_id"]
-            retry_count = state['queue_retry_tracker'].get(task_id, queued.get("queue_retry_count", 0))
+- The script validates the dependency graph during parsing
+- Cycles are detected and reported as errors before any tasks are created
+- The team lead verifies the dependency graph during gap analysis
 
-            if retry_count >= MAX_QUEUE_RETRIES:
-                # Too many timeouts - escalate to divine intervention
-                queued_for_file_conflict.remove(queued)
-
-                log_event("queue_retry_exhausted",
-                          task_id=queued["task_id"],
-                          was_waiting_for=queued["waiting_for"],
-                          retry_count=retry_count)
-
-                escalate_to_divine(
-                    task_id=queued["task_id"],
-                    question=f"Task {queued['task_id']} queued {retry_count} times waiting for "
-                             f"{queued['waiting_for']} to release files {queued['conflicting_files']}",
-                    options=["Force dispatch with merge risk", "Restructure tasks", "Abort task"]
-                )
-                continue
-
-            # Timeout reached - move to available with coordination instructions
-            queued_for_file_conflict.remove(queued)
-
-            # Track retry count in STATE for persistence (not just in-memory)
-            state['queue_retry_tracker'][queued["task_id"]] = retry_count + 1
-
-            # Add coordination context for the developer
-            coordination_context = {
-                "task_id": queued["task_id"],
-                "note": f"Previously queued waiting for {queued['waiting_for']}. "
-                        f"Timeout reached (retry {retry_count + 1}/{MAX_QUEUE_RETRIES}). "
-                        f"Files may still be in use: {queued['conflicting_files']}. "
-                        f"Proceed with caution, signal FILE CONFLICT if blocked.",
-                "retry_count": retry_count + 1
-            }
-
-            available_tasks.append(queued["task_id"])
-
-            # Store coordination context for dispatch
-            queue_timeout_context[queued["task_id"]] = coordination_context
-
-            log_event("queue_timeout",
-                      task_id=queued["task_id"],
-                      was_waiting_for=queued["waiting_for"],
-                      conflicting_files=queued["conflicting_files"],
-                      retry_count=retry_count + 1,
-                      waited_minutes=(now - datetime.fromisoformat(queued["queued_at"])).seconds // 60)
-
-    save_state()
-```
-
-### Re-Queue with Retry Tracking
-
-When a task that was previously timed out gets queued again:
-
-```python
-def queue_task_for_conflict_with_retry(task_id, waiting_for, conflicting_files):
-    """Queue a task, preserving retry count from previous timeouts."""
-
-    now = datetime.now()
-    timeout = now + timedelta(minutes=FILE_CONFLICT_QUEUE_TIMEOUT_MINUTES)
-
-    # Ensure queue_retry_tracker exists in state
-    if 'queue_retry_tracker' not in state:
-        state['queue_retry_tracker'] = {}
-
-    # Check if this task was previously timed out (from persistent state)
-    retry_count = state['queue_retry_tracker'].pop(task_id, 0)
-
-    queued_for_file_conflict.append({
-        "task_id": task_id,
-        "waiting_for": waiting_for,
-        "conflicting_files": conflicting_files,
-        "queued_at": now.isoformat(),
-        "timeout_at": timeout.isoformat(),
-        "queue_retry_count": retry_count  # Preserve retry count
-    })
-
-    log_event("task_queued_for_conflict",
-              task_id=task_id,
-              waiting_for=waiting_for,
-              conflicting_files=conflicting_files,
-              timeout_at=timeout.isoformat(),
-              retry_count=retry_count)
-
-    save_state()
-```
-
-### Integration with Main Loop
-
-```python
-def coordinator_main_loop():
-    """Main coordinator loop with queue timeout check."""
-
-    while not workflow_complete:
-        # Check queue timeouts BEFORE filling slots
-        check_queue_timeouts()
-
-        # Normal operations
-        fill_actor_slots()
-        process_agent_signals()
-        save_state()
-```
+If a dependency deadlock is discovered at runtime (all remaining tasks are blocked), the team lead reports the blocking chain to the user via `AskUserQuestion`.
 
 ---
 
-[← Back to Concurrency Index](index.md)
+[<-- Back to Concurrency Index](index.md)

@@ -1,34 +1,35 @@
-# Expert Delegation
+# Expert Advisor Consultation
 
-This document explains how default agents (Developer, Critic, Auditor, BA, Remediation, Health Auditor) discover and
-engage experts for assistance.
+This document explains how developers (and other teammates: critic, ripple, auditor) discover and
+consult expert advisors for domain guidance.
 
 **Cross-References:**
 
-- Expert creation: [agent-creation/expert-creation.md](agent-creation/expert-creation.md)
+- Expert advisor creation: [agent-creation/expert-creation/index.md](agent-creation/expert-creation/index.md)
 - Escalation rules: [escalation-specification.md](escalation-specification.md)
-- Signal formats: [signal-specification.md](signal-specification.md)
 
 ---
 
 ## Overview
 
-Experts are specialist agents created per-plan to fill knowledge gaps that default agents cannot handle. The
-orchestrator creates experts during plan analysis and registers them for default agents to use.
+Expert advisors are specialist advisory agents created per-plan to fill knowledge gaps that developers cannot handle. The
+team lead creates expert advisors during plan analysis, persists them to `.claude/experts/<plan_slug>/`, and spawns them as
+named teammates for the team to consult.
 
-**Key Principle**: Default agents should recognize their limitations and delegate to experts rather than guess or
+**Key Principle**: Expert advisors are advisory only — they provide domain guidance but never write or modify code. Developers implement; expert advisors advise.
+
+**Key Principle**: Developers should recognize their limitations and consult expert advisors rather than guess or
 produce incorrect work.
 
-**Flow**: Default Agent → EXPERT_REQUEST signal → Orchestrator → Expert → EXPERT_ADVICE (or EXPERT_UNSUCCESSFUL) →
-Default Agent applies advice or escalates
+**Flow**: Developer sends `NEED_EXPERT_ADVICE` to team lead -> Team lead routes to expert advisor -> Expert advisor replies with `EXPERT_ADVICE_PROVIDED` -> Team lead relays advice to developer -> Developer applies guidance
 
 ---
 
-## Discovering Available Experts
+## Discovering Available Expert Advisors
 
-### 1. Check Your Task Prompt
+### 1. Check Your Task Context
 
-When you receive a task, your prompt includes an `AVAILABLE EXPERTS` section:
+When you receive a task, the task description or team lead instructions include an `AVAILABLE EXPERTS` section:
 
 ```markdown
 AVAILABLE EXPERTS:
@@ -39,30 +40,30 @@ AVAILABLE EXPERTS:
 | protocol-expert | Network protocol design | protocol, handshake, message format, state machine | Message format decisions, state machines |
 ```
 
-### 2. Match Your Question to an Expert
+### 2. Match Your Question to an Expert Advisor
 
-Before delegating, identify:
+Before consulting an expert advisor, identify:
 
 1. **What is my question?** - Be specific about what you need help with
-2. **Which expert's domain matches?** - Check the "Expertise" column
+2. **Which expert advisor's domain matches?** - Check the "Expertise" column
 3. **Do the keyword triggers apply?** - Check the "Keyword Triggers" column for domain keywords in your task
 4. **Do the triggers apply?** - Check the "Ask When" column
 
-### 3. If No Expert Matches
+### 3. If No Expert Advisor Matches
 
-If your question doesn't match any available expert:
+If your question doesn't match any available expert advisor:
 
-- You have 6 self-solve attempts total (since no expert can help)
-- After 6 self-solve failures, escalate to divine intervention
+- You have 6 self-solve attempts total (since no expert advisor can help)
+- After 6 self-solve failures, escalate to the team lead
 - Do NOT guess if you're uncertain
 
 ---
 
-## When to Delegate
+## When to Consult Expert Advisors
 
-### Delegation Triggers
+### Consultation Triggers
 
-Default agents should ask experts when ANY of these apply:
+Developers should consult expert advisors when ANY of these apply:
 
 | Trigger                        | Example                                       |
 |--------------------------------|-----------------------------------------------|
@@ -73,20 +74,20 @@ Default agents should ask experts when ANY of these apply:
 | **Risk assessment**            | "What could go wrong with this approach?"     |
 | **Trade-off evaluation**       | "Which approach is better for this use case?" |
 
-### When NOT to Delegate
+### When NOT to Consult
 
-| Situation                      | Action                                |
-|--------------------------------|---------------------------------------|
-| Simple coding task             | Do it yourself                        |
-| Question is in your capability | Handle it                             |
-| Asking expert to do your work  | Never - experts advise, you implement |
-| Already received advice        | Apply it, don't ask again             |
+| Situation                              | Action                                          |
+|----------------------------------------|-------------------------------------------------|
+| Simple coding task                     | Do it yourself                                  |
+| Question is in your capability         | Handle it                                       |
+| Asking expert advisor to write code    | Never - expert advisors advise, developers implement |
+| Already received advice                | Apply it, don't ask again                       |
 
 ### Pre-Implementation Review (Optional)
 
 For complex tasks where you want to validate your approach before coding:
 
-1. **Before implementing**, consult the relevant expert about your planned approach
+1. **Before implementing**, send `NEED_EXPERT_ADVICE` to the team lead about your planned approach
 2. **Describe your approach**, not the implementation details
 3. **Ask for confirmation** or alternative recommendations
 4. **Document as**: `Pre-implementation review: [expert-name] confirmed approach`
@@ -95,287 +96,191 @@ For complex tasks where you want to validate your approach before coding:
 
 | Situation                 | Consider Pre-Implementation Review |
 |---------------------------|------------------------------------|
-| Multiple valid approaches | YES - expert can guide best choice |
+| Multiple valid approaches | YES - expert advisor can guide best choice |
 | High-risk implementation  | YES - catch issues early           |
 | Unfamiliar domain         | YES - validate understanding       |
 | Simple, clear task        | NO - proceed with implementation   |
 | Time-sensitive task       | OPTIONAL - use judgment            |
 
-Pre-implementation review is a judgment call by the developer or critic based on task complexity and their confidence
+Pre-implementation review is a judgment call by the developer, critic, ripple, or auditor based on task complexity and their confidence
 level.
 
-### Agent-Specific Triggers
+### Teammate-Specific Triggers
 
-**Developer Delegation Triggers:**
+**Developer Consultation Triggers:**
 
 - Choosing between implementation approaches
 - Implementing in unfamiliar domain
 - Verifying domain-specific correctness
 - Understanding why a pattern is correct
 
-**Critic Delegation Triggers:**
+**Critic Consultation Triggers:**
 
-- Reviewing code in unfamiliar domain
-- Verifying domain-specific quality
+- Reviewing code quality in unfamiliar domain
+- Verifying domain-specific style and patterns
 - Assessing correctness of specialized code
-
-**Auditor Delegation Triggers:**
-
-- Verifying domain-specific acceptance criteria
-- Confirming implementation correctness
 - Evaluating edge cases in specialized areas
+
+**Ripple Consultation Triggers:**
+
+- Tracing downstream impact through unfamiliar module boundaries
+- Determining whether an API contract change affects external consumers
+- Assessing test coverage gaps in domains outside ripple's expertise
+- Evaluating behavioral drift in callers that use specialized patterns
+
+**Auditor Consultation Triggers:**
+
+- Verifying acceptance criteria in unfamiliar domain
+- Assessing domain-specific verification results
+- Evaluating whether domain-specific requirements are met
 
 ---
 
-## How to Delegate
+## How to Consult Expert Advisors
 
 ### Step 1: Formulate Your Request
 
-A good expert request includes:
+A good consultation request includes:
 
 1. **Which task** you're working on
 2. **What decision/question** you need help with
 3. **What you've considered** or tried
 4. **Why you're uncertain**
 
-### Step 2: Signal the Request
+### Step 2: Send NEED_EXPERT_ADVICE to Team Lead
 
-Use this exact format (must match [signal-specification.md](signal-specification.md)):
+Developers send consultation requests to the team lead, who routes them to the appropriate expert advisor:
 
 ```
-EXPERT_REQUEST
-Target Agent: [expert name]
-Request Type: [decision | interpretation | ambiguity | options | validation]
-Context Snapshot: [path to saved context snapshot]
-
----DELEGATION PROMPT START---
-[Full prompt for the expert agent]
----DELEGATION PROMPT END---
+TeammateTool({
+  operation: "write",
+  to: "team-lead",
+  content: "NEED_EXPERT_ADVICE: [task_id]\nExpert: [expert-name]\nRequest Type: [decision | interpretation | ambiguity | options | validation]\n\n[Full description of what you need help with, including context, what you've considered, and why you're uncertain]"
+})
 ```
 
 **Example:**
 
 ```
-EXPERT_REQUEST
-Target Agent: crypto-expert
-Request Type: decision
-Context Snapshot: {{ARTEFACTS_DIR}}/task-2-3/context-20250116T103000.md
-
----DELEGATION PROMPT START---
-I need guidance on key derivation function selection.
-
-Context:
-- Task: task-2-3
-- I've implemented both HKDF-SHA256 and HKDF-SHA512 options
-- The protocol uses AES-256 for encryption
-- The spec doesn't specify which hash to use
-
-Question: Should I use HKDF-SHA256 or HKDF-SHA512 for key derivation in this protocol?
-
-What I've considered:
-- SHA-512 provides larger security margin but may be overkill for AES-256
-- SHA-256 is more common and matches the AES key size
-
-Please advise which option is correct for this use case.
----DELEGATION PROMPT END---
+TeammateTool({
+  operation: "write",
+  to: "team-lead",
+  content: "NEED_EXPERT_ADVICE: task-2-3\nExpert: crypto-expert\nRequest Type: decision\n\nI need guidance on key derivation function selection.\n\nContext:\n- I've implemented both HKDF-SHA256 and HKDF-SHA512 options\n- The protocol uses AES-256 for encryption\n- The spec doesn't specify which hash to use\n\nQuestion: Should I use HKDF-SHA256 or HKDF-SHA512 for key derivation in this protocol?\n\nWhat I've considered:\n- SHA-512 provides larger security margin but may be overkill for AES-256\n- SHA-256 is more common and matches the AES key size\n\nPlease advise which option is correct for this use case."
+})
 ```
 
-### Step 3: Wait for Response
+### Step 3: Check for Response
 
-The orchestrator routes your request to the expert. You will receive one of:
+Check your mailbox for the team lead's relay of the expert advisor's reply:
 
-- `EXPERT_ADVICE: [request_id]` - Expert has guidance
-- `EXPERT_UNSUCCESSFUL: [request_id]` - Expert couldn't help (escalate to divine)
+```
+TeammateTool({ operation: "read" })
+```
+
+You will receive one of:
+
+- `EXPERT_ADVICE_PROVIDED` with guidance from the expert advisor
+- Expert advisor unable to help (escalate to team lead for user clarification)
 
 ---
 
-## Applying Expert Advice
+## Applying Expert Advisor Advice
 
-### When You Receive EXPERT_ADVICE
+### When You Receive EXPERT_ADVICE_PROVIDED
 
-```
-EXPERT_ADVICE: [request_id]
+The expert advisor replies (via team lead relay) with structured guidance including:
 
-Requesting Agent: [you]
-Task: [your task]
-Question: [your question]
-
-Recommendation:
-[Clear guidance - follow this]
-
-Rationale:
-- [Why this is correct - understand this]
-
-Pitfalls Avoided:
-- [What the recommendation prevents]
-
-Next Steps:
-[What you should do now]
-```
+- **Recommendation**: Clear guidance to follow
+- **Rationale**: Why this is correct
+- **Pitfalls Avoided**: What the recommendation prevents
+- **Next Steps**: What you should do now
 
 ### How to Apply
 
-1. **Read the recommendation** - Understand what the expert advises
+1. **Read the recommendation** - Understand what the expert advisor advises
 2. **Understand the rationale** - Know WHY it's correct
 3. **Note the pitfalls** - Be aware of what you're avoiding
 4. **Follow the next steps** - Execute their guidance
-5. **Don't second-guess** - Expert advice is authoritative for their domain
+5. **Don't second-guess** - Expert advisor advice is authoritative for their domain
 
 ### If Advice Seems Wrong
 
-If you think the expert advice is incorrect:
+If you think the expert advisor's advice is incorrect:
 
 1. **Do NOT ignore it** - Ask for clarification instead
-2. Signal another EXPERT_REQUEST with your concern
+2. Send another `NEED_EXPERT_ADVICE` to the team lead with your concern
 3. Explain why you think there's an issue
-4. Let the expert clarify or confirm
+4. Let the expert advisor clarify or confirm
 
 ---
 
-## When Expert Cannot Help
+## When Expert Advisor Cannot Help
 
-### If You Receive EXPERT_UNSUCCESSFUL
+If the expert advisor indicates they are unable to help:
 
-```
-EXPERT_UNSUCCESSFUL: [request_id]
-
-Requesting Agent: [you]
-Question: [your question]
-
-Attempts:
-1. [approach]: [outcome]
-2. [approach]: [outcome]
-3. [approach]: [outcome]
-
-Reason: [why unable to help]
-Recommendation: [escalate to divine intervention]
-```
-
-### What to Do
-
-When an expert signals UNSUCCESSFUL:
-
-1. **Escalate to divine intervention** - This is mandatory
-2. Include the expert's attempts in your escalation
+1. **Escalate to the team lead** - This is mandatory
+2. Include the expert advisor's attempts in your escalation
 3. Do NOT try to guess or proceed without guidance
 
 ---
 
-## Expert Request Best Practices
+## Consultation Best Practices
 
 ### DO:
 
-| Practice                                | Why                                       |
-|-----------------------------------------|-------------------------------------------|
-| Be specific about your question         | Vague questions get vague answers         |
-| Include context of what you've tried    | Helps expert understand your situation    |
-| Match your question to the right expert | Wrong expert can't help effectively       |
-| Apply advice faithfully                 | Experts know their domain better than you |
-| Ask for clarification if unsure         | Better than misapplying advice            |
+| Practice                                        | Why                                              |
+|-------------------------------------------------|--------------------------------------------------|
+| Be specific about your question                 | Vague questions get vague answers                |
+| Include context of what you've tried            | Helps expert advisor understand your situation   |
+| Match your question to the right expert advisor | Wrong expert advisor can't help effectively      |
+| Apply advice faithfully                         | Expert advisors know their domain better than you|
+| Ask for clarification if unsure                 | Better than misapplying advice                   |
 
 ### DON'T:
 
-| Practice                               | Why                                |
-|----------------------------------------|------------------------------------|
-| Ask expert to implement for you        | Experts advise, you implement      |
-| Ask expert to run tests for you        | That's your job                    |
-| Ignore advice you disagree with        | Ask for clarification instead      |
-| Delegate basic coding questions        | Only delegate domain-specific gaps |
-| Ask multiple experts the same question | Pick the most relevant one         |
+| Practice                                        | Why                                              |
+|-------------------------------------------------|--------------------------------------------------|
+| Ask expert advisor to write code for you        | Expert advisors advise, developers implement     |
+| Ask expert advisor to run tests for you         | That's the developer's job                       |
+| Ignore advice you disagree with                 | Ask for clarification instead                    |
+| Consult for basic coding questions              | Only consult for domain-specific gaps            |
+| Ask multiple expert advisors the same question  | Pick the most relevant one                       |
 
 ---
 
-## Flow Diagram: Expert Delegation
+## Flow Diagram: Expert Advisor Consultation
 
-1. Default agent faces decision requiring expertise
-2. In my domain → Handle it
-3. Outside expertise → Check AVAILABLE EXPERTS table
-4. Expert exists → EXPERT_REQUEST signal → EXPERT_ADVICE (apply) or EXPERT_UNSUCCESSFUL (escalate)
-5. No expert → Self-solve 6 attempts then divine escalate
+1. Developer faces decision requiring domain expertise
+2. In my domain -> Handle it
+3. Outside expertise -> Check AVAILABLE EXPERTS table
+4. Expert advisor exists -> Send NEED_EXPERT_ADVICE to team lead -> Team lead routes to expert advisor -> EXPERT_ADVICE_PROVIDED (apply) or expert advisor unable (escalate to team lead)
+5. No expert advisor -> Self-solve 6 attempts then escalate to team lead
 
 ---
 
-## Escalation After Expert Delegation
+## Escalation After Expert Advisor Consultation
 
 The escalation protocol (see [escalation-specification.md](escalation-specification.md)) defines:
 
-| Attempts | Action                                     |
-|----------|---------------------------------------------|
-| 1-3      | Self-solve (if no experts available: 1-6)  |
-| 4-6      | Expert consultation (if experts available) |
-| After 6  | Divine intervention (MANDATORY)            |
+| Attempts | Action                                              |
+|----------|------------------------------------------------------|
+| 1-3      | Self-solve (if no expert advisors available: 1-6)   |
+| 4-6      | Expert advisor consultation (if advisors available) |
+| After 6  | Escalate to team lead (MANDATORY)                   |
 
-After consulting an expert (attempts 4-6), if still stuck:
+After consulting an expert advisor (attempts 4-6), if still stuck:
 
-- Expert returns EXPERT_UNSUCCESSFUL
-- You MUST escalate to divine intervention
-- Include all expert attempts in your escalation
-
----
-
-## Signal Reference
-
-### Requesting Expert Help
-
-```
-EXPERT_REQUEST
-Target Agent: [expert name]
-Request Type: [decision | interpretation | ambiguity | options | validation]
-Context Snapshot: [path to saved context snapshot]
-
----DELEGATION PROMPT START---
-[Full prompt for the expert agent including task_id, question, context]
----DELEGATION PROMPT END---
-```
-
-### Expert Responses
-
-**Success:**
-
-```
-EXPERT_ADVICE: [request_id]
-
-Requesting Agent: [who asked]
-Task: [task ID]
-Question: [what was asked]
-
-Recommendation:
-[guidance]
-
-Rationale:
-- [why]
-
-Pitfalls Avoided:
-- [what this avoids]
-
-Next Steps:
-[what to do]
-```
-
-**Failure:**
-
-```
-EXPERT_UNSUCCESSFUL: [request_id]
-
-Requesting Agent: [who asked]
-Question: [what was asked]
-
-Attempts:
-1. [approach]: [outcome]
-2. [approach]: [outcome]
-3. [approach]: [outcome]
-
-Reason: [why unable]
-Recommendation: [escalate]
-```
+- Expert advisor indicates unable to help
+- You MUST escalate to the team lead
+- Include all expert advisor attempts in your escalation
 
 ---
 
 ## Summary
 
-1. **Know your limitations** - Default agents have gaps experts fill
-2. **Check available experts** - Your prompt lists who can help
-3. **Delegate when uncertain** - Better to ask than guess wrong
-4. **Use proper signal format** - EXPERT_REQUEST with context
-5. **Apply advice faithfully** - Experts are authoritative in their domain
-6. **Escalate if expert fails** - Divine intervention is mandatory after expert failure
+1. **Know your limitations** - Developers have gaps that expert advisors fill
+2. **Check available expert advisors** - Your task context lists who can help
+3. **Consult when uncertain** - Better to ask than guess wrong
+4. **Use NEED_EXPERT_ADVICE signal** - Send to team lead, who routes to the expert advisor
+5. **Apply advice faithfully** - Expert advisors are authoritative in their domain
+6. **Escalate if expert advisor fails** - Escalation to team lead is mandatory after expert advisor failure

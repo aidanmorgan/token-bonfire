@@ -45,12 +45,12 @@ Meta-prompts are instructions TO an LLM about how to write prompts FOR other LLM
 
 ### Tier 2: Generated Agent Prompts
 
-Generated prompts are written to `.claude/agents/` and contain:
+Generated prompts are written to `.claude/agents/` for static role definitions and `.claude/experts/<plan_slug>/` for experts:
 
 - **Concrete guidance**: Specific patterns, anti-patterns, and decision frameworks
 - **Plan context**: Task IDs, affected files, acceptance criteria
 - **Expert awareness**: Which specialists are available for this plan
-- **Exact signal formats**: Copy-paste ready signal templates
+- **Communication formats**: Copy-paste ready message templates
 
 Generated prompts are instructions TO an LLM about how to perform a role.
 
@@ -60,47 +60,47 @@ Generated prompts are instructions TO an LLM about how to perform a role.
 
 ```
 PLAN FILE
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ ORCHESTRATOR                                                    │
-│                                                                 │
-│  1. Parse plan → extract technologies, domains, tasks           │
-│  2. WebSearch → gather current best practices per agent type    │
-│  3. Gap analysis → identify where experts are needed            │
-│  4. Deep research → comprehensive expertise for each expert     │
-│  5. Spawn prompt-creation sub-agents with:                      │
-│     - Meta-prompt template                                      │
-│     - Agent-specific research                                   │
-│     - Plan context                                              │
-│     - Available experts list                                    │
-└─────────────────────────────────────────────────────────────────┘
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ PROMPT-CREATION SUB-AGENT                                       │
-│                                                                 │
-│  Receives:                                                      │
-│  - Template from .claude/docs/agent-creation/[agent].md         │
-│  - BEST_PRACTICES_RESEARCH (agent-specific)                     │
-│  - AVAILABLE_EXPERTS (list with triggers)                       │
-│  - ENVIRONMENTS and VERIFICATION_COMMANDS                       │
-│  - SIGNAL_SPECIFICATION (exact formats)                         │
-│                                                                 │
-│  Produces:                                                      │
-│  - Complete agent file at .claude/agents/[agent].md             │
-└─────────────────────────────────────────────────────────────────┘
-    │
-    ▼
+    |
+    v
++---------------------------------------------------------------+
+| TEAM LEAD                                                      |
+|                                                                |
+|  1. Parse plan -> extract technologies, domains, tasks         |
+|  2. WebSearch -> gather current best practices per agent type  |
+|  3. Gap analysis -> identify where experts are needed          |
+|  4. Deep research -> comprehensive expertise for each expert   |
+|  5. Spawn prompt-creation sub-agents with:                     |
+|     - Meta-prompt template                                     |
+|     - Agent-specific research                                  |
+|     - Plan context                                             |
+|     - Available experts list                                   |
++---------------------------------------------------------------+
+    |
+    v
++---------------------------------------------------------------+
+| PROMPT-CREATION SUB-AGENT                                      |
+|                                                                |
+|  Receives:                                                     |
+|  - Template from .claude/docs/agent-creation/[agent].md        |
+|  - BEST_PRACTICES_RESEARCH (agent-specific)                    |
+|  - AVAILABLE_EXPERTS (list with triggers)                      |
+|  - ENVIRONMENTS and VERIFICATION_COMMANDS                      |
+|                                                                |
+|  Produces:                                                     |
+|  - Agent definition at .claude/agents/[role].md                |
+|  - OR expert prompt at .claude/experts/<plan_slug>/[name].md   |
++---------------------------------------------------------------+
+    |
+    v
 GENERATED AGENT PROMPT
-(ready to spawn actual working agents)
+(ready to spawn actual working teammates)
 ```
 
 ---
 
 ## Pre-Creation Research Phases
 
-Before creating any agents or experts, the orchestrator performs comprehensive research to ensure each generated prompt
+Before creating any agents or experts, the team lead performs comprehensive research to ensure each generated prompt
 has the best chance of success.
 
 ### Phase 1: Plan Analysis
@@ -130,7 +130,7 @@ Research existing high-quality agent prompts that perform similar tasks:
 - Search for testing/verification agent prompts
 - Extract structural patterns and techniques that work well
 
-This enables the orchestrator to learn from the broader AI agent community rather than reinventing prompt engineering
+This enables the team lead to learn from the broader AI agent community rather than reinventing prompt engineering
 patterns.
 
 ### Phase 4: Technology Best Practices Research
@@ -140,11 +140,12 @@ For each technology in the plan, research current best practices:
 - Developer: DESIGN, WRITING, TESTING practices
 - Critic: QUALITY, ARCHITECTURE, DETECTION practices
 - Auditor: VERIFICATION, VALIDATION, CRITERIA practices
+- Expert Advisor: domain-specific advisory knowledge
 - Remediation: DIAGNOSIS, FIXING, PREVENTION practices
 
 ### Phase 5: Gap Analysis & Expert Identification
 
-Analyze where baseline agents need expert support:
+Analyze where teammates need expert support:
 
 - Domain experts for technical domains (crypto, auth, etc.)
 - Reference experts for specific project documents
@@ -157,7 +158,7 @@ For each identified expert, perform comprehensive domain research:
 
 - Foundational principles and theory
 - Expert-level patterns beyond standard practice
-- Edge cases where standard advice fails
+- Edge cases where standard advice doesn't apply
 - Decision frameworks for authoritative recommendations
 - Common misconceptions to correct
 
@@ -178,12 +179,11 @@ the actual [agent] file.
 
 ### 2. Inputs Table
 
-Documents what variables the orchestrator provides:
+Documents what variables the team lead provides:
 
 | Input                     | Description                  | Use In                       |
 |---------------------------|------------------------------|------------------------------|
 | `BEST_PRACTICES_RESEARCH` | Technology-specific guidance | `<practices>` section        |
-| `SIGNAL_SPECIFICATION`    | Exact signal formats         | `<signal_format>` section    |
 | `AVAILABLE_EXPERTS`       | Experts for this plan        | `<expert_awareness>` section |
 
 ### 3. Research Structure
@@ -192,14 +192,14 @@ Documents how research is organized for this agent type:
 
 ```
 BEST_PRACTICES_RESEARCH:
-├── [Technology 1]
-│   ├── CATEGORY_A
-│   │   ├── Specific guidance
-│   │   └── More guidance
-│   └── CATEGORY_B
-│       └── Different guidance
-└── [Technology 2]
-    └── ...
++-- [Technology 1]
+|   +-- CATEGORY_A
+|   |   +-- Specific guidance
+|   |   +-- More guidance
+|   +-- CATEGORY_B
+|       +-- Different guidance
++-- [Technology 2]
+    +-- ...
 ```
 
 ### 4. Creation Prompt
@@ -207,16 +207,15 @@ BEST_PRACTICES_RESEARCH:
 The actual instructions given to the prompt-creation sub-agent:
 
 ```
-You are creating a [Agent Type] agent for the Token Bonfire orchestration system.
+You are creating a [Agent Type] prompt for the Token Bonfire system.
 
 **YOUR MISSION**: Write an expert-level agent prompt file that will guide [agents] to:
 1. [Primary capability]
 2. [Secondary capability]
 ...
 
-## INPUTS (provided by orchestrator)
+## INPUTS (provided by team lead)
 {{BEST_PRACTICES_RESEARCH}}
-{{SIGNAL_SPECIFICATION}}
 ...
 
 ## STEP 1: [Transform inputs]
@@ -243,7 +242,7 @@ Shows the exact structure each section should have:
 Verification criteria before the sub-agent finishes:
 
 - [ ] All required sections present
-- [ ] Signal formats are exact
+- [ ] Communication formats are correct
 - [ ] Guidance is specific, not vague
 - [ ] Agent can work without additional context
 
@@ -251,24 +250,25 @@ Verification criteria before the sub-agent finishes:
 
 ## Research Injection
 
-The orchestrator performs **agent-specific research** before creating each agent type.
+The team lead performs **agent-specific research** before creating each agent type.
 
 ### Research Categories by Agent
 
 | Agent | Research Focus | Categories |
 |-------|----------------|------------|
 | Developer | Implementation | DESIGN, WRITING, TESTING |
-| Critic | Code review | QUALITY, ARCHITECTURE, DETECTION |
-| Auditor | Verification | VERIFICATION, VALIDATION, CRITERIA |
+| Critic | Code quality review | QUALITY, ARCHITECTURE, DETECTION |
+| Ripple | Second-order effects analysis | IMPACT, CONTRACTS, COVERAGE |
+| Auditor | Acceptance verification | VERIFICATION, VALIDATION, CRITERIA |
 | Remediation | Fixing | DIAGNOSIS, FIXING, PREVENTION |
 | Business Analyst | Specification | REQUIREMENTS, SPECIFICATION, PATTERNS |
 
 ### Research Flow
 
 ```python
-# Pseudocode - actual implementation in orchestrator-generation.md
+# Pseudocode - actual implementation in team lead bootstrap
 
-for agent_type in ['developer', 'critic', 'auditor', ...]:
+for agent_type in ['developer', 'critic', 'auditor', 'remediation', ...]:
     for technology in plan_technologies:
         for category in AGENT_CATEGORIES[agent_type]:
             queries = format_queries(category, technology, current_year)
@@ -285,20 +285,20 @@ BEST_PRACTICES_RESEARCH:
 {{BEST_PRACTICES_RESEARCH}}
 ```
 
-The orchestrator calls `format_best_practices_for_agent(research, agent_type)` to produce agent-tailored content.
+The team lead calls `format_best_practices_for_agent(research, agent_type)` to produce agent-tailored content.
 
 ---
 
-## Baseline vs Expert Depth
+## Static Agents vs Expert Depth
 
 The system creates two types of agents with different research depth:
 
-### Baseline Agents
+### Static Agents (Developers, Critic, Ripple, Auditor)
 
 Wide breadth, general depth. Receive research covering many topics at moderate depth.
 
 ```
-BASELINE AGENT RESEARCH:
+STATIC AGENT RESEARCH:
 - "Use type hints in Python"
 - "Avoid mutable default arguments"
 - "Follow PEP8"
@@ -320,7 +320,7 @@ EXPERT RESEARCH:
 
 ### Why the Difference?
 
-Baseline agents (Developer, Critic, Auditor) handle many domains and need broad competence. Experts handle one domain
+Static agents handle many domains and need broad competence. Experts handle one domain
 and need authoritative depth. The research investment matches the role.
 
 ---
@@ -329,19 +329,18 @@ and need authoritative depth. The research investment matches the role.
 
 Variables available in meta-prompts:
 
-| Variable                      | Source                    | Used By                     |
-|-------------------------------|---------------------------|-----------------------------|
-| `{{BEST_PRACTICES_RESEARCH}}` | WebSearch + formatting    | All agents                  |
-| `{{SIGNAL_SPECIFICATION}}`    | signal-specification.md   | All agents                  |
-| `{{AVAILABLE_EXPERTS}}`       | Gap analysis              | All baseline agents         |
-| `{{DELEGATION_PROTOCOL}}`     | expert-delegation.md      | All baseline agents         |
-| `{{ENVIRONMENTS}}`            | Plan parsing              | Remediation, Health Auditor |
-| `{{VERIFICATION_COMMANDS}}`   | Plan parsing              | Remediation, Health Auditor |
-| `{{MCP_SERVERS}}`             | Configuration             | All agents                  |
-| `{{GAP_ANALYSIS}}`            | Gap analysis output       | Experts only                |
-| `{{AFFECTED_TASKS}}`          | Gap analysis              | Experts only                |
-| `{{DEEP_DOMAIN_RESEARCH}}`    | Expert-specific WebSearch | Experts only                |
-| `{{DECISION_FRAMEWORKS}}`     | Research extraction       | Experts only                |
+| Variable                      | Source                    | Used By                |
+|-------------------------------|---------------------------|------------------------|
+| `{{BEST_PRACTICES_RESEARCH}}` | WebSearch + formatting    | All agents             |
+| `{{AVAILABLE_EXPERTS}}`       | Gap analysis              | Developers, Critic, Ripple, Auditor |
+| `{{DELEGATION_PROTOCOL}}`     | expert-delegation.md      | Developers, Critic, Ripple, Auditor |
+| `{{ENVIRONMENTS}}`            | Plan parsing              | Remediation, Health    |
+| `{{VERIFICATION_COMMANDS}}`   | Plan parsing              | Remediation, Health    |
+| `{{MCP_SERVERS}}`             | Configuration             | All agents             |
+| `{{GAP_ANALYSIS}}`            | Gap analysis output       | Experts only           |
+| `{{AFFECTED_TASKS}}`          | Gap analysis              | Experts only           |
+| `{{DEEP_DOMAIN_RESEARCH}}`    | Expert-specific WebSearch | Experts only           |
+| `{{DECISION_FRAMEWORKS}}`     | Research extraction       | Experts only           |
 
 ---
 
@@ -355,25 +354,15 @@ Write `.claude/docs/agent-creation/[new-agent].md` following the structure above
 
 ### 2. Define Research Categories
 
-Add to `AGENT_SEARCH_TEMPLATES` in orchestrator-generation.md:
-
-```python
-'new-agent': {
-    'queries': {
-        'category_a': ["query templates..."],
-        'category_b': ["query templates..."]
-    },
-    'focus': ['category_a', 'category_b']
-}
-```
+Add research query templates for the new agent type.
 
 ### 3. Add to Generation Loop
 
-Include in `BASELINE_AGENTS` list or expert generation as appropriate.
+Include in the static agent list or expert generation as appropriate.
 
-### 4. Define Signals
+### 4. Update Team Architecture
 
-Add signals to signal-specification.md.
+Add the new teammate to team-architecture.md documentation.
 
 ### 5. Update Index
 
@@ -386,7 +375,7 @@ Add to index.md navigation.
 Generated prompts should be verified before use. The system supports a `/verify-prompt` skill that checks:
 
 - All required sections present
-- Signal formats match specification
+- Communication formats are correct
 - Guidance is specific, not vague
 - No placeholder text remaining
 - Decision frameworks are actionable
@@ -436,8 +425,8 @@ The system can create specialists for any domain by researching deeply and gener
 |------------------------|-------------------------|-----------------------------|
 | "Review carefully"     | Not actionable          | "Check for X, Y, Z"         |
 | "It depends"           | No decision made        | Provide decision framework  |
-| Missing signal format  | Parsing failures        | Copy exact format from spec |
-| Surface-level patterns | Matches baseline agents | Demonstrate expert depth    |
+| Missing message format | Communication failures  | Copy exact format from spec |
+| Surface-level patterns | Matches static agents   | Demonstrate expert depth    |
 
 ---
 
@@ -446,10 +435,9 @@ The system can create specialists for any domain by researching deeply and gener
 | Purpose            | Location                                                  |
 |--------------------|-----------------------------------------------------------|
 | Meta-prompts       | `.claude/docs/agent-creation/*.md`                        |
-| Generated agents   | `.claude/agents/*.md`                                     |
-| Generated experts  | `.claude/agents/experts/*.md`                             |
-| Signal spec        | `.claude/docs/signal-specification.md`                    |
-| Orchestrator logic | `.claude/docs/orchestrator/orchestrator-generation.md`    |
+| Agent definitions  | `.claude/agents/*.md`                                     |
+| Generated experts  | `.claude/experts/<plan_slug>/*.md`                        |
+| Team lead logic    | `.claude/docs/orchestrator/orchestrator-generation.md`    |
 | Prompt standards   | `.claude/docs/agent-creation/prompt-engineering-guide.md` |
 
 ---
@@ -457,7 +445,7 @@ The system can create specialists for any domain by researching deeply and gener
 ## Cross-References
 
 - **[Documentation Index](index.md)** - Navigation hub for all docs
-- [Orchestrator Generation](orchestrator/orchestrator-generation.md) - Full generation implementation
+- [Team Lead Generation](orchestrator/orchestrator-generation.md) - Full generation implementation
 - [Prompt Engineering Guide](agent-creation/prompt-engineering-guide.md) - Quality standards
-- [Expert Creation](agent-creation/expert-creation.md) - Expert meta-prompt
-- [Signal Specification](signal-specification.md) - All signal formats
+- [Expert Creation](agent-creation/expert-creation/index.md) - Expert meta-prompt
+- [Team Architecture](team-architecture.md) - Team structure and communication

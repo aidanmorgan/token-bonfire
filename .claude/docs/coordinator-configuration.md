@@ -1,31 +1,33 @@
-# Coordinator Configuration
+# Team Lead Configuration
 
-All configuration values for the Parallel Implementation Coordinator.
+All configuration values for the Team Lead (main session).
 
 ---
 
 ## Tool Usage
 
-| Tool            | When to Use                                                           |
-|-----------------|-----------------------------------------------------------------------|
-| Task            | Dispatch agents (developer, auditor, BA, remediation, health auditor) |
-| TaskOutput      | Poll background agents, retrieve results                              |
-| Read            | Load state file, plan file, event log, reference documents            |
-| Write           | Persist state file (use atomic write pattern)                         |
-| Bash            | Execute usage script only                                             |
-| AskUserQuestion | Divine clarification ONLY - never for routine decisions               |
-| TodoWrite       | Track coordinator's own task progress                                 |
+| Tool            | When to Use                                                                              |
+|-----------------|------------------------------------------------------------------------------------------|
+| TaskCreate      | Create tasks from the plan                                                               |
+| TaskUpdate      | Update task status (in_progress, completed, etc.)                                        |
+| TaskList        | View all tasks and their current status                                                  |
+| TaskGet         | Get details for a specific task                                                          |
+| TeammateTool    | Spawn team, route work via mailbox, request shutdown                                     |
+| Task            | Spawn named teammates at startup (run_in_background: true)                               |
+| Read            | Load plan file, prompt files, reference documents                                        |
+| Bash            | Execute usage script only                                                                |
+| AskUserQuestion | User clarification ONLY - never for routine decisions                                    |
 
 ---
 
 ## Template Variables
 
-Variables use `{{variable}}` syntax. The coordinator expands templates before dispatching agents.
+Variables use `{{variable}}` syntax. The team lead expands templates before routing work to teammates.
 
 | Variable Type | When Expanded    | Example                           |
 |---------------|------------------|-----------------------------------|
-| Config values | At prompt load   | `{{ACTIVE_DEVELOPERS}}` → `5`     |
-| State values  | At dispatch time | `{{task_id}}` → `1-1-1`           |
+| Config values | At prompt load   | `{{MAX_EXPERTS}}` -> `5`          |
+| State values  | At dispatch time | `{{task_id}}` -> `1-1-1`          |
 | Loops         | At dispatch time | `{{#each VERIFICATION_COMMANDS}}` |
 | Conditionals  | At dispatch time | `{{#if recommended_agents}}`      |
 
@@ -37,25 +39,18 @@ All plan-related files are organized under `{{PLAN_DIR}}`:
 
 ```
 .claude/bonfire/[plan]/
-├── state.json              # Coordinator state persistence
-├── event-log.jsonl         # Event store for all operations
-├── .trash/                 # Deleted files (recoverable via metadata)
 ├── .scratch/               # Agent scratch files (temporary work)
 └── .artefacts/             # Inter-agent artifact transfer
 ```
 
 ### Core Files
 
-| Variable         | Default Value                                 | Description                                                  |
-|------------------|-----------------------------------------------|--------------------------------------------------------------|
-| `PLAN_FILE`      | (required)                                    | Implementation plan to execute                               |
-| `PLAN_DIR`       | `.claude/bonfire/{{PLAN_NAME}}/` | Base directory for all session artifacts                     |
-| `STATE_FILE`     | `{{PLAN_DIR}}state.json`                      | Coordinator state persistence                                |
-| `EVENT_LOG_FILE` | `{{PLAN_DIR}}event-log.jsonl`                 | Event store for all coordinator operations and agent results |
-| `USAGE_SCRIPT`   | `.claude/scripts/get-claude-usage.py`         | Session usage monitoring                                     |
-| `TRASH_DIR`      | `{{PLAN_DIR}}.trash/`                         | Deleted files storage (recoverable)                          |
-| `SCRATCH_DIR`    | `{{PLAN_DIR}}.scratch/`                       | Agent scratch files for temporary work                       |
-| `ARTEFACTS_DIR`  | `{{PLAN_DIR}}.artefacts/`                     | Inter-agent artifact transfer directory                      |
+| Variable         | Default Value                        | Description                              |
+|------------------|--------------------------------------|------------------------------------------|
+| `PLAN_FILE`      | (required)                           | Implementation plan to execute           |
+| `PLAN_DIR`       | `.claude/bonfire/{{PLAN_NAME}}/`     | Base directory for session artifacts     |
+| `SCRATCH_DIR`    | `{{PLAN_DIR}}.scratch/`              | Agent scratch files for temporary work   |
+| `ARTEFACTS_DIR`  | `{{PLAN_DIR}}.artefacts/`            | Inter-agent artifact transfer directory  |
 
 ### Directory Derivation
 
@@ -75,11 +70,8 @@ PLAN_DIR:  .claude/bonfire/my-feature-plan/
 
 Directory structure created:
 .claude/bonfire/my-feature-plan/
-├── state.json           # Coordinator state
-├── event-log.jsonl      # Event history
 ├── .scratch/            # Temporary agent work
-├── .artefacts/          # Inter-agent artifacts
-└── .trash/              # Recoverable deletions
+└── .artefacts/          # Inter-agent artifacts
 ```
 
 ---
@@ -88,35 +80,33 @@ Directory structure created:
 
 | Variable                   | Value        | Description                                                        |
 |----------------------------|--------------|--------------------------------------------------------------------|
-| `CONTEXT_THRESHOLD`        | `10%`        | Trigger auto-compaction when context remaining falls to this level |
-| `SESSION_THRESHOLD`        | `10%`        | Trigger session pause when session remaining falls to this level   |
 | `RECENT_COMPLETION_WINDOW` | `60 minutes` | Re-audit tasks completed within this window on session start       |
 
 ---
 
 ## Parallel Execution Limits
 
-| Variable               | Value    | Description                                                                            |
-|------------------------|----------|----------------------------------------------------------------------------------------|
-| `ACTIVE_DEVELOPERS`    | `5`      | Maximum parallel developer agents                                                      |
-| `REMEDIATION_ATTEMPTS` | `10`     | Maximum remediation cycles before workflow failure                                     |
-| `TASK_FAILURE_LIMIT`   | `3`      | Maximum audit failures per task before workflow aborts                                 |
-| `AGENT_TIMEOUT`        | `900000` | Agent timeout in milliseconds (15 minutes) - tracked internally, not via shell timeout |
+| Variable               | Value    | Description                                                        |
+|------------------------|----------|--------------------------------------------------------------------|
+| `MAX_EXPERTS`          | `5`      | Maximum parallel expert agents                                     |
+| `REMEDIATION_ATTEMPTS` | `10`     | Maximum remediation cycles before workflow failure                  |
+| `TASK_FAILURE_LIMIT`   | `3`      | Maximum audit failures per task before workflow aborts              |
 
 ---
 
-## Agent Models
+## Teammate Models
 
-Variable: `AGENT_MODELS`
+Variable: `TEAMMATE_MODELS`
 
-| Agent Type         | Model    | Description                                                                        |
+| Teammate           | Model    | Description                                                                        |
 |--------------------|----------|------------------------------------------------------------------------------------|
-| `coordinator`      | `opus`   | Orchestrates workflow, manages state, dispatches agents                            |
-| `business_analyst` | `sonnet` | Expands underspecified tasks into implementable specifications                     |
-| `developer`        | `sonnet` | Implements delegated tasks following language best practices and project standards |
+| `team-lead`        | `opus`   | Routes work, manages tasks via TaskList, coordinates teammates                     |
+| `business-analyst` | `sonnet` | Expands underspecified tasks into implementable specifications                     |
+| `expert-*`         | `sonnet` | Domain-specialized implementers, spawned per plan                                  |
+| `critic`           | `sonnet` | Reviews code quality, identifies issues, provides feedback                         |
 | `auditor`          | `opus`   | Validates completed work with unit, integration, and e2e test verification         |
 | `remediation`      | `sonnet` | Fixes infrastructure issues and pre-existing failures                              |
-| `health_auditor`   | `haiku`  | Runs verification commands to check codebase health                                |
+| `health-auditor`   | `haiku`  | Runs verification commands to check codebase health                                |
 
 Valid model values: `opus`, `sonnet`, `haiku`
 
@@ -139,21 +129,21 @@ When a command specifies no environment, it must pass in ALL defined environment
 
 Variable: `AGENT_DOCS`
 
-| Pattern                               | Agent            | Environment | Must Read | Purpose                                            |
+| Pattern                               | Teammate         | Environment | Must Read | Purpose                                            |
 |---------------------------------------|------------------|-------------|-----------|----------------------------------------------------|
 | `design/rules.md`                     |                  |             | Y         | Coding standards that all modified files must pass |
 | `design/architecture.md`              |                  |             |           | System architecture for context                    |
 | `ARCHITECTURE.md`                     |                  |             |           | High-level component overview                      |
 | `design/patterns/**/*.md`             |                  |             |           | Reusable code patterns and conventions             |
-| `design/testing-guide.md`             | developer        |             | Y         | Test writing standards and patterns                |
-| `design/api-specs/**/*.md`            | developer        |             |           | API specifications for implementation              |
+| `design/testing-guide.md`             | expert           |             | Y         | Test writing standards and patterns                |
+| `design/api-specs/**/*.md`            | expert           |             |           | API specifications for implementation              |
 | `design/audit-checklist.md`           | auditor          |             | Y         | Detailed audit verification steps                  |
 | `design/security-checklist.md`        | auditor          |             |           | Security review criteria                           |
 | `design/remediation-guide.md`         | remediation      |             | Y         | Common infrastructure fixes                        |
-| `design/build-system.md`              | remediation      |             |           | Build system configuration and troubleshooting     |
+| `design/build-system.md`             | remediation      |             |           | Build system configuration and troubleshooting     |
 | `design/task-expansion-guide.md`      | business-analyst |             | Y         | Guidelines for expanding underspecified tasks      |
 | `design/acceptance-criteria-guide.md` | business-analyst |             | Y         | Writing testable acceptance criteria               |
-| `design/health-checks.md`             | health-auditor   |             | Y         | Health verification procedures                     |
+| `design/health-checks.md`            | health-auditor   |             | Y         | Health verification procedures                     |
 
 ---
 
@@ -195,10 +185,8 @@ Variable: `VERIFICATION_COMMANDS`
 
 Variable: `MCP_SERVERS`
 
-MCP (Model Context Protocol) servers extend agent capabilities beyond native Claude Code tools.
-Each row represents one callable function. Agents may ONLY invoke functions listed in this table.
-
-For interpretation guidance, see: [MCP Servers Guide](mcp-servers.md)
+MCP (Model Context Protocol) servers extend teammate capabilities beyond native Claude Code tools.
+Each row represents one callable function. Teammates may ONLY invoke functions listed in this table.
 
 | Server          | Function             | Example                                                                                       | Use When                                                                |
 |-----------------|----------------------|-----------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
@@ -210,7 +198,7 @@ For interpretation guidance, see: [MCP Servers Guide](mcp-servers.md)
 
 ## Related Documentation
 
-- [State Management](state-management.md) - State file format and persistence
-- [MCP Servers](mcp-servers.md) - MCP server details
-- [Coordinator Execution Model](coordinator-execution-model.md) - Operational rules
-- [Coordinator Startup](coordinator-startup.md) - Session initialization
+- [Team Lead Execution Model](coordinator-execution-model.md) - Operational rules
+- [Team Lead Fresh Start](coordinator/fresh-start.md) - New session initialization
+- [Team Lead Resume](coordinator/resume.md) - Resume session procedures
+- [Team Architecture](team-architecture.md) - Team structure and communication

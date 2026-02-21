@@ -1,148 +1,109 @@
 # Session Recovery
 
-Complete session recovery procedures that orchestrate all recovery mechanisms.
+Complete session recovery procedures that orchestrate all recovery mechanisms on resume.
 
 ## Overview
 
-Session recovery runs on every session start and coordinates all recovery procedures to ensure system integrity. This is
-the main entry point for recovery operations.
+Session recovery runs automatically when the team lead detects a resume scenario (re-running `/bonfire $PLAN_FILE`). The native Agent Teams primitives handle most recovery automatically — the team lead primarily needs to audit state and respawn teammates.
 
 See also:
 
-- [Event Log Recovery](event-log-recovery.md) - Event log validation and recovery
-- [State Recovery](state-recovery.md) - State file recovery
-- [Agent Recovery](agent-file-recovery.md) - Agent file recovery
+- [Agent Recovery](agent-file-recovery.md) - Expert advisor prompt file recovery
 - [Baseline Failures](baseline-failures.md) - Pre-existing failure tracking
 - [Recovery Index](index.md) - Overview of all recovery procedures
 
 ---
 
-## Pending Queue Reconstruction
+## Resume Detection
 
-On session resume, explicitly reconstruct `pending_critique` and `pending_audit` from the event log.
-This catches any tasks that completed development but haven't been reviewed/audited.
+The team lead determines the resume mode by checking two things:
 
-```python
-def reconstruct_pending_queues(event_log_path: str, state: dict):
-    """Reconstruct pending_critique and pending_audit from event log.
+1. **Expert advisor definitions on disk**: Do files exist at `.claude/experts/<plan_slug>/`?
+2. **Shared task list**: Does `TaskList` return existing tasks?
 
-    This is CRITICAL for session recovery - ensures no tasks are lost
-    in the review/audit pipeline.
-    """
+| Expert advisors on disk? | Tasks exist? | Mode |
+|---|---|---|
+| No | No | **FRESH START** — full bootstrap |
+| Yes | Yes | **RESUME** — load expert advisors, audit tasks, spawn team |
+| Yes | No | **EXPERT REUSE** — load expert advisors, create tasks, spawn team |
+| No | Yes | **ORPHANED TASKS** — regenerate expert advisors, audit tasks, spawn team |
 
-    # Track task states through events
-    task_states = {}  # task_id -> 'implementing' | 'awaiting-review' | 'awaiting-audit' | 'complete'
+## Resume Flow (most common recovery path)
 
-    with open(event_log_path, 'r') as f:
-        for line in f:
-            event = json.loads(line.strip())
-            event_type = event.get('event_type')
-            task_id = event.get('task_id')
+When both expert advisor files and tasks exist:
 
-            if not task_id:
-                continue
+### 1. Load Expert Advisor Definitions
 
-            if event_type == 'developer_dispatched':
-                task_states[task_id] = 'implementing'
+Read all `.md` files from `.claude/experts/<plan_slug>/`. Log the roster:
 
-            elif event_type == 'developer_ready_for_review':
-                task_states[task_id] = 'awaiting-review'
-
-            elif event_type == 'critic_dispatched':
-                # Still awaiting review until critic completes
-                pass
-
-            elif event_type == 'critic_pass':
-                task_states[task_id] = 'awaiting-audit'
-
-            elif event_type == 'critic_fail':
-                task_states[task_id] = 'implementing'
-
-            elif event_type == 'auditor_dispatched':
-                # Still awaiting audit until auditor completes
-                pass
-
-            elif event_type == 'task_complete':
-                task_states[task_id] = 'complete'
-
-            elif event_type == 'auditor_fail':
-                task_states[task_id] = 'implementing'
-
-    # Rebuild pending queues from final states
-    state['pending_critique'] = [
-        tid for tid, status in task_states.items()
-        if status == 'awaiting-review'
-    ]
-    state['pending_audit'] = [
-        tid for tid, status in task_states.items()
-        if status == 'awaiting-audit'
-    ]
-
-    return state
 ```
+LOADED EXPERT ADVISORS from .claude/experts/<plan_slug>/:
+  1. <expert-name> - <domain description>
+  2. <expert-name> - <domain description>
+```
+
+### 2. Audit Task State
+
+Call `TaskList` and report current state:
+
+```
+TASK AUDIT for <plan_slug>:
+  Completed: <list of completed task subjects>
+  In Progress: <list - likely orphaned by crashed experts>
+  Pending (blocked): <list with their blockers>
+  Pending (ready): <list - ready to be claimed>
+  Needs Rework: <list - had review failures>
+```
+
+### 3. Handle Orphaned Tasks
+
+Tasks that are `in_progress` but have no active developer are orphaned from a crashed session. These auto-release after the heartbeat timeout (~5 min). The team lead can note them but does not need to manually intervene — fresh developers will claim them once released.
+
+### 4. Validate Plan File
+
+Run the bootstrapper to verify the plan file is still valid:
+
+```bash
+python .claude/scripts/generate-orchestrator.py "$PLAN_FILE"
+```
+
+If the plan file is missing, halt and inform the user.
+
+### 5. Spawn Fresh Teammates
+
+Spawn all teammates using documentation and persisted expert advisor prompts:
+
+- Developers (generic, parallel) from developer prompt
+- Named expert advisors from `.claude/experts/<plan_slug>/` files
+- Critic, ripple, auditor, business-analyst, remediation, health-auditor from documentation
+
+### 6. Resume Normal Operation
+
+Developers claim pending tasks from the shared task list. The team lead enters the monitoring loop.
 
 ---
 
-## Session Recovery Summary
+## Recovery Summary
 
-On session start, run this recovery check:
+After recovery, the team lead reports:
 
-```python
-def session_recovery_check():
-    """Run full recovery check on session start."""
-
-    issues = []
-
-    # 1. Check event log
-    event_log_result = validate_event_log(EVENT_LOG_FILE)
-    if event_log_result.status == 'corrupted':
-        recover_truncated_log(EVENT_LOG_FILE, event_log_result.last_valid_line)
-        issues.append(f"Event log recovered from corruption at line {event_log_result.corruption_line}")
-    elif event_log_result.status == 'missing':
-        issues.append("Event log missing - will create new")
-
-    # 2. Check state file
-    state_result = validate_state_file(STATE_FILE)
-    if state_result.status == 'corrupted':
-        recover_corrupted_state(STATE_FILE, EVENT_LOG_FILE)
-        issues.append("State file recovered from event log")
-    elif state_result.status == 'missing':
-        issues.append("State file missing - fresh start")
-
-    # 3. Check plan file
-    plan_result = validate_plan_file(PLAN_FILE)
-    if plan_result.status != 'valid':
-        handle_missing_plan()  # This raises and halts
-
-    # 4. Check agent files
-    # REQUIRED_AGENTS = ['developer', 'critic', 'auditor', 'ba', 'remediation', 'health-auditor']
-    for agent_name in REQUIRED_AGENTS:
-        agent_path = f".claude/agents/{agent_name}.md"
-        if not os.path.exists(agent_path):
-            recover_missing_agent_file(agent_name, AGENT_DEFINITIONS_DOC)
-            issues.append(f"Agent file recovered: {agent_name}")
-
-    # 5. ALWAYS reconstruct pending queues on session resume
-    # This is critical - ensures no tasks are lost in review/audit pipeline
-    reconstruct_pending_queues(EVENT_LOG_FILE, state)
-    if state['pending_critique']:
-        issues.append(f"Recovered {len(state['pending_critique'])} tasks pending review")
-    if state['pending_audit']:
-        issues.append(f"Recovered {len(state['pending_audit'])} tasks pending audit")
-
-    if issues:
-        log_event("session_recovery_completed",
-                  issues_resolved=issues)
-
-    return issues
+```
+SESSION RECOVERED for <plan_slug>:
+  Mode: RESUME
+  Expert advisors loaded: <N> from disk
+  Developers spawned: <N>
+  Tasks: <completed>/<total> complete
+  Orphaned in-progress: <N> (will auto-release)
+  Pending (ready): <N> tasks available
+  Total teammates spawned: <N>
 ```
 
 ---
 
 ## Cross-References
 
-- [Event Log Recovery](event-log-recovery.md) - Event log validation and recovery
-- [State Recovery](state-recovery.md) - State file recovery procedures
-- [Agent Recovery](agent-file-recovery.md) - Agent file recovery procedures
+- [Agent Recovery](agent-file-recovery.md) - Expert advisor prompt file recovery
+- [Task List Recovery](state-recovery.md) - Task state audit
 - [Baseline Failures](baseline-failures.md) - Pre-existing failure baseline
 - [Session Management](../session-management.md) - Session lifecycle
+- [Team Architecture](../team-architecture.md) - Resume and crash recovery

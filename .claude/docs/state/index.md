@@ -1,9 +1,12 @@
-# Coordinator State Tracking
+# Task State Tracking
 
-Track these fields to coordinate parallel work and resume after interruption.
+Track task state using native Agent Teams primitives to coordinate parallel work and resume after interruption.
 
-See [State Schema](../orchestrator/state-schema.md) for complete state file format.
-See [Event Schema](../orchestrator/event-schema.md) for event log format.
+State is managed via `TaskCreate`/`TaskUpdate`/`TaskList`/`TaskGet` — no custom state files needed.
+Communication uses `TeammateTool({ operation: "write", to: "<name>" })` — no custom event logs needed.
+
+See [State Fields](fields.md) for the task list field reference.
+See [Signal Specification](../signals/index.md) for the communication message reference.
 
 ---
 
@@ -14,12 +17,11 @@ This documentation is split into focused sections:
 ### Core State Management
 
 - **[State Fields](fields.md)** - All state field definitions organized by category
-    - Session tracking
-    - Task tracking
-    - Infrastructure tracking
-    - Expert tracking
-    - File conflict tracking
-    - Divine intervention
+    - Task tracking (via shared task list)
+    - Infrastructure tracking (via team lead context)
+    - Expert tracking (via persisted prompt files on disk)
+    - File conflict tracking (via mailbox messages)
+    - User escalation
 
 - **[Attempt Tracking](attempt-tracking.md)** - Attempt tracking and escalation thresholds
     - Attempt tracking structure
@@ -31,31 +33,31 @@ This documentation is split into focused sections:
 - **[Update Triggers](update-triggers.md)** - When and how state updates occur
     - Developer dispatch and completion
     - Critic review complete
+    - Ripple review complete
     - Critic timeout handling
     - Auditor pass/fail/blocked
     - Remediation and health audit
-    - Divine intervention
-    - Expert delegation
+    - User escalation
+    - Business analyst delegation
 
-- **[Persistence](persistence.md)** - Atomic updates and recovery
-    - Atomic write procedures
-    - Recovery on resume
-    - State file guarantees
+- **[Persistence](persistence.md)** - Native tool state persistence
+    - Shared task list persistence
+    - Expert prompt files on disk
+    - Resume via plan slug
 
 ### Task Management
 
-- **[Task Tracking](task-tracking.md)** - Task selection, rollback, and agent tracking
+- **[Task Tracking](task-tracking.md)** - Task selection, rollback, and developer tracking
     - Task selection priority
     - Rollback capability
     - Learning from failures
-    - Parallel agent tracking
-    - Slot management
+    - Parallel developer tracking
 
 ---
 
 ## Related Documentation
 
-- [State Schema](../orchestrator/state-schema.md) - Complete state file format
-- [Event Schema](../orchestrator/event-schema.md) - Event log format
-- [Recovery Procedures](../recovery-procedures.md) - Error recovery
-- [Task Delivery Loop](../task-delivery-loop.md) - Main execution loop
+- [State Fields](fields.md) - Task list field reference
+- [Signal Specification](../signals/index.md) - Communication message reference
+- [Recovery Procedures](../recovery/index.md) - Error recovery
+- [Team Architecture](../team-architecture.md) - Team structure and lifecycle

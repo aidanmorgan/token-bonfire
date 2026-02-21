@@ -1,0 +1,18 @@
+{
+  "env": {
+    "CLAUDE_CODE_TEAMMATE_MODE": "tmux"
+  },
+  "hooks": {
+    "TeammateIdle": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/teammate-idle.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

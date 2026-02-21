@@ -11,7 +11,7 @@ review methodology.
 - [Overview](index.md) - Meta-prompt context and inputs
 - [Identity & Authority](identity.md) - Agent identity, failure modes, decision authority
 - **[Review Criteria (current)](review-criteria.md)** - Quality checks, detection methods
-- [Signals & Delegation](signals.md) - Signal formats, expert requests
+- [Communication & Delegation](signals.md) - Message formats, expert requests
 
 ---
 
@@ -93,6 +93,56 @@ How to verify code is actually wired in:
 
 **CRITICAL**: Every criterion must be SPECIFIC and CHECKABLE.
 
+### <verification_practices> (CRITICAL - MUST BE COMPREHENSIVE)
+
+Transform BEST_PRACTICES_RESEARCH into verification guidance organized into THREE areas.
+The critic MUST apply **all three dimensions** of verification for code quality assessment.
+
+> **NOTE**: Acceptance criteria verification (VERIFICATION/VALIDATION/CRITERIA pass/fail decisions) is handled separately by the Auditor. The Critic uses these dimensions to assess code quality, not to make acceptance decisions.
+
+```markdown
+## [TECHNOLOGY] Verification Practices
+
+### VERIFICATION (Test Execution)
+
+How to execute verification correctly:
+
+| Check Type | Execution Approach | What Confirms Success |
+|------------|-------------------|----------------------|
+| [Test type] | [How to run] | [Expected output] |
+| [Verification] | [Execution method] | [Success criteria] |
+
+**Test Environment:**
+- [Environment requirement]: [How to verify]
+
+### VALIDATION (Behavior Confirmation)
+
+How to confirm acceptance criteria are met:
+
+| Criterion Type | Validation Method | Evidence Required |
+|---------------|-------------------|-------------------|
+| [Acceptance type] | [How to validate] | [What proves it] |
+| [Behavior check] | [Verification approach] | [Required proof] |
+
+**Integration Verification:**
+- [Integration check]: [What to verify]
+
+### CRITERIA (Pass/Fail Evaluation)
+
+How to make definitive pass/fail decisions:
+
+| Evaluation Aspect | Pass Threshold | Fail Indicators |
+|-------------------|----------------|-----------------|
+| [Coverage metric] | [Required level] | [Below threshold] |
+| [Quality gate] | [Success definition] | [Failure signs] |
+
+**Definition of Done:**
+- [Done criterion]: [Verification method]
+
+**Evidence Requirements:**
+- [What evidence must exist for each criterion]
+```
+
 ### <quality_tells> (REQUIRED)
 
 ```markdown
@@ -111,6 +161,8 @@ If ANY of these are present, the review FAILS immediately:
 - Tests that don't actually test anything
 - Copy-pasted code that should be abstracted
 - Code that isn't called from anywhere (orphaned)
+- Functions with no callers (dead code)
+- Tests that are skipped or marked xfail
 
 **There are no exceptions.** These indicate incomplete work.
 ```
@@ -141,6 +193,12 @@ If ANY of these are present, the review FAILS immediately:
 - Can you trace a path from entry point to this code?
 - Or is it orphaned code that "works" but doesn't ship?
 
+## Acceptance Criteria (Auditor's Responsibility)
+NOTE: Detailed acceptance criteria verification is the Auditor's job. However, the Critic should flag obvious gaps:
+- Are there clearly missing implementations for stated requirements?
+- Do tests exist and appear to cover the requirements?
+- Are there obvious disconnects between requirements and code?
+
 ## Subtle Issues
 - Race conditions
 - Resource leaks
@@ -150,16 +208,47 @@ If ANY of these are present, the review FAILS immediately:
 - Missing validation
 ```
 
+### <environments> (REQUIRED)
+
+## Environment Execution Protocol
+
+See [environment-execution-protocol.md](../../environment-execution-protocol.md) for the complete multi-environment execution procedure.
+
+**Agent-specific outcome**: When any environment fails, the result is `REVIEW_FAILED`.
+
+```markdown
+## Execution Environments
+
+| Name | Description | How to Execute |
+|------|-------------|----------------|
+[FROM ENVIRONMENTS INPUT]
+```
+
+### <verification_commands> (REQUIRED)
+
+```markdown
+## Commands to Execute
+
+You MUST execute these yourself. Do NOT trust developer self-verification.
+
+| Check | Command | Environment | Required Exit |
+|-------|---------|-------------|---------------|
+[FROM VERIFICATION_COMMANDS INPUT]
+
+Execute ALL commands. Document pass/fail for each in each environment.
+```
+
 ### <method> (REQUIRED)
 
 ```markdown
 ## Your Workflow
 
-PHASE 1: UNDERSTAND
-1. Read the task description to understand what's being built
-2. Note the scope of the changes
-3. Understand the developer's intent
-Checkpoint: Can you explain what this code is supposed to do?
+PHASE 1: UNDERSTAND REQUIREMENTS
+1. Read task specification completely
+2. List every acceptance criterion explicitly
+3. Understand what "complete" means for each criterion
+4. Note any ambiguities (these should cause FAIL if unresolved)
+Checkpoint: Can you list every criterion that must be verified?
 
 PHASE 2: READ ALL CODE
 1. Read EVERY modified file line-by-line (use Read tool)
@@ -200,15 +289,17 @@ PHASE 5: DOMAIN VERIFICATION (if needed)
 Checkpoint: Is every domain-specific decision verified?
 
 PHASE 6: RENDER JUDGMENT
-- If ANY issues found: FAIL with comprehensive feedback
-- If NO issues found AND integration verified: PASS
+Complete pre-message verification, then:
+- If ANY quality tell found -> REVIEW_FAILED
+- If ANY code quality issue found -> REVIEW_FAILED with comprehensive feedback
+- If ANY doubt about code quality exists -> REVIEW_FAILED
+- Only if ALL quality checks pass with NO exceptions -> REVIEW_PASSED
 
-Complete pre-signal verification before signaling.
+NOTE: Acceptance criteria verification and verification command execution
+are handled by the Auditor after your review passes.
 
 **Be specific.** "The code looks fine" is not acceptable. Either cite specific
 evidence of quality, or cite specific issues.
-
-NOTE: Acceptance criteria verification is the Auditor's job. Your focus is CODE QUALITY.
 ```
 
 ### <calibration> (REQUIRED)
@@ -219,22 +310,24 @@ Include calibration examples to establish pass/fail thresholds:
 ## Calibration Examples
 
 **PASSES** (and why):
-\`\`\`[language]
-[Example of code that passes review]
-\`\`\`
-Passes because: [specific reasons - what's good about it]
+Criterion: "Users can log in with email and password"
+Evidence:
+- Code: `auth/login.py:45-80` implements email/password authentication
+- Test: `tests/test_auth.py:test_login_success` verifies correct credentials work
+- Test: `tests/test_auth.py:test_login_failure` verifies wrong credentials fail
+Passes because: Implementation exists, tests prove both positive and negative cases
 
 **FAILS** (and why):
-\`\`\`[language]
-[Example of code that fails review]
-\`\`\`
-Fails because: [specific reasons - what's wrong]
+Criterion: "API returns proper error codes"
+Evidence:
+- Code: `api/handlers.py:100-150` has error handling
+- Test: `tests/test_api.py:test_errors` exists
+Fails because: Test exists but doesn't verify specific error codes. Need tests that check 400, 401, 404, 500 responses.
 
 **JUDGMENT CALL** (how to decide):
-\`\`\`[language]
-[Example of borderline code]
-\`\`\`
-Decision framework: [how to reason about this case]
+Criterion: "Handle edge cases gracefully"
+Question: What are the edge cases?
+Decision framework: If edge cases aren't specified, FAIL with question asking what edge cases should be tested. Don't guess.
 ```
 
 ---
@@ -244,12 +337,11 @@ Decision framework: [how to reason about this case]
 - [Overview](index.md) - Meta-prompt context and inputs
 - [Identity & Authority](identity.md) - Agent identity, failure modes, decision authority
 - **[Review Criteria (current)](review-criteria.md)** - Quality checks, detection methods
-- [Signals & Delegation](signals.md) - Signal formats, expert requests
+- [Communication & Delegation](signals.md) - Message formats, expert requests
 
 ---
 
 ## Cross-References
 
 - **[Documentation Index](../../index.md)** - Navigation hub for all docs
-- [Signal Specification](../../signal-specification.md) - Critic signal formats
-- [Review Audit Flow](../../review-audit-flow.md) - Critic's role in the workflow
+- [Expert Delegation](../../expert-delegation.md) - How the critic requests expert help

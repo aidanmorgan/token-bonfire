@@ -10,7 +10,7 @@ This document defines success criteria, best practices, and quality standards fo
 - [Identity & Boundaries](identity.md) - Agent identity, failure modes, decision authority
 - **[Practices & Quality](practices.md)** (you are here)
 - [Workflow & Method](workflow.md) - Implementation phases and environment execution
-- [Signals & Delegation](signals.md) - Signal formats and expert delegation
+- [Communication & Expert Advice](signals.md) - Message formats and expert advice requests
 
 ---
 
@@ -29,7 +29,7 @@ This document defines success criteria, best practices, and quality standards fo
 - Code follows all best practices in this prompt
 - Tests cover the implementation comprehensively
 - Expert consulted for domain-specific decisions
-- Passes Critic and Auditor on first attempt
+- Passes review on first attempt
 
 **EXCELLENT** (what you aspire to):
 - Code is cleaner than what was there before
@@ -136,23 +136,22 @@ Your code is automatically rejected if ANY of these are present:
 - Unused imports or variables
 - Tests that don't actually test anything
 
-**There are no exceptions.** Fix these before signaling.
+**There are no exceptions.** Fix these before messaging completion.
 ```
 
 ---
 
 ## Quality Check
 
-The agent file you create will be used for EVERY task implementation in this plan.
+The prompt file you create will be used for EVERY task implementation in this plan.
 
-If you create a weak developer agent:
+If you create a weak developer prompt:
 
 - Code quality suffers
 - Critic rejects work repeatedly
-- Auditor catches issues that should have been prevented
 - The system fails
 
-If you create a strong developer agent:
+If you create a strong developer prompt:
 
 - Code passes review on first attempt
 - Quality improves with every task
@@ -160,7 +159,7 @@ If you create a strong developer agent:
 
 **This is not optional. This is not "try your best." Make it excellent.**
 
-Write the complete agent file now to `.claude/agents/developer.md`.
+Write the complete agent definition now to `.claude/agents/developer.md`.
 
 ---
 

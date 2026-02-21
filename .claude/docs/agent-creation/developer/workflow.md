@@ -10,7 +10,7 @@ This document defines the implementation workflow phases and environment executi
 - [Identity & Boundaries](identity.md) - Agent identity, failure modes, decision authority
 - [Practices & Quality](practices.md) - Success criteria, best practices, quality standards
 - **[Workflow & Method](workflow.md)** (you are here)
-- [Signals & Delegation](signals.md) - Signal formats and expert delegation
+- [Communication & Expert Advice](signals.md) - Message formats and expert advice requests
 
 ---
 
@@ -18,33 +18,18 @@ This document defines the implementation workflow phases and environment executi
 
 Include the environments table:
 
+## Environment Execution Protocol
+
+See [environment-execution-protocol.md](../../environment-execution-protocol.md) for the complete multi-environment execution procedure.
+
+**Agent-specific outcome**: When any environment fails, the result is `TASK_FAILURE`.
+
 ```markdown
 ## Execution Environments
 
 | Name | Description | How to Execute |
 |------|-------------|----------------|
 [FROM ENVIRONMENTS INPUT]
-
-## CRITICAL - Environment Execution Protocol
-
-**When a verification command has an EMPTY Environment column:**
-1. You MUST execute the command in EVERY environment listed above
-2. Execute in Mac environment first → record exit code
-3. Execute in Devcontainer environment → record exit code
-4. BOTH must return the required exit code
-5. FAILURE IN ANY ENVIRONMENT = TASK FAILURE
-
-**When a command specifies a SPECIFIC environment (e.g., "Mac"):**
-1. Execute ONLY in that specific environment
-2. Other environments are excluded by design
-
-**How to Execute in Each Environment:**
-- Mac: Run command directly in your shell
-- Devcontainer: Use `mcp__devcontainers__devcontainer_exec(workspace_folder="/project", command="...")`
-
-**YOU MUST BUILD THE ENVIRONMENT VERIFICATION MATRIX:**
-For each command, add a row for each required environment showing the ACTUAL exit code.
-This matrix is MANDATORY in your READY_FOR_REVIEW signal.
 ```
 
 ### <verification_commands> (REQUIRED)
@@ -52,7 +37,7 @@ This matrix is MANDATORY in your READY_FOR_REVIEW signal.
 Include all verification commands:
 
 ```markdown
-Before signaling READY_FOR_REVIEW, ALL must pass:
+Before messaging READY_FOR_REVIEW, ALL must pass:
 
 | Check | Command | Environment | Required Exit |
 |-------|---------|-------------|---------------|
@@ -101,7 +86,7 @@ Checkpoint: Do you have a clear implementation plan?
 PHASE 3: IMPLEMENT
 1. Follow best practices from `<best_practices>` for every line
 2. Write tests alongside code (not after)
-3. For domain-specific code: ask expert BEFORE implementing
+3. For domain-specific code: request expert advice BEFORE implementing
 4. Make sure code is integrated into the system (not orphaned)
 Checkpoint: Is every line you wrote intentional and correct?
 
@@ -113,8 +98,8 @@ For EACH command in verification commands:
   4. Record the ACTUAL exit code for each environment
 
 Step-by-step for each command with empty Environment:
-  a. Run command in Mac environment → record exit code
-  b. Run command in Devcontainer environment → record exit code
+  a. Run command in Mac environment -> record exit code
+  b. Run command in Devcontainer environment -> record exit code
   c. BOTH must match required exit code
 
 Build the Environment Verification Matrix as you go:
@@ -127,13 +112,13 @@ FAILURE IN ANY ENVIRONMENT = TASK NOT COMPLETE.
 
 After all commands pass in all environments:
 1. Review code against `<quality_tells>` - fix any violations
-2. Complete the pre-signal verification checklist
+2. Complete the pre-message verification checklist
 Checkpoint: Do you have PASS for every check in EVERY required environment?
 
-PHASE 5: SIGNAL
-1. Format signal EXACTLY as specified
+PHASE 5: COMMUNICATE
+1. Format message EXACTLY as specified
 2. Include honest Expert Consultation section
-3. Signal appears at END of response, column 0
+3. Message team lead via TeammateTool
 ```
 
 ---
@@ -143,4 +128,4 @@ PHASE 5: SIGNAL
 - [Index](index.md) - Overview and inputs
 - [Identity & Boundaries](identity.md) - Agent identity, failure modes, decision authority
 - [Practices & Quality](practices.md) - Success criteria, best practices, quality standards
-- **Next:** [Signals & Delegation](signals.md) - Signal formats and expert delegation
+- **Next:** [Communication & Delegation](signals.md) - Message formats and expert delegation

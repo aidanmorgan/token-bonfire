@@ -1,376 +1,194 @@
-# Agent Coordination
+# Teammate Coordination
 
-The coordinator actively manages expert engagement through task analysis, proactive recommendations, and mediated
-delegation.
+The team lead actively manages developer engagement through task analysis, domain-based routing, and mailbox-mediated communication.
 
 **Related Documentation:**
 
-- [Experts](experts.md) - Expert categories, creation framework, and templates
-- [Expert Delegation](expert-delegation.md) - How default agents engage experts
-- [Agent Context Management](agent-context-management.md) - Context monitoring and checkpointing
+- [Team Architecture](team-architecture.md) - Team structure, expert generation, and communication protocol
+- [Teammate Definitions](agent-definitions.md) - All teammate roles and signals
+- [Teammate Context Management](agent-context-management.md) - Context monitoring and checkpointing
 
 ---
 
-## Task-Agent Matching
+## Task-Developer Matching
 
-When preparing to dispatch a baseline agent (developer, auditor, remediation), the coordinator analyzes the task against
-available experts.
+When generating the task plan during gap analysis, the team lead assigns task affinity to each developer based on domain clustering.
 
-### Matching Algorithm
+### Task Affinity
+
+Each developer has a list of **applicable task IDs** determined during gap analysis:
 
 ```
-For each task ready for dispatch:
-  1. Extract task keywords: technologies, patterns, domain terms, quality concerns
-  2. For each agent in experts:
-     a. Check if task_id is in agent.applicable_tasks → RECOMMENDED
-     b. Check if task keywords overlap agent.keyword_triggers → SUGGESTED
-     c. Check if task might need agent.request_types → AVAILABLE
-     d. Otherwise → not included
-  3. Sort agents by match strength: RECOMMENDED > SUGGESTED > AVAILABLE
-  4. Group by agent_type: domain_expert, advisor, quality_reviewer, task_executor, pattern_specialist
-  5. Include top matches per category in task assignment with match reason
+DEVELOPER ROSTER for <plan_slug>:
+  1. dev-1 — tasks: [task-1, task-2, task-5]
+  2. dev-2 — tasks: [task-3, task-4]
+  3. dev-3 — tasks: [task-6, task-7, task-8]
 ```
 
-### Match Categories
+### Developer Self-Organization
 
-| Category    | Criteria                                       | Baseline Agent Guidance                              |
-|-------------|------------------------------------------------|------------------------------------------------------|
-| RECOMMENDED | Task ID in agent's `applicable_tasks`          | Strongly consider using this agent for relevant work |
-| SUGGESTED   | Task keywords match agent's `keyword_triggers` | Use if work aligns with agent's capabilities         |
-| AVAILABLE   | Agent's `request_types` might be useful        | Available for unexpected needs                       |
+Developers self-organize by checking `TaskList` for available work:
 
-### Matching by Agent Type
+1. **Prefer applicable tasks** — tasks in their affinity list
+2. **Claim via** `TaskUpdate({ status: "in_progress" })` — file ownership ensures only one developer succeeds
+3. **If all applicable tasks are blocked or complete** — may claim other unblocked tasks
+4. **Never idle** — always claim next work or check mailbox after signaling
 
-| Agent Type         | Typical Matching Signal      | Delegation Trigger                     |
-|--------------------|------------------------------|----------------------------------------|
-| Domain Expert      | Technical domain keywords    | Complex domain-specific implementation |
-| Advisor            | Decision points, uncertainty | "How should I..." questions            |
-| Task Executor      | Repetitive task patterns     | Well-defined subtask extraction        |
-| Quality Reviewer   | Quality dimension keywords   | Pre-completion review needs            |
-| Pattern Specialist | Pattern-related keywords     | Pattern selection or conformance       |
+The team lead can also route specific tasks to developers via `write` messages.
 
 ---
 
-## Proactive vs Reactive Coordination
+## Communication Flow
 
-### Proactive (Coordinator-Initiated)
+### Developer --> Team Lead --> Routing Target
 
-The coordinator identifies agent support opportunities before dispatching:
-
-1. **Pre-dispatch analysis**: Analyze task for expert applicability
-2. **Agent-first routing**: For tasks requiring specialized artifacts, dispatch expert first
-3. **Quality gate insertion**: For high-risk tasks, schedule quality review before audit
-4. **Parallel support**: Dispatch independent experts alongside baseline agents
-
-**Decision criteria for agent-first routing:**
+All communication flows through the team lead:
 
 ```
-IF task has RECOMMENDED agents of type domain_expert AND
-   agent.capabilities cover 50%+ of task requirements
-THEN
-   Route to domain expert first for artifact generation
-   Baseline agent receives artifacts as input
+Developer ──READY_FOR_REVIEW──> Team Lead ──review request──> Critic
+Developer <──review feedback─── Team Lead <──REVIEW_PASSED/FAILED── Critic
+                                Team Lead ──ripple request──> Ripple (after Critic passes)
+                                Team Lead <──RIPPLE_PASSED/FAILED── Ripple
+                                Team Lead ──audit request──> Auditor (after Ripple passes)
+                                Team Lead <──AUDIT_PASSED/FAILED── Auditor
 ```
 
-**Decision criteria for quality gate insertion:**
+### Message Routing
 
-```
-IF task involves any of: security, auth, payments, data integrity AND
-   experts includes quality_reviewer for that dimension
-THEN
-   Schedule quality review between developer completion and auditor dispatch
-```
+**From developer agents:**
 
-### Reactive (Baseline Agent-Initiated) - Pause/Resume Model
+| Signal | Team Lead Action |
+|--------|-----------------|
+| `READY_FOR_REVIEW: <task-id>` | `write` review request to `critic` |
+| `NEED_CLARIFICATION: <question>` | Route to `business-analyst` or `AskUserQuestion` |
+| `INFRA_BLOCKED: <details>` | `write` to `remediation` |
+| `FILE_CONFLICT: <file>` | Coordinate file ownership between developers via `write` |
 
-When a baseline agent needs delegation, the **requesting agent** is responsible for:
+**From `critic`:**
 
-1. Generating the prompt for the delegated agent
-2. Saving a context snapshot before requesting delegation
-3. Specifying what kind of support is needed
+| Signal | Team Lead Action |
+|--------|-----------------|
+| `REVIEW_PASSED: <task-id>` | `write` ripple request to `ripple` |
+| `REVIEW_FAILED: <task-id>` | `write` feedback to owning developer |
 
-See [Expert Delegation](expert-delegation.md) for the full delegation flow and signal formats.
+**From `ripple`:**
 
-**Appropriate Delegation Requests**:
+| Signal | Team Lead Action |
+|--------|-----------------|
+| `RIPPLE_PASSED: <task-id>` | `write` audit request to `auditor` |
+| `RIPPLE_FAILED: <task-id>` | `write` feedback to owning developer |
 
-| Request Type     | Use When                                         | Example                                        |
-|------------------|--------------------------------------------------|------------------------------------------------|
-| `decision`       | Multiple valid approaches, need expert to choose | "Should I use Strategy A or Strategy B?"       |
-| `interpretation` | Requirement is unclear, need expert analysis     | "What does 'scalable' mean in this context?"   |
-| `ambiguity`      | Conflicting signals in codebase or requirements  | "The existing code does X but the spec says Y" |
-| `options`        | Need expert to enumerate and evaluate choices    | "What are the patterns for handling this?"     |
-| `validation`     | Want expert confirmation before proceeding       | "Is this approach correct?"                    |
+**From `auditor`:**
 
-**NOT appropriate for delegation** (do it yourself):
+| Signal | Team Lead Action |
+|--------|-----------------|
+| `AUDIT_PASSED: <task-id>` | `TaskUpdate({ status: "completed" })` — ONLY completion trigger |
+| `AUDIT_FAILED: <task-id>` | `write` feedback to owning developer |
+| `AUDIT_BLOCKED: <task-id>` | `write` to `remediation` |
 
-- Implementation work
-- Running commands
-- Reading files
-- Simple lookups
+**From supporting teammates:**
+
+| Signal | Team Lead Action |
+|--------|-----------------|
+| `EXPANDED_TASK_SPECIFICATION: <task-id>` | `TaskUpdate` description, route to developer |
+| `REMEDIATION_COMPLETE` | `write` to `health-auditor` |
+| `HEALTH_AUDIT: HEALTHY` | Resume normal flow |
+| `HEALTH_AUDIT: UNHEALTHY` | `write` to `remediation` for retry |
 
 ---
 
-## Delegation Flow Summary
+## File Ownership Coordination
 
-```
-1. Agent encounters decision point requiring expert guidance
-2. Agent SAVES context snapshot to {{ARTEFACTS_DIR}}/[task_id]/context-[timestamp].md
-3. Agent GENERATES the prompt for the delegated agent
-4. Agent outputs EXPERT_REQUEST signal (includes prompt + snapshot path)
-5. Coordinator DETECTS signal and PAUSES agent (stores agent_id for resume)
-6. Coordinator SPAWNS delegated agent with the agent-provided prompt
-7. Delegated agent completes and signals response
-8. Coordinator RESUMES requesting agent with:
-   - Delegation results
-   - Path to their context snapshot
-9. Requesting agent reads snapshot, integrates results, continues
-```
+### Proactive (At Task Creation)
 
-See [Agent Context Management](agent-context-management.md) for context snapshot requirements.
+During gap analysis, the team lead:
 
----
+1. **Assigns file ownership** to each task — no two concurrent tasks own the same file
+2. **Sets dependencies** via `TaskUpdate({ addBlockedBy })` to serialize access to shared files
+3. **Encodes ownership** in task descriptions so developers know their boundaries
 
-## Delegation Signal Format
+### Reactive (At Runtime)
 
-Baseline agents signal delegation using this format:
+When a developer signals `FILE_CONFLICT`:
 
-```
-EXPERT_REQUEST
+1. Team lead identifies the file owner
+2. Coordinates via `write` to both developers:
+   - Assigns single owner
+   - Other developer yields or waits
+   - Or instructs additive-only changes for shared files
 
-Target Agent: [expert name or type]
-Request Type: [decision | interpretation | ambiguity | options | validation]
-Context Snapshot: [path to saved context snapshot]
-
----DELEGATION PROMPT START---
-[The full prompt for the delegated agent, generated by the requesting agent]
----DELEGATION PROMPT END---
-```
-
-See [Signal Specification](signal-specification.md) for complete signal formats.
+See [Concurrency - Conflict Handling](concurrency/conflict-handling.md) for full details.
 
 ---
 
-## Context Snapshot Validation
+## Review Pipeline
 
-**CRITICAL**: The coordinator validates context snapshots before processing delegation.
+Tasks flow through a staged pipeline managed by the team lead:
 
-**Required Sections**:
+```
+pending --> in_progress --> in_critic_review --> in_ripple_review --> in_audit --> completed
+                                                                              ↘ needs_rework --> in_progress (loop)
+```
 
-| Section                      | Required    | Purpose                             |
-|------------------------------|-------------|-------------------------------------|
-| `# Context Snapshot:`        | Yes         | Header with task ID and timestamp   |
-| `## Current Task`            | Yes         | Task ID and work description        |
-| `## Progress So Far`         | Yes         | What has been completed (non-empty) |
-| `## Current State`           | Yes         | Current work item and blocker       |
-| `## Relevant Context`        | Recommended | Decisions, constraints, patterns    |
-| `## Question for Delegation` | Yes         | Specific question (non-empty)       |
-| `## Options Considered`      | Recommended | Options with pros/cons              |
+### Review State Tracking
 
-On validation failure, the delegation is rejected and the agent must resubmit with a valid snapshot.
+The team lead maintains a mapping of task-id to review status:
+
+| Status | Meaning |
+|--------|---------|
+| `in_critic_review` | Dispatched to critic |
+| `in_ripple_review` | Critic passed, dispatched to ripple |
+| `in_audit` | Ripple passed, dispatched to auditor |
+| `needs_rework` | Critic, ripple, or auditor failed, feedback sent to developer |
+| `completed` | Auditor approved, task marked completed |
 
 ---
 
-## Parallel Agent Execution
+## Clarification Handling
 
-### Conditions for Parallel Dispatch
+When a developer sends `NEED_CLARIFICATION`, the team lead decides:
 
-1. Multiple delegation requests are independent
-2. No data dependencies between requests
-3. Results can be integrated separately
-
-### Parallel Dispatch Flow
-
-```
-1. Identify independent delegation opportunities
-2. Spawn experts in parallel (single message, multiple Task calls)
-3. Track all active experts
-4. As each completes, process results
-5. Deliver results as they arrive or batch for efficiency
-```
+| Situation | Action |
+|-----------|--------|
+| Requirements ambiguity | `write` to `business-analyst` for expansion |
+| Missing dependency information | Answer directly if known, or `AskUserQuestion` |
+| Technical decision needed | Answer based on project context, or `AskUserQuestion` |
+| Missing `blockedBy` dependency | Add dependency via `TaskUpdate({ addBlockedBy })` |
 
 ---
 
-## Agent Availability Management
+## Error Escalation
 
-### Concurrency Limits
-
-```
-MAX_CONCURRENT_PER_AGENT = 2
-
-Before spawning:
-  active_count = active_experts.filter(agent_id == target).count
-  IF active_count >= MAX_CONCURRENT_PER_AGENT
-  THEN
-    Queue the request in pending_delegation_requests
-    Notify baseline agent: "Agent [name] busy, request queued (position [N])"
-    Log event: delegation_queued
-```
-
-When an expert completes:
-
-1. Check pending_delegation_requests for same agent_id
-2. If queued requests exist, dispatch oldest request
-3. Notify originally requesting baseline agent
+| Situation | Action |
+|-----------|--------|
+| Developer fails self-verification repeatedly | Read developer's messages, `write` specific guidance |
+| Critic or auditor rejects same task 3+ times | Investigate root cause, consider reassigning |
+| No unblocked tasks but work remains | Report blocking chain to user |
+| Infrastructure failure | Route to `remediation` via `write` |
+| Ambiguous acceptance criteria | Route to `business-analyst` or `AskUserQuestion` |
+| Teammate crash (heartbeat timeout ~5 min) | Task auto-releases; respawn from persisted prompt |
+| File conflict between developers | `write` to both, assign single owner |
+| Health auditor reports UNHEALTHY after remediation | Route back to `remediation`, escalate after 3 cycles |
 
 ---
 
-## Performance Tracking
+## Inter-Developer Artifact Transfer
 
-Track expert effectiveness for optimization:
+For complex artifacts that need to be shared between developers, use the task dependency system:
 
-```json
-{
-  "expert_stats": {
-    "[agent_id]": {
-      "delegations": 10,
-      "completions": 9,
-      "failures": 0,
-      "out_of_scope": 1,
-      "avg_duration_seconds": 95,
-      "confidence_distribution": {"HIGH": 7, "MEDIUM": 2, "LOW": 0},
-      "tasks_benefited": ["task-3", "task-7", "task-12"]
-    }
-  }
-}
-```
+1. **Contract task** creates types, interfaces, or schemas
+2. **Implementation tasks** `blockedBy` the contract task
+3. Developers implement against the defined contracts after they are available
+4. Task descriptions reference the artifact locations
 
-Use this data to:
-
-- Prioritize high-performing agents in recommendations
-- Identify agents that frequently go out of scope (refine capabilities)
-- Optimize agent creation for future plans
-- Identify gaps in expert coverage
-
----
-
-## Expert Result Integration
-
-When experts return results, the coordinator ensures proper integration with the delegating baseline agent.
-
-### Integration Scenarios
-
-| Scenario                | Action                                            |
-|-------------------------|---------------------------------------------------|
-| Delegating agent active | Queue results for next interaction point          |
-| Agent awaiting audit    | Store with task for inclusion in rework if needed |
-| Agent crashed/failed    | Store results for task re-dispatch                |
-
-### Result Delivery Format
-
-```markdown
-DELEGATION RESULTS
-
-Agent: [agent name] ([agent_id])
-Request Type: [type]
-Original Request: [summary]
-Confidence: [HIGH | MEDIUM | LOW]
-
-## Deliverables
-[Formatted deliverables from expert]
-
-## Recommendations
-[If any]
-
-## Warnings
-[If any]
-
-Resume your work with these results.
-```
-
----
-
-## Inter-Agent Artefact Transfer
-
-For complex artifacts that need to be shared between agents, use the artefacts directory.
-
-### Artefacts Directory Structure
-
-- `{{PLAN_DIR}}/.artefacts/[task-id]/` - Artifacts per task (schema.json, analysis-report.md, manifest.json)
-- `{{PLAN_DIR}}/.artefacts/shared/` - Cross-task artifacts (project-patterns.md)
-
-### Artifact Manifest Format
-
-```json
-{
-    "task_id": "task-3-1-1",
-    "created_by": "dev-agent-2",
-    "created_at": "ISO-8601",
-    "artifacts": [
-        {
-            "name": "schema.json",
-            "type": "json_schema",
-            "purpose": "Database schema for user authentication",
-            "consumers": ["task-3-1-2", "task-3-2-1"]
-        }
-    ]
-}
-```
-
-### Artifact Types
-
-| Type               | Extension | Purpose                               |
-|--------------------|-----------|---------------------------------------|
-| `json_schema`      | `.json`   | Database schemas, API contracts       |
-| `openapi`          | `.yaml`   | REST API specifications               |
-| `typescript_types` | `.d.ts`   | TypeScript type definitions           |
-| `python_protocol`  | `.pyi`    | Python protocol/interface definitions |
-| `sql_migration`    | `.sql`    | Database migration scripts            |
-| `analysis_report`  | `.md`     | Analysis documents, findings          |
-| `test_fixtures`    | `.json`   | Shared test data                      |
-
-### Artifact Lifecycle
-
-1. **Creation**: Agent writes artifact with manifest
-2. **Discovery**: Coordinator includes in dependent task prompts
-3. **Consumption**: Dependent agent reads and uses artifact
-4. **Archival**: After all consumers complete, artifact may be archived
-5. **Cleanup**: Coordinator purges old artifacts on plan completion
-
----
-
-## Coordinator Output Formats
-
-**On expert dispatch:**
-
-```
-EXPERT DISPATCHED
-
-Agent: [name] ([agent_id])
-Type: [agent_type]
-For: [baseline_agent_type] [baseline_agent_id] on [task_id]
-Request: [summary]
-```
-
-**On results delivery:**
-
-```
-EXPERT RESULTS READY
-
-Agent: [name] ([agent_id])
-Duration: [N] seconds
-Confidence: [level]
-Deliverables: [count] items
-
-Results delivered to [baseline_agent_type] [baseline_agent_id].
-```
-
-**On queue notification:**
-
-```
-DELEGATION QUEUED
-
-Agent: [name] ([agent_id])
-Position: [N] in queue
-Reason: Agent at capacity ([current]/[max])
-```
+No custom artifact manifest or transfer protocol is needed — the shared file system and task dependencies handle coordination.
 
 ---
 
 ## Related Documentation
 
-- [experts.md](experts.md) - Expert categories and creation framework
-- [expert-delegation.md](expert-delegation.md) - Detailed delegation flow
-- [agent-context-management.md](agent-context-management.md) - Context and checkpointing
-- [signal-specification.md](signal-specification.md) - Signal format reference
-- [state-management.md](state-management.md) - State tracking
-- [event-logging.md](event-logging.md) - Event logging
+- [Team Architecture](team-architecture.md) - Team structure and expert advisor generation
+- [Teammate Definitions](agent-definitions.md) - All teammate roles and signals
+- [Teammate Context Management](agent-context-management.md) - Context and checkpointing
+- [Signal Specification](signals/index.md) - Signal format reference
+- [Concurrency](concurrency/index.md) - File ownership and conflict handling

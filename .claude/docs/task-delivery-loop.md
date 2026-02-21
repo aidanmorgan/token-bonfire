@@ -1,303 +1,295 @@
 # Task Delivery Loop
 
-This document specifies the step-by-step procedure for the coordinator to dispatch tasks, parse results, and route work
-through the system.
+This document specifies the step-by-step procedure for the team lead to route tasks, receive results via mailbox, and
+manage the developer -> critic -> ripple -> auditor pipeline.
 
 ## Overview
 
 The task delivery loop has two phases, each detailed in separate documents:
 
-**Phase A: Task Dispatch** ([task-dispatch.md](task-dispatch.md) - Steps 1-4):
+**Phase A: Task Dispatch** ([task-dispatch.md](task-dispatch.md)):
 
-1. SELECT TASK - Choose from available, unblocked tasks
-2. PREPARE PROMPT - Expand templates, include references
-3. DISPATCH DEVELOPER - Spawn agent via Task tool
-4. PARSE DEVELOPER SIGNAL - Handle READY_FOR_REVIEW
+1. SELECT TASK - Choose from available, unblocked tasks via `TaskList`
+2. PREPARE ASSIGNMENT - Expand templates, include references
+3. ROUTE TO DEVELOPER - Send assignment via `TeammateTool({ operation: "write" })`
+4. RECEIVE DEVELOPER RESULT - Monitor mailbox for `READY_FOR_REVIEW`
 
-**Phase B: Review & Audit** ([review-audit-flow.md](review-audit-flow.md) - Steps 5-9):
+**Phase B: Review, Ripple Analysis & Audit** ([review-audit-flow.md](review-audit-flow.md)):
 
-5. DISPATCH CRITIC - Code quality review
-6. PARSE CRITIC OUTCOME - REVIEW_PASSED or REVIEW_FAILED
-7. DISPATCH AUDITOR - Acceptance criteria verification
-8. PARSE AUDIT OUTCOME - AUDIT_PASSED, AUDIT_FAILED, or AUDIT_BLOCKED
-9. ROUTE - PASS → complete | FAIL → rework | BLOCKED → remediation
+5. ROUTE TO CRITIC - Code quality review via mailbox
+6. RECEIVE CRITIC OUTCOME - `REVIEW_PASSED` or `REVIEW_FAILED`
+7. ROUTE TO RIPPLE - Second-order effects analysis via mailbox
+8. RECEIVE RIPPLE OUTCOME - `RIPPLE_PASSED` or `RIPPLE_FAILED`
+9. ROUTE TO AUDITOR - Acceptance criteria verification via mailbox
+10. RECEIVE AUDIT OUTCOME - `AUDIT_PASSED`, `AUDIT_FAILED`, or `AUDIT_BLOCKED`
+11. ROUTE - PASS -> complete | FAIL -> rework | BLOCKED -> remediation
 
-After routing, fill actor slots and loop.
+After routing, fill developer slots and loop.
 
 ---
 
 ## Step 1: Select Task
 
-**Input**: `available_tasks`, `blocked_tasks`, `in_progress_tasks`
+**Input**: Tasks from `TaskList`
 
 **Procedure**:
 
-1. Filter tasks where all `blocked_by` dependencies are in `completed_tasks`
-2. Sort by Task Selection Priority (see [state-management.md](state-management.md))
-3. Select top N tasks where N = `ACTIVE_DEVELOPERS` - `active_actor_count`
+1. Call `TaskList` to get all tasks
+2. Filter tasks where status is "pending" and all `blockedBy` have status "completed"
+3. Sort by priority (phase order, then dependency count)
+4. Select top N tasks where N = `MAX_DEVELOPERS` - active developer count
 
-**Output**: List of task IDs to dispatch
+**Output**: List of task IDs to route
 
 ---
 
-## Step 2: Prepare Agent Prompt
+## Step 2: Prepare Assignment
 
-**Input**: Task ID, plan content, experts registry, agent type
+**Input**: Task ID, plan content, developer name
 
-**The coordinator builds the complete prompt by concatenating:**
+**The team lead builds the assignment by combining:**
 
-1. **Agent Definition** (from `.claude/agents/[agent-type].md`)
-2. **Task-Specific Context** (from plan and configuration)
+1. **Task-Specific Context** (from plan and configuration)
+2. **Developer Agent Definition** (`.claude/agents/developer.md`, loaded automatically via `subagent_type: "developer"`)
 
-See [task-dispatch.md](task-dispatch.md) for the detailed prompt construction procedure.
+See [task-dispatch.md](task-dispatch.md) for the detailed assignment construction procedure.
 
 **Key Elements**:
 
-- Agent definition file content
 - Task work description and acceptance criteria
 - Required reading files (MUST READ + REFERENCE)
-- Matched experts table
 - Verification commands and environments
 
-**Output**: Complete prompt string (agent definition + task context)
+**Output**: Complete assignment message
 
 ---
 
-## Step 3: Dispatch Agent
+## Step 3: Route to Developer
 
-**Input**: Prepared prompt, task ID, agent type
+**Input**: Prepared assignment, task ID, developer name
 
 **Procedure**:
 
-1. Read agent model from file frontmatter
-2. Spawn agent via Task tool with prepared prompt
-3. Update state with dispatch information
-4. Log event: `agent_dispatched`
+1. Update task status: `TaskUpdate({ taskId, status: "in_progress" })`
+2. Send via mailbox: `TeammateTool({ operation: "write", to: "<developer>", content: "<assignment>" })`
 
-See [task-dispatch.md](task-dispatch.md) for agent output retrieval and timeout handling.
+See [task-dispatch.md](task-dispatch.md) for routing details.
 
-**Output**: Agent ID (for tracking)
+**Output**: Developer is now working on the task
 
 ---
 
-## Step 4: Parse Developer Output
+## Step 4: Receive Developer Result
 
-**Input**: Developer agent output (full response text)
+**Input**: Developer's mailbox message
 
-**Signal Detection**: Search for these patterns:
+**Signal Detection**: Read mailbox messages for these patterns:
 
-- `^READY_FOR_REVIEW: (.+)$` → Validate environment matrix, route to Critic
-- `^SEEKING_DIVINE_CLARIFICATION$` → Handle per [divine-clarification.md](divine-clarification.md)
-- `^EXPERT_REQUEST$` → Handle per [agent-coordination.md](agent-coordination.md)
-- `^INFRA_BLOCKED: (.+)$` → Enter [remediation loop](remediation-loop.md)
+- `READY_FOR_REVIEW: <task_id>` -> Validate environment matrix, route to critic
+- `NEED_EXPERT_ADVICE: <task_id>` -> Route question to appropriate expert advisor, relay response back
+- `SEEKING_DIVINE_CLARIFICATION` -> Ask user for clarification
+- `INFRA_BLOCKED: <task_id>` -> Route to remediation teammate
 
-**Environment Verification**: Before routing to Critic, validate the environment matrix is complete.
-See [environment-verification.md](environment-verification.md) for validation procedure.
+**Environment Verification**: Before routing to critic, validate the environment matrix is complete.
 
-**Output**: Parsed completion data or blocker information
+**Output**: Parsed result or blocker information
 
 ---
 
 ## Steps 5-6: Critic Review
 
-**Input**: Task ID, developer completion signal
+**Input**: Task ID, developer's READY_FOR_REVIEW message
 
-See [review-audit-flow.md](review-audit-flow.md) for the full Critic dispatch and parsing procedure (Steps 5-6).
+See [review-audit-flow.md](review-audit-flow.md) for the full critic routing and response handling.
 
 **Summary**:
 
-1. Prepare critic prompt with modified files and task context
-2. Dispatch Critic agent
-3. Parse outcome: `REVIEW_PASSED` → continue to audit | `REVIEW_FAILED` → developer rework
+1. Route review request to `critic` teammate via mailbox
+2. Receive critic response: `REVIEW_PASSED` -> continue to ripple | `REVIEW_FAILED` -> developer rework
 
 ---
 
-## Steps 7-8: Auditor Verification
+## Steps 7-8: Ripple Analysis
+
+**Input**: Task ID, files modified, REVIEW_PASSED message
+
+**Summary**:
+
+1. Route ripple analysis request to `ripple` teammate via mailbox
+2. Receive ripple response: `RIPPLE_PASSED` -> continue to auditor | `RIPPLE_FAILED` -> developer rework
+
+Ripple analyzes second-order effects: broken consumers, altered API contracts, test coverage gaps, behavioral drift in callers. Ripple is read-only and never edits files. It does NOT review first-order code quality (that is the critic's role) or acceptance criteria (that is the auditor's role).
+
+---
+
+## Steps 9-10: Auditor Verification
 
 **Input**: Task ID, files modified, acceptance criteria
 
-See [review-audit-flow.md](review-audit-flow.md) for the full Auditor dispatch and parsing procedure (Steps 7-8).
+See [review-audit-flow.md](review-audit-flow.md) for the full auditor routing and response handling.
 
 **Summary**:
 
-1. Extract task acceptance criteria and modified files
-2. Dispatch Auditor agent
-3. Parse audit outcome: PASS | FAIL | BLOCKED
+1. Route audit request to `auditor` teammate via mailbox
+2. Receive audit response: PASS | FAIL | BLOCKED
 
 ---
 
-## Step 9: Route Based on Outcome
+## Step 11: Route Based on Outcome
 
 ### PASS Routing
 
-```python
-# Remove from active work
-in_progress_tasks.remove(task_id)
-pending_audit.remove(task_id)
+On `AUDIT_PASSED`:
 
-# Mark complete
-completed_tasks.append(task_id)
-
-# Unblock dependents
-for task, blockers in blocked_tasks.items():
-    if task_id in blockers:
-        blockers.remove(task_id)
-        if not blockers:
-            available_tasks.append(task)
-
-log_event("task_complete", task_id=task_id)
-save_state()
-```
+1. Update task status: `TaskUpdate({ taskId, status: "completed" })`
+2. Check `TaskList` for tasks that were blocked by this one - they may now be unblocked
+3. Route new work to idle developers
 
 ### FAIL Routing
 
-**State updates**: See [state/update-triggers.md - AUDIT_FAILED](state/update-triggers.md#audit_failed) for the
-authoritative state transition.
+On `AUDIT_FAILED`, `RIPPLE_FAILED`, or `REVIEW_FAILED`:
 
-**Summary**: Increment failure count, check limit, dispatch rework or escalate.
-
-See [developer-rework.md](developer-rework.md) for rework prompt construction.
+1. Increment failure count for the task
+2. Check against `TASK_FAILURE_LIMIT`
+3. If under limit: route rework to the developer via mailbox (see [developer-rework.md](developer-rework.md))
+4. If at limit: escalate to user
+5. Update task status: `TaskUpdate({ taskId, status: "in_progress" })`
 
 ### BLOCKED Routing
 
-See [remediation-loop.md](remediation-loop.md) for the full remediation procedure.
+On `AUDIT_BLOCKED` (infrastructure issues):
 
-**Summary**: Set `infrastructure_blocked`, dispatch remediation agent.
+1. Route to `remediation` teammate via mailbox:
+   ```
+   TeammateTool({ operation: "write", to: "remediation",
+                  content: "INFRA_BLOCKED: <issue description>" })
+   ```
+2. Hold task assignments until remediation completes
 
 ---
 
-## Fill Actor Slots (After Each Routing Decision)
+## Fill Developer Slots (After Each Routing Decision)
 
-After any routing decision, immediately check and fill actor slots.
+After any routing decision, immediately check and fill developer slots.
 
-**CRITICAL: Dispatch in priority order - complete in-flight work before starting new work.**
+**CRITICAL: Route in priority order - complete in-flight work before starting new work.**
 
-```python
-def fill_actor_slots():
-    """Fill slots with priority: critics > auditors > developers."""
+Priority order:
 
-    if infrastructure_blocked or pending_divine_questions:
-        return
-
-    # PRIORITY 1: Dispatch critics for pending reviews
-    # Tasks waiting for review should not be starved by new work
-    while pending_critique and count_active_critics() < MAX_PARALLEL_CRITICS:
-        task_id = pending_critique.pop(0)
-        dispatch_critic(task_id)
-
-    # PRIORITY 2: Dispatch auditors for pending audits
-    # Tasks that passed review should complete before new work starts
-    while pending_audit and count_active_auditors() < MAX_PARALLEL_AUDITORS:
-        task_id = pending_audit.pop(0)
-        dispatch_auditor(task_id)
-
-    # PRIORITY 3: Dispatch developers for new tasks
-    # Only start new work after in-flight work is being processed
-    while count_active_developers() < MAX_PARALLEL_DEVELOPERS:
-        if not available_tasks:
-            break
-        task = select_next_task()
-        dispatch_developer(task)
-```
+1. **Route pending reviews to critic** - Tasks waiting for review should not be starved by new work
+2. **Route pending ripple analyses to ripple** - Tasks that passed review should get impact analysis before audit
+3. **Route pending audits to auditor** - Tasks that passed ripple should complete before new work starts
+4. **Route new tasks to developers** - Only start new work after in-flight work is being processed
 
 **Why this order matters:**
 
 - Completing in-flight work unblocks dependent tasks faster
 - Prevents task starvation where reviews pile up while new work starts
-- Ensures the full Developer→Critic→Auditor pipeline flows smoothly
+- Ensures the full Developer -> Critic -> Ripple -> Auditor pipeline flows smoothly
 
 ---
 
-## Coordinator State Machine
+## Team Lead State Machine
 
-**States**: SELECT_TASK → DISPATCH_DEV → AWAIT_DEV
+**States**: SELECT_TASK -> ROUTE_DEVELOPER -> AWAIT_DEVELOPER
 
-**From AWAIT_DEV**:
+**From AWAIT_DEVELOPER**:
 
-- DELEGATION → HANDLE_DELEGATE → back to loop
-- READY_FOR_REVIEW → DISPATCH_CRIT → AWAIT_CRITIC
-- DIVINE_QUESTION → AWAIT_DIVINE → back to loop
+- READY_FOR_REVIEW -> ROUTE_CRITIC -> AWAIT_CRITIC
+- DIVINE_QUESTION -> AWAIT_USER -> back to loop
 
 **From AWAIT_CRITIC**:
 
-- REVIEW_PASSED → DISPATCH_AUD → AWAIT_AUDIT
-- REVIEW_FAILED → REWORK → back to loop
+- REVIEW_PASSED -> ROUTE_RIPPLE -> AWAIT_RIPPLE
+- REVIEW_FAILED -> DEVELOPER_REWORK -> back to loop
 
-**From AWAIT_AUDIT**:
+**From AWAIT_RIPPLE**:
 
-- PASS → TASK_DONE → FILL_SLOTS → loop
-- FAIL → REWORK → FILL_SLOTS → loop
-- BLOCKED → REMEDIATE → FILL_SLOTS → loop
+- RIPPLE_PASSED -> ROUTE_AUDITOR -> AWAIT_AUDITOR
+- RIPPLE_FAILED -> DEVELOPER_REWORK -> back to loop
 
-### Task States
+**From AWAIT_AUDITOR**:
 
-| State           | Meaning                              |
-|-----------------|--------------------------------------|
-| implementing    | Developer working                    |
-| awaiting-review | Developer done, critic reviewing     |
-| awaiting-audit  | Critic passed, auditor reviewing     |
-| complete        | Auditor PASSED (only state = "done") |
-| rework          | Critic FAILED or Auditor FAILED      |
+- PASS -> TASK_DONE -> FILL_SLOTS -> loop
+- FAIL -> DEVELOPER_REWORK -> FILL_SLOTS -> loop
+- BLOCKED -> ROUTE_REMEDIATION -> FILL_SLOTS -> loop
 
-**Critical**: Only `AUDIT_PASSED` marks a task as complete.
+### Task States (via TaskUpdate)
+
+The shared task list supports only three status values via `TaskUpdate`:
+
+| Status       | Meaning                                                     |
+|--------------|-------------------------------------------------------------|
+| `pending`    | Available for developer assignment (created or reset)       |
+| `in_progress`| Developer claimed and working                               |
+| `completed`  | Auditor PASSED — only terminal state                        |
+
+**Pipeline stages are NOT task statuses.** The team lead tracks the review pipeline (critic review, ripple analysis, audit) in its own context as routing state — these do NOT map to `TaskUpdate` status values.
+
+**Critical**: Only `AUDIT_PASSED` marks a task as completed via `TaskUpdate({ status: "completed" })`.
+
+The team lead's internal routing states (tracked in team lead context only):
+
+| Team Lead Routing State | Meaning                                          |
+|-------------------------|--------------------------------------------------|
+| `pending_review`        | Developer signaled ready, routing to critic       |
+| `in_critic_review`      | Critic is reviewing                               |
+| `in_ripple_review`      | Critic passed, ripple analyzing                   |
+| `pending_audit`         | Ripple passed, routing to auditor                 |
+| `in_audit`              | Auditor is verifying                              |
+| `needs_rework`          | Review/audit failed, feedback sent to developer   |
 
 ---
 
 ## Signal Detection Summary
 
-See [signal-specification.md](signal-specification.md) for complete signal formats.
+### Task Flow Signals (from mailbox messages)
 
-### Task Flow Signals
-
-| Pattern          | Regex                      | Handler             |
-|------------------|----------------------------|---------------------|
-| Ready for review | `^READY_FOR_REVIEW: (.+)$` | → dispatch critic   |
-| Task incomplete  | `^TASK_INCOMPLETE: (.+)$`  | → log, fill slots   |
-| Review passed    | `^REVIEW_PASSED: (.+)$`    | → dispatch auditor  |
-| Review failed    | `^REVIEW_FAILED: (.+)$`    | → developer rework  |
-| Audit pass       | `^AUDIT_PASSED: (.+)$`     | → **TASK COMPLETE** |
-| Audit fail       | `^AUDIT_FAILED: (.+)$`     | → developer rework  |
-| Audit blocked    | `^AUDIT_BLOCKED: (.+)$`    | → remediation loop  |
-| Infra blocked    | `^INFRA_BLOCKED: (.+)$`    | → remediation loop  |
+| Signal           | Content Pattern              | Handler              |
+|------------------|------------------------------|----------------------|
+| Ready for review | `READY_FOR_REVIEW: <id>`     | -> route to critic   |
+| Expert advice    | `NEED_EXPERT_ADVICE: <id>`   | -> route to expert advisor |
+| Advice provided  | `EXPERT_ADVICE_PROVIDED: <id>`| -> relay to developer|
+| Task incomplete  | `TASK_INCOMPLETE: <id>`      | -> log, fill slots   |
+| Review passed    | `REVIEW_PASSED: <id>`        | -> route to ripple   |
+| Review failed    | `REVIEW_FAILED: <id>`        | -> developer rework  |
+| Ripple passed    | `RIPPLE_PASSED: <id>`        | -> route to auditor  |
+| Ripple failed    | `RIPPLE_FAILED: <id>`        | -> developer rework  |
+| Audit pass       | `AUDIT_PASSED: <id>`         | -> **TASK COMPLETE** |
+| Audit fail       | `AUDIT_FAILED: <id>`         | -> developer rework  |
+| Audit blocked    | `AUDIT_BLOCKED: <id>`        | -> route remediation |
+| Infra blocked    | `INFRA_BLOCKED: <id>`        | -> route remediation |
 
 ### Remediation Signals
 
-| Pattern              | Regex                       | Handler                 |
-|----------------------|-----------------------------|-------------------------|
-| Remediation complete | `^REMEDIATION_COMPLETE$`    | → dispatch health audit |
-| Health healthy       | `^HEALTH_AUDIT: HEALTHY$`   | → resume flow           |
-| Health unhealthy     | `^HEALTH_AUDIT: UNHEALTHY$` | → loop remediation      |
+| Signal               | Content Pattern               | Handler                 |
+|----------------------|-------------------------------|-------------------------|
+| Remediation complete | `REMEDIATION_COMPLETE`        | -> route health audit   |
+| Health healthy       | `HEALTH_AUDIT: HEALTHY`       | -> resume flow          |
+| Health unhealthy     | `HEALTH_AUDIT: UNHEALTHY`     | -> loop remediation     |
 
 ### Coordination Signals
 
-| Pattern            | Regex                            | Handler               |
+| Signal             | Content Pattern                  | Handler               |
 |--------------------|----------------------------------|-----------------------|
-| Divine question    | `^SEEKING_DIVINE_CLARIFICATION$` | → pause, escalate     |
-| Delegation request | `^EXPERT_REQUEST$`               | → spawn expert        |
-| Agent complete     | `^EXPERT_ADVICE: (.+)$`          | → return to delegator |
+| User question      | `SEEKING_DIVINE_CLARIFICATION`   | -> ask user           |
 
 ---
 
 ## Error Recovery
 
-See [recovery-procedures.md](recovery-procedures.md) for detailed error handling.
-
-| Error Type       | Recovery Action                                     |
-|------------------|-----------------------------------------------------|
-| Agent timeout    | Re-dispatch if under limit, else escalate           |
-| Parse failure    | Log output, request checkpoint, treat as incomplete |
-| State corruption | Reconstruct from event log or request manual repair |
+| Error Type       | Recovery Action                                         |
+|------------------|---------------------------------------------------------|
+| Teammate idle    | Re-send work via mailbox                                |
+| Parse failure    | Log message, treat as incomplete                        |
+| Task stuck       | Reset via `TaskUpdate({ status: "pending" })`, re-route  |
 
 ---
 
 ## Related Documentation
 
-- [task-dispatch.md](task-dispatch.md) - Prompt construction and dispatch details
-- [review-audit-flow.md](review-audit-flow.md) - Critic and Auditor dispatch
-- [developer-rework.md](developer-rework.md) - Rework dispatch after failures
-- [remediation-loop.md](remediation-loop.md) - Infrastructure remediation
-- [checkpoint-enforcement.md](checkpoint-enforcement.md) - Progress visibility
-- [environment-verification.md](environment-verification.md) - Environment execution rules
-- [signal-specification.md](signal-specification.md) - Complete signal formats
-- [state-management.md](state-management.md) - State tracking and persistence
-- [recovery-procedures.md](recovery-procedures.md) - Error recovery procedures
+- [task-dispatch.md](task-dispatch.md) - Assignment construction and routing details
+- [review-audit-flow.md](review-audit-flow.md) - Critic and Auditor routing
+- [developer-rework.md](developer-rework.md) - Rework routing after failures
+- [team-architecture.md](team-architecture.md) - Team structure and communication
+- [coordinator-configuration.md](coordinator-configuration.md) - Configuration values

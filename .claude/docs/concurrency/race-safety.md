@@ -1,158 +1,61 @@
 # Race Safety
 
-[← Back to Concurrency Index](index.md)
+[<-- Back to Concurrency Index](index.md)
 
-Prevention of race conditions when dispatching and managing parallel developers.
+How named teammates and native Agent Teams primitives prevent race conditions in parallel work.
 
-## Race Condition Handling for Parallel Dispatch
+## Why Races Are Largely Eliminated
 
-When dispatching multiple agents in parallel, race conditions can occur at multiple points. This section specifies
-handling.
+Named teammates and native Agent Teams primitives eliminate most race conditions through:
 
-### Signal Processing Order
+1. **Named teammates**: Each developer is a persistent, named agent. No two agents race for the same identity.
+2. **Native atomic task claiming**: `TaskUpdate({ status: "in_progress" })` uses native atomic operations. If two developers try to claim the same task, only one succeeds.
+3. **Single team lead**: All routing decisions go through the team lead (the main session). No parallel coordinators competing for state.
+4. **Native dependency management**: `addBlockedBy` and automatic unblocking are handled atomically by the framework.
 
-When multiple agents complete simultaneously:
+## Task Claiming Safety
 
-```python
-def process_agent_signals_safely(signals: list[dict]):
-    """Process multiple agent signals atomically."""
+When multiple developers check `TaskList` and try to claim the same task:
 
-    # 1. Acquire state lock
-    with state_lock:
-        state = load_state()
-
-        # 2. Process signals in deterministic order (by timestamp)
-        signals.sort(key=lambda s: s['timestamp'])
-
-        for signal in signals:
-            # 3. Each signal sees state updated by previous signals
-            state = apply_signal_to_state(state, signal)
-            log_event(f"{signal['type']}_processed",
-                      agent_id=signal['agent_id'],
-                      processing_order=signals.index(signal))
-
-        # 4. Single atomic state save
-        save_state_atomic(state)
+```
+Developer A: TaskUpdate({ taskId: "task-3", status: "in_progress" })  --> succeeds (task claimed)
+Developer B: TaskUpdate({ taskId: "task-3", status: "in_progress" })  --> fails (task already owned by A)
+Developer B: TaskList --> find next available task --> claim it instead
 ```
 
-### State Update Serialization
+This is handled by the native atomic task claiming mechanism. No custom lock management needed.
 
-All state updates MUST be serialized through the coordinator:
+## Concurrent Completion Safety
 
-| Operation        | Serialization Method      | Conflict Resolution                         |
-|------------------|---------------------------|---------------------------------------------|
-| Agent dispatch   | Single coordinator thread | N/A - only coordinator dispatches           |
-| Signal receipt   | Timestamp-ordered queue   | Earlier signal wins                         |
-| State file write | Atomic rename pattern     | Latest write wins (see state-management.md) |
-| Event log append | Append-only JSONL         | No conflicts (append-only)                  |
+When two developers complete tasks that unblock the same dependent task:
 
-### Parallel Dispatch Safety
+1. Developer A completes `task-1`, team lead calls `TaskUpdate({ status: "completed" })`
+2. Developer B completes `task-2`, team lead calls `TaskUpdate({ status: "completed" })`
+3. If `task-3` was `blockedBy: ["task-1", "task-2"]`, it auto-unblocks only after BOTH are completed
+4. The native dependency system handles this atomically — no double-dispatch risk
 
-When dispatching multiple developers simultaneously:
+## Review Pipeline Safety
 
-```python
-def dispatch_parallel_developers(tasks: list[str]):
-    """Dispatch multiple developers with race-safe state updates."""
+The team lead routes signals sequentially (it is a single session processing its mailbox):
 
-    # 1. Pre-check all file conflicts BEFORE any dispatch
-    conflict_check = {}
-    for task_id in tasks:
-        potential_files = analyze_file_conflicts(task_id, plan)
-        conflict_check[task_id] = check_file_conflicts(task_id, potential_files)
+1. Developer sends `READY_FOR_REVIEW: task-1`
+2. Team lead reads mailbox, sends review request to `critic`
+3. Critic sends `REVIEW_PASSED: task-1`
+4. Team lead reads mailbox, sends ripple request to `ripple`
+5. Ripple sends `RIPPLE_PASSED: task-1`
+6. Team lead reads mailbox, sends audit request to `auditor`
+7. Auditor sends `AUDIT_PASSED: task-1`
+8. Team lead reads mailbox, calls `TaskUpdate({ status: "completed" })`
 
-    # 2. Filter to non-conflicting tasks only
-    safe_tasks = [t for t in tasks if not conflict_check[t]]
+Because the team lead processes messages sequentially, there is no risk of a task being simultaneously in critic review and audit, or being completed twice.
 
-    # 3. Reserve state slots atomically
-    with state_lock:
-        state = load_state()
+## Shared File Safety
 
-        for task_id in safe_tasks:
-            # Reserve slot in state
-            state['in_progress_tasks'].append({
-                'task_id': task_id,
-                'status': 'dispatching',  # Pre-dispatch state
-                'reserved_at': datetime.now().isoformat()
-            })
-            state['available_tasks'].remove(task_id)
+For files that multiple experts might touch (e.g., `__init__.py`, config files):
 
-        save_state_atomic(state)
-
-    # 4. Now dispatch (outside lock - Task tool calls are slow)
-    agent_ids = []
-    for task_id in safe_tasks:
-        result = Task(...)  # Dispatch developer
-        agent_ids.append((task_id, result.agent_id))
-
-    # 5. Update state with actual agent IDs
-    with state_lock:
-        state = load_state()
-
-        for task_id, agent_id in agent_ids:
-            task_entry = find_task_entry(state, task_id)
-            task_entry['developer_id'] = agent_id
-            task_entry['status'] = 'implementing'
-            task_entry['dispatched_at'] = datetime.now().isoformat()
-
-        save_state_atomic(state)
-```
-
-### Handling Concurrent Completions
-
-When two agents signal completion for tasks that unblock the same dependent:
-
-```python
-def handle_concurrent_completions(completed_tasks: list[str]):
-    """Ensure dependent tasks are unblocked exactly once."""
-
-    with state_lock:
-        state = load_state()
-
-        newly_unblocked = set()
-
-        for task_id in completed_tasks:
-            # Mark complete
-            state['completed_tasks'].append(task_id)
-
-            # Check what this unblocks
-            for blocked_task, blockers in state['blocked_tasks'].items():
-                if task_id in blockers:
-                    blockers.remove(task_id)
-                    if not blockers:  # All blockers cleared
-                        newly_unblocked.add(blocked_task)
-
-        # Move newly unblocked to available (deduplicated via set)
-        for task_id in newly_unblocked:
-            if task_id not in state['available_tasks']:
-                state['available_tasks'].append(task_id)
-                del state['blocked_tasks'][task_id]
-
-        save_state_atomic(state)
-
-    return newly_unblocked
-```
-
-### Event Log Race Safety
-
-The event log uses append-only writes to avoid race conditions:
-
-```python
-def log_event_safe(event: dict):
-    """Append event to log atomically."""
-
-    # JSONL format - each event is one line
-    # Append is atomic on POSIX for reasonable line sizes
-    with open(EVENT_LOG_FILE, 'a') as f:
-        f.write(json.dumps(event) + '\n')
-        f.flush()
-        os.fsync(f.fileno())
-```
-
-Multiple concurrent appends are safe because:
-
-1. Each event is a single line
-2. POSIX guarantees atomic appends for small writes
-3. Order in file reflects true append order
+1. **Additive-only rule**: Experts append imports/exports, never restructure shared files
+2. **Read-before-write**: Experts read the current state of shared files before modifying
+3. **Team lead coordination**: If restructuring is needed, the team lead assigns a single owner via mailbox
 
 ---
 
@@ -185,9 +88,9 @@ Example of good task sequencing:
 #### Task 2-1-3: Add User Validation
 
 **Work**: Add validation methods to `src/models/user.py`
-**Blocked By**: 2-1-1 # ← Serializes access to user.py
+**Blocked By**: 2-1-1 # <-- Serializes access to user.py
 ```
 
 ---
 
-[← Back to Concurrency Index](index.md)
+[<-- Back to Concurrency Index](index.md)

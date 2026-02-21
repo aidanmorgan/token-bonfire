@@ -6,7 +6,7 @@
 
 ## Overview
 
-Before finalizing an expert agent, verify it meets all quality standards and register it for use by default agents.
+Before finalizing an expert agent, verify it meets all quality standards and register it for use by baseline teammates.
 
 ---
 
@@ -17,10 +17,10 @@ Before finishing, verify:
 ### Structure Checklist
 
 - [ ] `<expert_identity>` explains why this expert exists and their authority
-- [ ] `<who_asks_me>` lists which agents and tasks
+- [ ] `<who_asks_me>` lists which teammates and tasks
 - [ ] `<expertise>` contains COMPREHENSIVE domain knowledge (not surface-level)
 - [ ] `<decision_authority>` establishes expert-level judgment capabilities
-- [ ] `<signal_format>` contains EXACT signal strings
+- [ ] `<message_format>` contains TeammateTool message templates for EXPERT RESULT
 - [ ] `<boundaries>` emphasizes NO DELEGATION
 - [ ] `<mcp_servers>` lists available MCP servers with usage guidance
 
@@ -38,14 +38,14 @@ Before finishing, verify:
 ### Quality Checklist
 
 - [ ] All advice frameworks are actionable, not vague
-- [ ] Expert demonstrates DEEPER knowledge than baseline agents
+- [ ] Expert demonstrates DEEPER knowledge than baseline teammates
 - [ ] A domain expert reading this would recognize genuine expertise
 
 ---
 
 ## Quality Check
 
-The expert you create will be consulted when default agents face domain-specific challenges. Your guidance determines
+The expert you create will be consulted when baseline teammates face domain-specific challenges. Your guidance determines
 whether they get **authoritative help** or vague platitudes.
 
 ### Mission-Oriented Checklist
@@ -61,7 +61,7 @@ whether they get **authoritative help** or vague platitudes.
 - [ ] Does the expert demonstrate DEEP understanding (not surface-level knowledge)?
 - [ ] Can the expert explain WHY patterns work, not just WHAT they are?
 - [ ] Does the expert have authoritative opinions on domain debates?
-- [ ] Can the expert identify subtle pitfalls that baseline agents would miss?
+- [ ] Can the expert identify subtle pitfalls that baseline teammates would miss?
 - [ ] Does the expert have decision frameworks that produce DEFINITIVE recommendations?
 - [ ] Can the expert explain when standard advice DOESN'T apply?
 - [ ] Does the expert correct common misconceptions with expert reasoning?
@@ -96,32 +96,33 @@ For Methodology Experts:
 
 If a domain expert read this agent's guidance, would they think:
 
-- "This is surface-level knowledge anyone could find" → **NOT DEEP ENOUGH**
-- "This demonstrates genuine expertise and nuanced understanding" → **CORRECT DEPTH**
+- "This is surface-level knowledge anyone could find" -> **NOT DEEP ENOUGH**
+- "This demonstrates genuine expertise and nuanced understanding" -> **CORRECT DEPTH**
 
 ### The Authority Test
 
 When an expert gives advice, does it:
 
-- Present options and trade-offs without a recommendation? → **NOT AUTHORITATIVE**
-- Give a clear answer with "Do X because Y"? → **CORRECT AUTHORITY**
+- Present options and trade-offs without a recommendation? -> **NOT AUTHORITATIVE**
+- Give a clear answer with "Do X because Y"? -> **CORRECT AUTHORITY**
 
-**Write it as if you're creating a consultant brief for someone who has spent 10+ years mastering this specific domain.
-**
+**Write it as if you're creating a consultant brief for someone who has spent 10+ years mastering this specific domain.**
 
 ---
 
 ## Expert Registration
 
-After writing the file, output:
+After writing the file, the team lead registers the expert so teammates know it's available.
+
+The registration information includes:
 
 ```
 EXPERT_CREATED: [expert_name]
 
 Gap Filled: [from gap analysis]
-Supports: [which default agents]
+Supports: [which baseline teammates]
 Tasks: [task IDs]
-File: .claude/agents/experts/[expert_name].md
+File: .claude/experts/<plan_slug>/[expert_name].md
 
 Keyword Triggers: [comma-separated domain keywords for dynamic task matching]
 
@@ -129,57 +130,46 @@ Expertise Encoded:
 - [key practice]
 - [key pitfall to catch]
 
-Delegation Triggers for Default Agents:
+Delegation Triggers for Teammates:
 - Developer should ask when: [trigger]
 - Critic should ask when: [trigger]
+- Ripple should ask when: [trigger]
 - Auditor should ask when: [trigger]
 ```
 
----
+The team lead tracks available experts in its context and includes the expert table when spawning
+developers, the critic, and the auditor, so they know which expert advisors are available and when to consult them.
 
-## Orchestrator: Registering Experts
+Expert agents are spawned as named teammates via:
 
-After creating experts, register them so default agents know they're available:
-
-```python
-def register_expert(expert_name: str, gap: dict, keyword_triggers: list[str]):
-    """Register expert so default agents can use it."""
-    state['available_experts'].append({
-        'name': expert_name,
-        'expertise': gap['expertise'],
-        'supports_agents': gap['supports'],
-        'delegation_triggers': gap['triggers'],
-        'keyword_triggers': keyword_triggers,
-        'affected_tasks': gap['tasks'],
-        'file': f".claude/agents/experts/{expert_name}.md"
-    })
-
-    log_event("expert_created",
-              name=expert_name,
-              expertise=gap['expertise'],
-              keyword_triggers=keyword_triggers,
-              supports=gap['supports'])
-
-    save_state()
 ```
+Task({
+  team_name: "<team>",
+  name: "<expert-name>",
+  prompt: "You are [expert-name]... [contents of expert file]",
+  run_in_background: true
+})
+```
+
+They communicate via `TeammateTool` mailbox messages, just like all other teammates.
 
 ---
 
 ## Summary: The Expert Chain
 
-1. Default agent signals EXPERT_REQUEST
-2. Orchestrator routes to expert
-3. Expert provides EXPERT_ADVICE or EXPERT_UNSUCCESSFUL (after 3 attempts)
-4. On EXPERT_ADVICE: Agent applies advice
-5. On EXPERT_UNSUCCESSFUL: Agent MUST escalate to divine intervention (expert CANNOT delegate)
+1. Developer sends `NEED_EXPERT_ADVICE` to team lead, specifying the expert name
+2. Team lead routes the request to the expert
+3. Expert reads mailbox, applies expertise
+4. Expert responds with EXPERT RESULT or indicates failure (after 3 attempts)
+5. Team lead forwards expert advice to developer as `EXPERT_ADVICE_PROVIDED`
+6. Developer implements the code based on expert guidance
+7. On failure: Developer MUST escalate to team lead for user clarification (expert CANNOT delegate)
 
 ---
 
 ## Cross-References
 
 - **[Documentation Index](../../index.md)** - Navigation hub for all docs
-- [Agent Definitions](../../agent-definitions.md) - Default agent definitions
-- [Signal Specification](../../signal-specification.md) - Expert signal formats
 - [Escalation Specification](../../escalation-specification.md) - Escalation rules
 - [Expert Delegation](../../expert-delegation.md) - Delegation protocol
 - [MCP Servers](../../mcp-servers.md) - Using MCP server capabilities

@@ -35,32 +35,25 @@ Check that the prompt contains these required sections (per prompt-engineering-g
 | Signal Format           | YES         | Exact output format with placeholders    |
 | Expert Awareness        | RECOMMENDED | Limitations, available experts           |
 | Context Management      | RECOMMENDED | Checkpoint triggers and format           |
-| Coordinator Integration | YES         | Signal rules                             |
+| Team Lead Integration   | YES         | Signal rules                             |
 
 #### 2. Signal Consistency
 
-Cross-reference all signals mentioned in the prompt against `.claude/docs/signal-specification.md`:
+Cross-reference all signals mentioned in the prompt against `.claude/docs/signals/index.md`:
 
 - [ ] All signal names match exactly (case-sensitive, underscores)
 - [ ] Signal formats match the specification
 - [ ] Handler actions are valid
 - [ ] No signals are used that don't exist in the spec
 
-#### 3. Event Consistency
+#### 3. State Field Consistency
 
-Cross-reference all events mentioned against `.claude/docs/orchestrator/event-schema.md`:
-
-- [ ] Event names use snake_case
-- [ ] Event field names match the schema
-- [ ] No events are used that don't exist in the schema
-
-#### 4. State Field Consistency
-
-Cross-reference state field references against `.claude/docs/orchestrator/state-schema.md`:
+Cross-reference state field references against `.claude/docs/state/fields.md`:
 
 - [ ] Field names use snake_case
 - [ ] Field types match the schema
 - [ ] No fields are used that don't exist in the schema
+- [ ] Only valid TaskUpdate statuses used: `pending`, `in_progress`, `completed`
 
 #### 5. Cross-Reference Validation
 
@@ -91,7 +84,7 @@ STRUCTURE CHECK
 
 SIGNAL CHECK
 ------------
-[x] READY_FOR_REVIEW - Valid (matches signal-specification.md)
+[x] READY_FOR_REVIEW - Valid (matches signals/index.md)
 [ ] TASK_DONE - INVALID (should be AUDIT_PASSED)
 ...
 
@@ -109,7 +102,7 @@ STATE FIELD CHECK
 
 CROSS-REFERENCE CHECK
 ---------------------
-[x] signal-specification.md - Exists
+[x] signals/index.md - Exists
 [ ] old-doc.md - NOT FOUND
 ...
 
@@ -133,10 +126,9 @@ ISSUES TO FIX:
 Read these documents to perform validation:
 
 1. `.claude/docs/agent-creation/prompt-engineering-guide.md` - Required sections
-2. `.claude/docs/signal-specification.md` - Valid signals
-3. `.claude/docs/orchestrator/event-schema.md` - Valid events
-4. `.claude/docs/orchestrator/state-schema.md` - Valid state fields
-5. `.claude/docs/event-logging.md` - Event naming conventions
+2. `.claude/docs/signals/index.md` - Valid signals and message formats
+3. `.claude/docs/state/fields.md` - Valid state fields
+4. `.claude/docs/communication-protocol.md` - Inter-agent messaging conventions
 
 ### Important Notes
 
@@ -151,4 +143,4 @@ Read these documents to perform validation:
 /verify-prompt .claude/agents/developer.md
 ```
 
-This verifies the developer agent definition against all specifications.
+This verifies the developer prompt file against all specifications.

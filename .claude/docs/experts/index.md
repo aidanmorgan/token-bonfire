@@ -4,9 +4,8 @@
 
 ---
 
-The coordinator creates experts dynamically based on plan analysis. These agents extend the capabilities of
-baseline agents (developer, auditor, remediation) by providing domain expertise, advisory guidance, task execution, or
-quality assurance.
+The team lead creates experts dynamically based on plan analysis. These agents extend the capabilities of
+teammates by providing domain expertise, advisory guidance, task execution, or quality assurance.
 
 ## Agent Categories
 
@@ -23,7 +22,7 @@ quality assurance.
 
 ### Step 1: Extract Plan Dimensions
 
-Read `{{PLAN_FILE}}` and extract:
+Read the plan file and extract:
 
 ```
 TECHNOLOGIES:
@@ -59,11 +58,11 @@ CROSS-CUTTING CONCERNS:
 
 For each extracted dimension, evaluate:
 
-| Question                                                     | If Yes →                    |
+| Question                                                     | If Yes                      |
 |--------------------------------------------------------------|-----------------------------|
-| Does this appear in 3+ tasks?                                | Consider a expert           |
+| Does this appear in 3+ tasks?                                | Consider an expert          |
 | Does this require specialized knowledge?                     | Create a Domain Expert      |
-| Would baseline agents benefit from guidance here?            | Create an Advisor           |
+| Would developers benefit from guidance here?                    | Create an Advisor           |
 | Is there repetitive work that could be templated?            | Create a Task Executor      |
 | Is there a quality dimension that needs consistent checking? | Create a Quality Reviewer   |
 | Are there patterns that should be consistently applied?      | Create a Pattern Specialist |
@@ -91,4 +90,4 @@ Skip creating agents that:
 - **[Domain & Advisor Agents](./domain-advisor.md)**: Templates for domain experts and advisors
 - **[Task & Quality Agents](./task-quality.md)**: Templates for task executors and quality reviewers
 - **[Pattern & Methodology Agents](./methodology.md)**: Templates for pattern specialists and methodology experts
-- **[Management](./management.md)**: Recording, spawning, and example experts
+- **[Management](./management.md)**: Persisting, spawning, and example experts

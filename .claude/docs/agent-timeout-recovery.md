@@ -1,158 +1,104 @@
-# Agent Recovery
+# Teammate Recovery
 
-This document covers timeout handling, crash recovery, and disagreement detection for all agent types.
+This document covers timeout handling, crash recovery, and disagreement detection for all teammate types.
 
 **Related Documents:**
 
-- [task-dispatch.md](task-dispatch.md) - Task dispatch procedures
-- [review-audit-flow.md](review-audit-flow.md) - Review and audit flow
-- [state-management.md](state-management.md) - State tracking
+- [Team Architecture](team-architecture.md) - Team structure and failure handling
+- [State Management](state/index.md) - Task state tracking
 
 ---
 
 ## Timeout Handling
 
-### Timeout Values by Agent Type
+### Native Heartbeat Timeout
 
-| Agent Type     | Default Timeout | Rationale                   |
-|----------------|-----------------|-----------------------------|
-| Developer      | 15 min          | Complex implementation work |
-| Critic         | 10 min          | Code review is focused      |
-| Auditor        | 10 min          | Verification is structured  |
-| Remediation    | 5 min           | Targeted fixes              |
-| Health Auditor | 5 min           | Just run checks             |
+Each teammate has a native heartbeat. When a teammate stops responding:
+- Heartbeat timeout (~5 min) detects the issue
+- The teammate's claimed tasks auto-release and become available for others
+- The team lead can respawn the teammate from its persisted prompt (experts) or agent definition (support teammates)
 
-### Timeout Tracking
+### Timeout by Teammate Type
 
-```python
-# On dispatch, record start time in state
-in_progress_tasks.append({
-    "task_id": task_id,
-    "developer_id": agent_id,
-    "status": "implementing",
-    "dispatched_at": datetime.now().isoformat(),
-    "timeout_ms": AGENT_TIMEOUT
-})
-
-# Periodic check (during slot fill or await)
-def check_agent_timeouts():
-    now = datetime.now()
-    for task in in_progress_tasks:
-        dispatch_time = datetime.fromisoformat(task["dispatched_at"])
-        elapsed_ms = (now - dispatch_time).total_seconds() * 1000
-        if elapsed_ms > task["timeout_ms"]:
-            handle_agent_timeout(task["task_id"], task["developer_id"])
-```
+| Teammate Type | Recovery | Notes |
+|---|---|---|
+| Developer | Respawn with `subagent_type: "developer"` | Task auto-releases; role instructions from `.claude/agents/developer.md` |
+| Named Expert | Respawn from `.claude/experts/<plan_slug>/<name>.md` | Task auto-releases; domain knowledge preserved in prompt file |
+| Critic | Respawn from agent definition | Stateless — processes review requests from mailbox |
+| Ripple | Respawn from agent definition | Stateless — processes ripple requests from mailbox |
+| Auditor | Respawn from agent definition | Stateless — processes audit requests from mailbox |
+| Business Analyst | Respawn from agent definition | Stateless — processes expansion requests from mailbox |
+| Remediation | Respawn from agent definition | Stateless — processes infrastructure fix requests |
+| Health Auditor | Respawn from agent definition | Stateless — runs verification commands on request |
 
 ---
 
-## Developer Timeout/Crash
+## Expert Timeout/Crash
 
-When a Developer agent times out or crashes:
+When a named expert stops responding:
 
-```python
-def handle_developer_timeout(task_id: str, developer_id: str):
-    """Handle Developer agent timeout or crash."""
+1. Heartbeat timeout (~5 min) detects the unresponsive expert
+2. Expert's claimed task auto-releases (becomes available for other experts)
+3. Team lead respawns the expert from its persisted prompt file:
+   ```
+   Task({
+     team_name: "<plan_slug>",
+     name: "<expert-name>",
+     subagent_type: "general-purpose",
+     model: "<EXPERT_MODEL>",
+     prompt: "<expert prompt from disk>",
+     run_in_background: true
+   })
+   ```
+4. Fresh expert claims available tasks (may reclaim the same task)
+5. Partial work from the crashed expert remains in the file system
 
-    log_event("developer_timeout", task_id=task_id, developer_id=developer_id)
+### Repeated Expert Failures
 
-    # Remove from active developers
-    del active_developers[developer_id]
-
-    # Check failure count
-    task_failures[task_id] = task_failures.get(task_id, 0) + 1
-
-    if task_failures[task_id] >= TASK_FAILURE_LIMIT:
-        log_event("workflow_failed", reason="developer_crash_limit", task_id=task_id)
-        # Mark task as failed, don't re-dispatch
-    else:
-        # Re-dispatch with same context
-        dispatch_developer(task_id, attempt_count=task_failures[task_id])
-        log_event("developer_redispatched",
-                  task_id=task_id,
-                  attempt=task_failures[task_id])
-```
+If the same expert crashes repeatedly on the same task:
+- Team lead tracks failure counts in its context
+- After 3 failures: team lead investigates (task may be too large, unclear, or have infrastructure issues)
+- Consider splitting the task, reassigning to a different expert, or escalating via `AskUserQuestion`
 
 ---
 
 ## Critic Timeout/Crash
 
-When a Critic agent times out or crashes:
+When the critic stops responding:
 
-```python
-def handle_critic_timeout(task_id: str, critic_id: str):
-    """Handle Critic agent timeout or crash."""
-
-    log_event("critic_timeout", task_id=task_id, critic_id=critic_id)
-
-    # Remove from active critics
-    del active_critics[critic_id]
-    pending_critique.remove(task_id)
-
-    # Check failure count
-    critique_failures[task_id] = critique_failures.get(task_id, 0) + 1
-
-    if critique_failures[task_id] >= TASK_FAILURE_LIMIT:
-        log_event("workflow_failed", reason="critic_crash_limit", task_id=task_id)
-    else:
-        # Re-dispatch Critic with same context
-        dispatch_critic(task_id)
-        log_event("critic_redispatched",
-                  task_id=task_id,
-                  attempt=critique_failures[task_id])
-```
+1. Team lead detects timeout (no `REVIEW_PASS`/`REVIEW_FAIL` response)
+2. Team lead tracks critic timeout count per task
+3. If timeout count < 3: respawn critic, re-send review request via `write`
+4. If timeout count >= 3: bypass critic, send directly to auditor (see [update-triggers.md](state/update-triggers.md))
 
 ---
 
 ## Auditor Timeout/Crash
 
-When an Auditor agent times out or crashes:
+When the auditor stops responding:
 
-```python
-def handle_auditor_timeout(task_id: str, auditor_id: str):
-    """Handle Auditor agent timeout or crash."""
-
-    log_event("auditor_timeout", task_id=task_id, auditor_id=auditor_id)
-
-    # Remove from active auditors
-    del active_auditors[auditor_id]
-    pending_audit.remove(task_id)
-
-    # Check failure count
-    audit_failures[task_id] = audit_failures.get(task_id, 0) + 1
-
-    if audit_failures[task_id] >= TASK_FAILURE_LIMIT:
-        log_event("workflow_failed", reason="auditor_crash_limit", task_id=task_id)
-    else:
-        # Re-dispatch Auditor with same context
-        dispatch_auditor(task_id)
-        log_event("auditor_redispatched",
-                  task_id=task_id,
-                  attempt=audit_failures[task_id])
-```
+1. Team lead detects timeout (no `AUDIT_PASSED`/`AUDIT_FAILED`/`AUDIT_BLOCKED` response)
+2. Team lead respawns auditor from documentation
+3. Re-sends audit request via `write`
+4. After 3 timeouts on the same task: escalate via `AskUserQuestion`
 
 ---
 
-## Agent Crash Recovery
+## Teammate Crash Recovery (General)
 
-```python
-if result.status == "failed":
-    log_event("agent_crashed", agent_id=result.agent_id, task_id=task_id)
+For any crashed teammate:
 
-    # Check if recoverable
-    if attempt_count < TASK_FAILURE_LIMIT:
-        # Re-dispatch
-        dispatch_agent(task_id, agent_type, attempt_count + 1)
-    else:
-        # Escalate
-        log_event("workflow_failed", reason="agent_crash_limit", task_id=task_id)
-```
+1. Heartbeat timeout detects the unresponsive teammate
+2. Team lead calls `requestShutdown` (in case the teammate is still running but stuck)
+3. Team lead respawns the teammate using `Task({ team_name, name, run_in_background: true })`
+4. For experts: use persisted prompt file from disk
+5. For support teammates: use documentation-based prompt
 
 ---
 
 ## Critic/Auditor Disagreement Detection
 
-When a Critic passes code that the Auditor subsequently fails, this may indicate:
+When a critic passes code that the auditor subsequently fails, this may indicate:
 
 1. Critic missed a quality issue
 2. Acceptance criteria interpretation mismatch
@@ -160,196 +106,71 @@ When a Critic passes code that the Auditor subsequently fails, this may indicate
 
 ### Detection
 
-```python
-def detect_review_audit_disagreement(task_id: str, audit_result: dict) -> bool:
-    """Check if Auditor failed something that Critic passed."""
-
-    if audit_result['signal'] != 'AUDIT_FAILED':
-        return False
-
-    # Get the task's review history
-    task_history = get_task_history(task_id)
-
-    # Check if this task was just reviewed (REVIEW_PASSED) before audit
-    last_review = get_last_review_result(task_history)
-    if last_review and last_review['signal'] == 'REVIEW_PASSED':
-        return True
-
-    return False
-```
+The team lead tracks the review pipeline. If a task goes through:
+`REVIEW_PASS` from critic, then `AUDIT_FAILED` from auditor — this is a disagreement.
 
 ### On Disagreement Detected
 
-```python
-def handle_review_audit_disagreement(
-    task_id: str,
-    critic_assessment: dict,
-    audit_failures: dict
-):
-    """Handle case where Critic passed but Auditor failed."""
+The team lead categorizes the disagreement:
 
-    log_event("review_audit_disagreement",
-              task_id=task_id,
-              critic_passed=critic_assessment,
-              auditor_failed=audit_failures)
-
-    # Categorize the disagreement
-    disagreement_type = categorize_disagreement(critic_assessment, audit_failures)
-
-    if disagreement_type == 'acceptance_criteria':
-        # Auditor found criteria not met - this is expected (different roles)
-        # No special handling needed, normal AUDIT_FAILED flow
-        pass
-
-    elif disagreement_type == 'code_quality':
-        # Auditor found quality issues Critic missed - flag for learning
-        log_event("critic_missed_quality_issue",
-                  task_id=task_id,
-                  issues=audit_failures['issues'])
-
-    elif disagreement_type == 'environment_specific':
-        # Different results in different environments
-        handle_environment_disagreement(task_id, audit_failures)
-```
-
-### Disagreement Categories
-
-| Type                   | Description                          | Handling                              |
-|------------------------|--------------------------------------|---------------------------------------|
-| `acceptance_criteria`  | Criteria not met (Auditor's domain)  | Normal flow - not a true disagreement |
-| `code_quality`         | Quality issue Critic missed          | Log for Critic improvement feedback   |
-| `environment_specific` | Passes in some envs, fails in others | See Environment Disagreement section  |
+| Type | Description | Handling |
+|---|---|---|
+| `acceptance_criteria` | Criteria not met (auditor's domain) | Normal flow — not a true disagreement |
+| `code_quality` | Quality issue critic missed | Team lead notes pattern for future critic requests |
+| `environment_specific` | Passes in some environments, fails in others | Route to expert with environment-specific context |
 
 ### Learning from Disagreements
 
-Track disagreement patterns to improve Critic effectiveness:
+The team lead includes relevant disagreement patterns when sending future review requests to the critic:
 
-```python
-# In state, track disagreement history
-disagreement_history = [
-    {
-        "task_id": "task-1-1",
-        "critic_assessment": {...},
-        "audit_failure": {...},
-        "disagreement_type": "code_quality",
-        "issue_category": "error_handling"
-    }
-]
+```
+REVIEW REQUEST for <task-id>
 
-# When patterns emerge, feed back to Critic prompts
-def enhance_critic_prompt_from_patterns():
-    """Add learned patterns to Critic's focus areas."""
+...
 
-    common_misses = analyze_disagreement_history()
-
-    if common_misses:
-        return f"""
-        ADDITIONAL FOCUS AREAS (from historical patterns):
-        The following issues have been missed in past reviews:
-        {format_common_misses(common_misses)}
-
-        Pay special attention to these areas.
-        """
-    return ""
+NOTE: Previous reviews have missed <pattern> issues.
+Pay extra attention to: <specific area>
 ```
 
 ---
 
 ## Environment Disagreement Protocol
 
-When verification passes in some environments but fails in others.
+When verification passes in some environments but fails in others:
 
-### Detection
+1. Team lead identifies which environments pass and which fail
+2. Team lead sends the expert environment-specific feedback via `write`:
+   ```
+   REVIEW_FAIL: <task-id>
 
-```python
-def detect_environment_disagreement(
-    verification_results: dict[str, dict]
-) -> dict | None:
-    """
-    Check for environment-specific failures.
-    Returns disagreement details or None if no disagreement.
-    """
+   Environment-specific failure:
+   - PASS in: <env-1>
+   - FAIL in: <env-2>
 
-    passed_envs = []
-    failed_envs = []
+   Failed check: <command>
+   Error: <error output>
 
-    for env_name, result in verification_results.items():
-        if result['status'] == 'pass':
-            passed_envs.append(env_name)
-        else:
-            failed_envs.append({
-                'env': env_name,
-                'check': result['check'],
-                'error': result.get('error', 'Unknown')
-            })
-
-    if passed_envs and failed_envs:
-        return {
-            'type': 'environment_disagreement',
-            'passed_in': passed_envs,
-            'failed_in': failed_envs
-        }
-
-    return None
-```
-
-### On Environment Disagreement
-
-```python
-def handle_environment_disagreement(
-    task_id: str,
-    disagreement: dict
-):
-    """Handle environment-specific verification failures."""
-
-    log_event("environment_disagreement",
-              task_id=task_id,
-              passed=disagreement['passed_in'],
-              failed=disagreement['failed_in'])
-
-    # Format for developer rework prompt
-    env_context = format_environment_context(disagreement)
-
-    # Dispatch developer with environment-specific context
-    dispatch_developer_rework(
-        task_id,
-        issues={
-            'type': 'environment_specific',
-            'context': env_context,
-            'failed_environments': disagreement['failed_in']
-        }
-    )
-```
-
-### Common Environment Disagreement Causes
-
-| Cause                | Detection                | Resolution                   |
-|----------------------|--------------------------|------------------------------|
-| Missing dependencies | Package not in some envs | Add to all env configs       |
-| Path differences     | Hardcoded paths          | Use relative/env-aware paths |
-| Version mismatches   | Different lib versions   | Pin versions consistently    |
-| Platform-specific    | OS-specific code         | Add platform guards          |
+   Common causes: missing dependencies, hardcoded paths, version mismatches, platform-specific code
+   ```
+3. Expert fixes the environment-specific issue and re-signals `READY_FOR_REVIEW`
 
 ---
 
 ## Error Recovery Summary
 
-| Error Type                | Detection                     | Recovery Action               |
-|---------------------------|-------------------------------|-------------------------------|
-| Agent timeout             | Elapsed > timeout_ms          | Re-dispatch (up to limit)     |
-| Agent crash               | status == "failed"            | Re-dispatch (up to limit)     |
-| Parse failure             | No recognized signal          | Request checkpoint            |
-| State corruption          | JSON parse error              | Restore from backup           |
-| Review/audit disagreement | Critic passed, Auditor failed | Log pattern, normal flow      |
-| Environment disagreement  | Pass in some, fail in others  | Developer rework with context |
+| Error Type | Detection | Recovery Action |
+|---|---|---|
+| Expert timeout/crash | Heartbeat timeout (~5 min) | Task auto-releases; respawn from prompt file |
+| Critic timeout | No response to review request | Retry up to 3x, then bypass to auditor |
+| Auditor timeout | No response to audit request | Retry up to 3x, then escalate |
+| Support teammate crash | Heartbeat timeout | Respawn from documentation |
+| Review/audit disagreement | Critic passed, auditor failed | Log pattern, normal rework flow |
+| Environment disagreement | Pass in some envs, fail in others | Expert rework with environment context |
 
 ---
 
 ## Cross-References
 
-- [task-dispatch.md](task-dispatch.md) - Task dispatch procedures
-- [review-audit-flow.md](review-audit-flow.md) - Review and audit flow
-- [developer-rework.md](developer-rework.md) - Rework dispatch
-- [state-management.md](state-management.md) - State tracking
-- [recovery-procedures.md](recovery-procedures.md) - General recovery
-- [environment-verification.md](environment-verification.md) - Multi-env verification
+- [Team Architecture](team-architecture.md) - Failure handling table
+- [State Management](state/index.md) - Task state tracking
+- [Recovery Procedures](recovery/index.md) - General recovery

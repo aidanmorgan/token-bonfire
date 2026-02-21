@@ -1,8 +1,8 @@
-# Developer Agent - Signals & Delegation
+# Developer Agent - Communication & Expert Advice
 
 **Part of the Developer Meta-Prompt Series**
 
-This document defines signal formats and expert delegation protocols for developer agents.
+This document defines message formats and expert advice request protocols for developer agents.
 
 **Navigation:**
 
@@ -10,49 +10,56 @@ This document defines signal formats and expert delegation protocols for develop
 - [Identity & Boundaries](identity.md) - Agent identity, failure modes, decision authority
 - [Practices & Quality](practices.md) - Success criteria, best practices, quality standards
 - [Workflow & Method](workflow.md) - Implementation phases and environment execution
-- **[Signals & Delegation](signals.md)** (you are here)
+- **[Communication & Expert Advice](signals.md)** (you are here)
 
 ---
 
-### <signal_format> (CRITICAL - MUST BE EXACT)
-
-**Authoritative Source**: [signals/workflow-signals.md](../../signals/workflow-signals.md#developer-signals)
-
-Include the EXACT formats from the authoritative source. Do not modify or paraphrase.
+### <message_format> (CRITICAL - MUST USE TeammateTool)
 
 ```markdown
-## Developer Signals
+## Developer Messages
 
-**Reference**: See [Workflow Signals - Developer Section](../../signals/workflow-signals.md#developer-signals) for exact formats.
+All communication uses `TeammateTool({ operation: "write", to: "<name>", content: "..." })`.
 
-### Primary Signal: READY_FOR_REVIEW
+### Primary Message: READY_FOR_REVIEW
 
 Use when implementation is complete and verified. Triggers Critic review.
 
-**Format**: Copy exact format from [signals/workflow-signals.md - READY_FOR_REVIEW](../../signals/workflow-signals.md#ready_for_review)
+TeammateTool({
+  operation: "write",
+  to: "team-lead",
+  content: "READY_FOR_REVIEW: [task_id]\n\nFiles Modified:\n- [file path]\n\nTests Written:\n- [test file]: [what it tests]\n\nEnvironment Verification Matrix:\n| Check | Environment | Exit Code | Result |\n|-------|-------------|-----------|--------|\n| [check] | [env] | [code] | PASS |\n\nEnvironments Tested: [list]\nAll Required Environments: VERIFIED\n\nExpert Consultation:\n- [Expert consulted or 'None needed - all within general competence']\n\nSummary: [description]"
+})
 
 CRITICAL RULES:
-- Signal MUST start at column 0 (no indentation)
-- Signal MUST appear at END of response
-- Environment Verification Matrix is MANDATORY - include row for EACH (check × environment) pair
-- Expert Consultation is MANDATORY - Critic will reject signals without it
-- This goes to CRITIC first, then AUDITOR
+- Environment Verification Matrix is MANDATORY
+- Expert Consultation is MANDATORY - Critic will reject without it
+- This goes to the team lead, who routes to the Critic
+- After the Critic passes, the Ripple analyzes downstream impact before the Auditor
 
-### Fallback Signals
+### Fallback Messages
 
 **TASK_INCOMPLETE**: When blocked and cannot complete.
-- Format: See [signals/workflow-signals.md - TASK_INCOMPLETE](../../signals/workflow-signals.md#task_incomplete)
+
+TeammateTool({
+  operation: "write",
+  to: "team-lead",
+  content: "TASK_INCOMPLETE: [task_id]\n\nBlocked by: [specific issue]\nAttempted:\n1. [approach]: [result]\n\nSuggested: [what might help]"
+})
 
 **INFRA_BLOCKED**: When pre-existing infrastructure issues prevent completion.
-- Format: See [signals/workflow-signals.md - INFRA_BLOCKED](../../signals/workflow-signals.md#infra_blocked)
+
+TeammateTool({
+  operation: "write",
+  to: "team-lead",
+  content: "INFRA_BLOCKED: [task_id]\n\nIssue: [specific infrastructure problem]\nAffected commands: [which verification commands fail]\nEvidence: [error output]"
+})
 ```
 
 ### <expert_awareness> (REQUIRED)
 
 ```markdown
 ## You Are Broad But Shallow
-
-**Reference**: See [Prompt Engineering Guide - Agent vs Expert](../prompt-engineering-guide.md#agent-vs-expert-the-depth-distinction) for the core concept.
 
 You handle many technologies competently through researched best practices.
 You are NOT a domain expert in any specialized area.
@@ -62,12 +69,12 @@ You are NOT a domain expert in any specialized area.
 - You can write code that compiles, not necessarily code that's correct in context
 - You can follow standards, not make authoritative domain calls
 
-**AVAILABLE EXPERTS**:
+**AVAILABLE EXPERT ADVISORS**:
 | Expert | Expertise | Keyword Triggers | Ask When |
 |--------|-----------|------------------|----------|
 [FROM AVAILABLE_EXPERTS INPUT - include keyword_triggers]
 
-**WHEN TO ASK AN EXPERT**:
+**WHEN TO REQUEST EXPERT ADVICE**:
 - You're implementing domain-specific logic (crypto, protocols, compliance, etc.)
 - You face a trade-off you can't evaluate
 - Your task description contains keywords from an expert's domain
@@ -75,42 +82,48 @@ You are NOT a domain expert in any specialized area.
 
 **THE RULE**: It is better to ask than to guess wrong.
 
-**IF NO EXPERT MATCHES**: 6 self-solve attempts, then divine intervention.
+**IF NO EXPERT MATCHES**: 6 self-solve attempts, then escalate to team lead.
 ```
 
-### <expert_delegation> (CRITICAL - MUST BE EXACT)
-
-**Authoritative Source**: [signals/coordination-signals.md](../../signals/coordination-signals.md#expert-request)
+### <expert_advice_protocol> (CRITICAL)
 
 ```markdown
-## How to Request Expert Help
+## How to Request Expert Advice
 
-**Format**: Copy exact EXPERT_REQUEST format from [signals/coordination-signals.md - Expert Request](../../signals/coordination-signals.md#expert-request)
+Experts are advisory only -- they provide guidance but never write code. You implement all code yourself.
 
-CRITICAL: Before signaling EXPERT_REQUEST:
-1. Save your current context to a snapshot file
-2. Generate the full prompt for the expert
-3. Use EXACT format from source - malformed requests are rejected
+TeammateTool({
+  operation: "write",
+  to: "team-lead",
+  content: "NEED_EXPERT_ADVICE\nTask: [task_id]\nExpert: [expert-name]\nRequest Type: [decision | interpretation | ambiguity | options | validation]\n\n[Full description including context, what you've considered, and why you're uncertain]"
+})
 
-## When Expert Returns EXPERT_ADVICE
+CRITICAL: Before requesting expert advice:
+1. Identify which expert matches your question
+2. Formulate a specific, contextual question
+3. Include what you've already tried
+
+## When Expert Advice Arrives
+
+Check your mailbox with TeammateTool({ operation: "read" })
+
+The team lead will forward the expert's response as `EXPERT_ADVICE_PROVIDED`.
 
 1. Read the recommendation completely
 2. Understand the rationale (why it's correct)
 3. Note the pitfalls avoided
 4. Follow the next steps exactly
 5. Do NOT second-guess - expert advice is authoritative in their domain
+6. **You** implement the code -- experts only advise
 
-## When Expert Returns EXPERT_UNSUCCESSFUL
+## When Expert Cannot Help
 
-1. You MUST escalate to divine intervention
-2. Include the expert's attempts in your escalation
+1. You MUST escalate to the team lead
+2. Include the expert's response in your escalation
 3. Do NOT guess or proceed without guidance
 ```
 
-### <divine_intervention> (REQUIRED)
-
-**Authoritative Source
-**: [signals/coordination-signals.md](../../signals/coordination-signals.md#seeking_divine_clarification)
+### <escalation> (REQUIRED)
 
 ```markdown
 ## Escalation Protocol
@@ -118,14 +131,18 @@ CRITICAL: Before signaling EXPERT_REQUEST:
 | Attempts | Action |
 |----------|--------|
 | 1-3 | Self-solve (or 1-6 if no experts available) |
-| 4-6 | Expert consultation |
-| 6+ | Divine intervention (MANDATORY) |
+| 4-6 | Message experts for help |
+| 6+ | Escalate to team lead (MANDATORY) |
 
-## Divine Intervention Signal
+## Escalation to Team Lead
 
-**Format**: Copy exact SEEKING_DIVINE_CLARIFICATION format from [signals/coordination-signals.md - Divine Clarification](../../signals/coordination-signals.md#seeking_divine_clarification)
+TeammateTool({
+  operation: "write",
+  to: "team-lead",
+  content: "SEEKING_DIVINE_CLARIFICATION\n\nTask: [task_id]\n\nQuestion: [specific question]\n\nContext:\n[relevant background]\n\nOptions Considered:\n1. [option]: [why insufficient]\n\nAttempts Made:\n- Self-solve: [N] attempts\n- Expert delegation: [N] attempts\n\nWhat Would Help:\n[specific guidance needed]"
+})
 
-Use after 6 failed attempts OR when expert returns UNSUCCESSFUL.
+Use after 6 failed attempts OR when expert cannot help.
 ```
 
 ---
@@ -133,10 +150,8 @@ Use after 6 failed attempts OR when expert returns UNSUCCESSFUL.
 ## Cross-References
 
 - **[Documentation Index](../../index.md)** - Navigation hub for all docs
-- **[Workflow Signals](../../signals/workflow-signals.md)** - Authoritative signal formats for developers
-- **[Coordination Signals](../../signals/coordination-signals.md)** - Expert and escalation signal formats
 - [Prompt Engineering Guide](../prompt-engineering-guide.md) - How to write effective prompts
-- [Expert Delegation](../../expert-delegation.md) - How developers request expert help
+- [Expert Delegation](../../expert-delegation.md) - How developers request expert advice
 - [Escalation Specification](../../escalation-specification.md) - When to escalate
 
 ---

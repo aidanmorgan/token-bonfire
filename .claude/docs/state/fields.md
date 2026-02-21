@@ -2,95 +2,84 @@
 
 [← Back to State Management](index.md)
 
-All state field definitions organized by category.
+All state field definitions organized by category. State is tracked via native Agent Teams primitives — the shared task list (`TaskCreate`/`TaskUpdate`/`TaskList`/`TaskGet`) and mailbox messages (`TeammateTool write`).
 
 ---
 
 ## State Fields
 
-### Session Tracking
+### Task Tracking (via Shared Task List)
 
-| Field                  | Type     | Description                                    |
-|------------------------|----------|------------------------------------------------|
-| `session_id`           | UUID     | Generated at start, used for event correlation |
-| `session_started_at`   | ISO-8601 | When this session began                        |
-| `previous_session_id`  | UUID     | Previous session ID if resuming                |
-| `session_resume_count` | Integer  | How many times coordinator has resumed         |
-| `compaction_count`     | Integer  | Compactions since session start                |
+These fields are managed natively by the shared task list keyed by the plan slug:
 
-### Task Tracking
+| Field | Storage | Description |
+|---|---|---|
+| Task status | `TaskUpdate({ status })` | `pending`, `in_progress`, `completed` — these are the only valid `TaskUpdate` status values |
+| Task dependencies | `TaskUpdate({ addBlockedBy })` | Auto-unblock when blocking task completes |
+| Task assignment | `TaskUpdate({ status: "in_progress" })` | Native atomic task claiming prevents race conditions |
+| Task description | `TaskCreate` / `TaskUpdate` | Full task spec including acceptance criteria |
 
-| Field               | Type     | Description                                        |
-|---------------------|----------|----------------------------------------------------|
-| `in_progress_tasks` | object[] | Tasks currently being worked (see state-schema.md) |
-| `active_developers` | object   | Maps agent ID → {task_id, dispatched_at}           |
-| `active_auditors`   | object   | Maps agent ID → {task_id, dispatched_at}           |
-| `active_critics`    | object   | Maps agent ID → {task_id, dispatched_at}           |
-| `pending_audit`     | string[] | Task IDs awaiting auditor verification             |
-| `pending_critique`  | string[] | Task IDs awaiting critic review                    |
-| `completed_tasks`   | string[] | Task IDs that passed audit                         |
-| `blocked_tasks`     | object   | Maps task ID → array of blocking task IDs          |
-| `available_tasks`   | string[] | Unblocked tasks ready for assignment               |
-| `audit_failures`    | object   | Maps task ID → failure count                       |
-| `critique_failures` | object   | Maps task ID → critic failure count                |
-| `critic_timeouts`   | object   | Maps task ID → timeout count                       |
+### Team Lead Review State (maintained in team lead context)
 
-### Infrastructure Tracking
+The team lead maintains these review pipeline mappings in its own context:
 
-| Field                       | Type    | Description                                                                |
-|-----------------------------|---------|----------------------------------------------------------------------------|
-| `infrastructure_blocked`    | Boolean | Assignments halted for remediation                                         |
-| `infrastructure_issue`      | Object  | Details of blocking issue                                                  |
-| `active_remediation`        | String  | Agent ID if remediation in progress                                        |
-| `remediation_attempt_count` | Integer | Current remediation loop iteration (0 to REMEDIATION_ATTEMPTS, default 10) |
+| Field | Type | Description |
+|---|---|---|
+| Review pipeline status | Map | Task ID to review stage: `pending_review`, `in_critic_review`, `in_ripple_review`, `pending_audit`, `in_audit`, `needs_rework`, `passed` |
+| Critique failure counts | Map | Task ID to critic failure count |
+| Critic timeout counts | Map | Task ID to critic timeout count |
+| Audit failure counts | Map | Task ID to audit failure count |
 
-### Expert Tracking
+### Infrastructure Tracking (team lead context)
 
-| Field                         | Type  | Description                                            |
-|-------------------------------|-------|--------------------------------------------------------|
-| `experts`                     | Array | Registry of plan-derived experts (see structure below) |
-| `active_experts`              | Map   | Expert ID → delegation details                         |
-| `paused_agents`               | Map   | Agent ID → pause state for delegation waits            |
-| `pending_delegation_requests` | Array | Queue of delegation requests waiting                   |
-| `expert_stats`                | Map   | Agent ID → usage metrics                               |
+| Field | Type | Description |
+|---|---|---|
+| `infrastructure_blocked` | Boolean | Assignments halted for remediation |
+| `infrastructure_issue` | String | Details of blocking issue |
+| `remediation_attempt_count` | Integer | Current remediation loop iteration (max 3) |
 
-**Expert Object Structure** (required fields for each expert in `experts` array):
+### Expert Tracking (persisted prompt files on disk)
 
-```json
-{
-  "name": "crypto-expert",
-  "domain": "Cryptography",
-  "file": ".claude/agents/experts/crypto-expert.md",
-  "tasks": ["task-2-1", "task-2-3"],
-  "requesting_agents": ["developer", "auditor"],
-  "capabilities": [
-    "Verify cryptographic algorithm correctness",
-    "Review key management practices",
-    "Assess secure random number generation"
-  ],
-  "delegation_triggers": {
-    "developer": "When implementing encryption, hashing, or key derivation",
-    "auditor": "When verifying cryptographic implementations"
-  },
-  "created_at": "2025-01-16T10:00:00Z"
-}
+Expert state is stored as prompt files on disk at `.claude/experts/<plan_slug>/`:
+
+| Field | Storage | Description |
+|---|---|---|
+| Expert definitions | `.claude/experts/<plan_slug>/<expert-name>.md` | Persisted prompt files with identity, domain expertise, and applicable tasks |
+| Expert roster | Team lead context | Which experts are spawned, their names and domains |
+| Expert task affinity | Expert prompt files | Which task IDs each expert is responsible for |
+
+**Expert Prompt File Structure** (persisted on disk):
+
+```markdown
+# <Expert Name>
+
+## Identity
+- Domain authority description
+- Applicable task IDs
+
+## Expertise
+- Deep domain research (technologies, patterns, pitfalls)
+- Decision frameworks
+- Verification criteria
+
+## Applicable Tasks
+| Task ID | Subject | Key Challenge |
 ```
 
-### File Conflict Tracking
+### File Conflict Tracking (via mailbox)
 
-| Field                      | Type  | Description                                        |
-|----------------------------|-------|----------------------------------------------------|
-| `queued_for_file_conflict` | Array | Tasks queued waiting for file availability         |
-| `queue_retry_tracker`      | Map   | Task ID → retry count (persisted across sessions)  |
-| `queue_timeout_context`    | Map   | Task ID → coordination context for timed-out tasks |
+| Field | Storage | Description |
+|---|---|---|
+| File conflict signals | Mailbox messages | Developers signal `FILE_CONFLICT` to team lead |
+| Ownership resolution | Mailbox messages | Team lead routes resolution to developers |
 
-### Divine Intervention
+### User Escalation (team lead context)
 
-| Field                      | Type    | Description                          |
-|----------------------------|---------|--------------------------------------|
-| `pending_divine_questions` | Array   | Questions awaiting human response    |
-| `task_quality_assessed`    | Boolean | Whether initial assessment completed |
-| `pending_expansions`       | Map     | Task ID → agent ID being expanded    |
+| Field | Type | Description |
+|---|---|---|
+| Pending questions | Team lead context | Questions awaiting human response via `AskUserQuestion` |
+| Task quality assessed | Boolean | Whether initial assessment completed |
+| Pending expansions | Map | Task ID to business-analyst expansion in progress |
 
 ---
 
@@ -98,4 +87,4 @@ All state field definitions organized by category.
 
 - [Attempt Tracking](attempt-tracking.md) - Attempt tracking and escalation
 - [Update Triggers](update-triggers.md) - When and how state updates
-- [State Schema](../orchestrator/state-schema.md) - Complete state file format
+- [State Fields](fields.md) - Task list field reference

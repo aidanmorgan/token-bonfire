@@ -6,16 +6,16 @@
 
 ## Overview
 
-Experts are specialist agents created per-plan to fill knowledge gaps that default agents cannot handle.
+Experts are specialist agents created per-plan to fill knowledge gaps that baseline teammates cannot handle.
 
 **Key Principle: Narrower but Deeper**
 
-- **Baseline agents** (Developer, Critic, Auditor): Wide breadth, general depth
+- **Baseline teammates** (Developers, Critic, Ripple, Auditor): Wide breadth, general depth
 - **Experts** (per-plan specialists): Narrow breadth, expert-level depth
 
-**Why Experts Exist**: Baseline agents have broad capabilities but shallow domain knowledge. They can implement code,
-review quality, and verify criteria - but they cannot make authoritative judgments in specialized domains. Experts fill
-this gap with **deep expertise** that enables:
+**Why Experts Exist**: Baseline teammates have broad capabilities but shallow domain knowledge. Developers can implement code,
+the Critic reviews quality, and the Auditor verifies criteria - but none can make authoritative judgments in specialized domains. Experts fill
+this gap with **deep advisory expertise** that enables:
 
 - **Authoritative decisions** in their domain (not guesses)
 - **Expert-level opinions** backed by comprehensive knowledge
@@ -26,24 +26,25 @@ this gap with **deep expertise** that enables:
 
 ## Key Terms
 
-- **Default agents**: Developer, Critic, Auditor, BA, Remediation, Health Auditor
+- **Baseline teammates**: Developers, Critic, Ripple, Auditor
+- **Named teammates**: Business analyst, remediation, health auditor (spawned as needed)
 - **Experts**: Specialist agents created per-plan for **deep** domain expertise
 
 ---
 
 ## Responsibility Split
 
-| Role               | Responsibilities                                                                 |
-|--------------------|----------------------------------------------------------------------------------|
-| **Orchestrator**   | Identifies gaps, **deeply researches domain**, creates experts, registers them   |
-| **Default agents** | Recognize limitations, delegate to experts when facing domain-specific decisions |
-| **Experts**        | Provide **authoritative** advice, **CANNOT delegate further**                    |
+| Role                  | Responsibilities                                                                     |
+|-----------------------|--------------------------------------------------------------------------------------|
+| **Team Lead**         | Identifies gaps, **deeply researches domain**, creates experts, registers them        |
+| **Baseline teammates**| Recognize limitations, delegate to experts when facing domain-specific decisions      |
+| **Expert Advisors**   | Provide **authoritative** advisory guidance (never write code), **CANNOT delegate further** |
 
 ---
 
 ## Three Types of Experts
 
-The orchestrator creates THREE types of experts, each requiring different prompt structure:
+The team lead creates THREE types of experts, each requiring different prompt structure:
 
 | Expert Type            | Knowledge Source                       | Purpose                                                           |
 |------------------------|----------------------------------------|-------------------------------------------------------------------|
@@ -65,7 +66,7 @@ Created for technical domains explicitly mentioned in the plan.
 
 **Knowledge Source**: Web research on the technical domain
 
-**Purpose**: Provide deep technical expertise that baseline agents lack
+**Purpose**: Provide deep technical expertise that baseline teammates lack
 
 ---
 
@@ -89,7 +90,7 @@ Reference experts are DIFFERENT: they don't need web research, they need deep an
 
 ## Methodology Experts
 
-Beyond domain and reference experts, the orchestrator creates **methodology experts** - a distinct category that
+Beyond domain and reference experts, the team lead creates **methodology experts** - a distinct category that
 synthesizes knowledge from MULTIPLE project documents to answer procedural questions about HOW to work in THIS project.
 
 ### How Methodology Experts Differ
@@ -104,16 +105,16 @@ synthesizes knowledge from MULTIPLE project documents to answer procedural quest
 
 ### Standard Methodology Expert Types
 
-| Methodology Expert      | Purpose                                          | Source Documents                                                                 | Questions They Answer                                                                                                                      |
-|-------------------------|--------------------------------------------------|----------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| **Testing Methodology** | How to write high-quality tests for THIS project | testing-guide, test-standards, CLAUDE.md testing sections, coverage requirements | "What test patterns should I use?", "How do I structure test files?", "What coverage is required?", "How do I test async code here?"       |
-| **Coding Standards**    | How to write code conforming to project rules    | coding-standard, style-guide, CLAUDE.md, linter configs                          | "How should I name this variable?", "What patterns are required?", "Is this abstraction level appropriate?", "What imports style is used?" |
-| **Test Execution**      | How to run tests in project environment          | ci-cd docs, environment docs, README, Makefile/scripts                           | "How do I run tests locally?", "What commands verify my changes?", "How do I run a single test?", "What's the CI pipeline sequence?"       |
-| **Quality Evaluation**  | How to evaluate if work meets quality bar        | quality-guidelines, review-checklist, definition of done                         | "Is this code review-ready?", "Does this meet the quality bar?", "What would reviewers flag?", "Are acceptance criteria met?"              |
+| Methodology Expert      | Purpose                                          | Source Documents                                                                 | Questions They Answer                                                              |
+|-------------------------|--------------------------------------------------|----------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
+| **Testing Methodology** | How to write high-quality tests for THIS project | testing-guide, test-standards, CLAUDE.md testing sections, coverage requirements | "What test patterns should I use?", "How do I structure test files?"               |
+| **Coding Standards**    | How to write code conforming to project rules    | coding-standard, style-guide, CLAUDE.md, linter configs                          | "How should I name this variable?", "What patterns are required?"                  |
+| **Test Execution**      | How to run tests in project environment          | ci-cd docs, environment docs, README, Makefile/scripts                           | "How do I run tests locally?", "What commands verify my changes?"                  |
+| **Quality Evaluation**  | How to evaluate if work meets quality bar        | quality-guidelines, review-checklist, definition of done                         | "Is this code review-ready?", "Does this meet the quality bar?"                    |
 
-### Orchestrator Responsibility for Methodology Experts
+### Team Lead Responsibility for Methodology Experts
 
-The orchestrator analyzes reference documentation tables in the plan to determine which methodology experts are needed:
+The team lead analyzes reference documentation tables in the plan to determine which methodology experts are needed:
 
 1. **Scan the plan's reference documentation section** for documents related to:
     - Testing (test guides, test standards, coverage requirements)
@@ -126,11 +127,11 @@ The orchestrator analyzes reference documentation tables in the plan to determin
     - Synthesizes cross-document relationships and implicit conventions
     - Becomes the authority on "how we do X in THIS project"
 
-3. **Register methodology experts** so agents can consult them for procedural questions
+3. **Register methodology experts** so teammates can consult them for procedural questions
 
 ### Research Process for Methodology Experts
 
-When creating a methodology expert, the orchestrator performs deep document analysis:
+When creating a methodology expert, the team lead performs deep document analysis:
 
 ```
 METHODOLOGY EXPERT RESEARCH PROCESS:
@@ -166,10 +167,10 @@ METHODOLOGY EXPERT RESEARCH PROCESS:
 
 ### When to Create Methodology Experts
 
-The orchestrator creates methodology experts when:
+The team lead creates methodology experts when:
 
 1. **Plan involves standard development activities** (testing, coding, building)
-2. **Project has documented conventions** that agents must follow
+2. **Project has documented conventions** that teammates must follow
 3. **Multiple documents govern the same area** (requiring synthesis)
 4. **Quality evaluation requires project-specific criteria**
 
@@ -184,7 +185,7 @@ Methodology experts are ALWAYS created for non-trivial plans because:
 
 ## Researching Existing Expert Prompts
 
-Before creating an expert, the orchestrator researches existing successful expert/specialist prompts:
+Before creating an expert, the team lead researches existing successful expert/specialist prompts:
 
 ### Search Queries for Expert Inspiration
 
@@ -207,5 +208,5 @@ From successful expert prompts, extract:
 
 ## Next Steps
 
-- **Next**: [Gap Analysis](gap-analysis.md) - Identify where default agents need expert support
+- **Next**: [Gap Analysis](gap-analysis.md) - Identify where baseline teammates need expert support
 - **See also**: [Prompt Structure](prompt-structure.md) - Learn how different expert types structure their prompts

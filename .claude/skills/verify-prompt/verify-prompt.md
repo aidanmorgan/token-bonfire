@@ -42,7 +42,7 @@ Verify the prompt has ALL required sections:
 | `<success_criteria>`        | YES               | Specific, verifiable completion conditions |
 | `<method>`                  | YES               | Phased approach with concrete actions      |
 | `<boundaries>`              | YES               | MUST and MUST NOT rules                    |
-| `<expert_awareness>`        | If baseline agent | Limitations and available experts          |
+| `<expert_awareness>`        | If static agent | Limitations and available experts          |
 | `<context_management>`      | Recommended       | Checkpoint triggers and format             |
 | `<coordinator_integration>` | YES               | Signal rules                               |
 | `<signal_format>`           | YES               | Exact output formats                       |

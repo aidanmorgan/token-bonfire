@@ -1,8 +1,8 @@
-# Auditor Agent Specification
+# Auditor Teammate Specification
 
 ## Role: Quality Gatekeeper
 
-**The auditor is the ONLY entity that can mark a task complete.** Developers signal readiness for audit, but a task is
+**The auditor is the ONLY entity that can mark a task complete.** Developers signal readiness for review, but a task is
 not complete until the auditor confirms:
 
 1. **Code Quality**: Implementation is high quality with no tells of missing functionality (no TODOs, no placeholder
@@ -10,106 +10,73 @@ not complete until the auditor confirms:
 2. **Requirements Met**: Code fulfills every acceptance criterion from the task specification
 3. **Verification Passed**: All verification tools have been executed and report passing status
 
-A developer claiming "ready for audit" means nothing until the auditor validates it. The auditor's PASS is the sole
+A developer claiming "ready for review" means nothing until the auditor validates it. The auditor's PASS is the sole
 authority for task completion.
 
 ## Auditor Assignment Format
 
-When spawning an auditor agent, use the Task tool with `model` parameter set to the value from `AGENT_MODELS` for
-`auditor`.
+The auditor receives work via mailbox messages from the team lead. The message contains:
+
+- Full task specification (work description and acceptance criteria)
+- Files modified by the developer
+- Critic's quality assessment
+- Verification commands and environments
 
 **CRITICAL**: The auditor MUST receive the FULL task specification, not just acceptance criteria. Without the full spec,
 the auditor cannot verify requirements were implemented correctly.
 
+The team lead routes audit requests via:
+
 ```
-Task tool parameters:
-  model: [from AGENT_MODELS.auditor]
-  subagent_type: "auditor"
-  prompt: |
-    [Include: Auditor Agent Definition]
+TeammateTool({
+    operation: "write",
+    to: "auditor",
+    content: "Audit task <task-id>:
 
-    ---
+TASK SPECIFICATION (from plan - the source of truth):
 
-    TASK SPECIFICATION (from plan - the source of truth):
+Task ID: <task-id>
+Title: <task_title>
 
-    Task ID: [task ID]
-    Title: [task title]
+Work Description:
+{full_work_description}
 
-    Work Description:
-    [FULL work description copied from plan - what was supposed to be built]
+Acceptance Criteria:
+- [ ] {criterion_1}
+- [ ] {criterion_2}
+...
 
-    Acceptance Criteria:
-    {{#each acceptance_criteria}}
-    - [ ] {{this}}
-    {{/each}}
+Required Reading:
+- {file_1}
+- {file_2}
 
-    Required Reading:
-    {{#each required_reading}}
-    - {{this}}
-    {{/each}}
+---
 
-    ---
+DEVELOPER OUTPUT:
 
-    DEVELOPER OUTPUT:
+Files Modified:
+- {file_1}
+- {file_2}
 
-    Files Modified:
-    {{#each files_modified}}
-    - {{this}}
-    {{/each}}
+Tests Written:
+- {test_file}: {description}
 
-    Tests Written:
-    {{#each tests_written}}
-    - {{this.file}}: {{this.description}}
-    {{/each}}
+---
 
-    Developer's Evidence:
-    {{#each developer_evidence}}
-    - Criterion: {{this.criterion}}
-      Evidence: {{this.evidence}}
-    {{/each}}
+VERIFICATION COMMANDS (must ALL pass for audit to pass):
 
-    ---
+| Check | Command | Environment | Required Exit Code |
+|-------|---------|-------------|-------------------|
+| ... | ... | ... | ... |
 
-    [Include: Environment Execution Instructions]
-
-    [Include: Auditor References]
-
-    AVAILABLE EXPERTS:
-    {{#if experts}}
-    The following specialists are available to consult on domain-specific verification.
-
-    {{#each experts}}
-    - **{{this.name}}** [{{this.agent_type}}] - {{this.domain}}
-      Capabilities: {{this.capabilities}}
-    {{/each}}
-    {{else}}
-    No experts available for this plan.
-    {{/if}}
-
-    VERIFICATION COMMANDS (must ALL pass for audit to pass):
-
-    | Check | Command | Environment | Required Exit Code |
-    |-------|---------|-------------|-------------------|
-    {{#each VERIFICATION_COMMANDS}}
-    | {{this.check}} | `{{this.command}}` | {{this.environment || "ALL"}} | {{this.exit_code || 0}} |
-    {{/each}}
-
-    CRITICAL - ENVIRONMENT EXECUTION RULES:
-    - **Empty Environment column (or "ALL")**: Run command in EVERY environment listed in EXECUTION ENVIRONMENTS
-    - **Specific Environment listed**: Run command ONLY in that specific environment
-    - **Required Exit Code**: Command must return this exit code (defaults to 0 if not specified)
-    - **FAILURE IN ANY REQUIRED ENVIRONMENT IS A FAILURE OF THE ENTIRE CHECK**
-    - You MUST execute each check in each required environment and report results separately
-
-    YOUR TASK:
-    1. Read the Work Description to understand what SHOULD have been built
-    2. Read ALL modified files to see what WAS built
-    3. Verify each acceptance criterion has evidence
-    4. Run all verification commands
-    5. Report PASS only if ALL checks pass with NO exceptions
+YOUR TASK:
+1. Read the Work Description to understand what SHOULD have been built
+2. Read ALL modified files to see what WAS built
+3. Verify each acceptance criterion has evidence
+4. Run all verification commands
+5. Report PASS only if ALL checks pass with NO exceptions"
+})
 ```
-
-Log event: `auditor_dispatched` with `task_id`, `agent_id`, `files_to_audit`, and `work_description_included: true`.
 
 ## Audit Checklist
 
@@ -138,7 +105,7 @@ Log event: `auditor_dispatched` with `task_id`, `agent_id`, `files_to_audit`, an
     - [ ] Verify the implementation is complete (not partial)
     - [ ] Verify tests exist that prove the criterion is met
     - [ ] Document evidence of completion
-7. If ANY criterion lacks evidence → FAIL
+7. If ANY criterion lacks evidence -> FAIL
 
 ### Phase 4: Test Quality Verification
 
@@ -148,8 +115,8 @@ Log event: `auditor_dispatched` with `task_id`, `agent_id`, `files_to_audit`, an
     - [ ] Test exercises the actual code (not a no-op)
     - [ ] Test has meaningful assertions (not just `assert True` or `pass`)
     - [ ] Test would fail if the code were broken
-    - [ ] Test name describes what it's testing
-    - [ ] Test is independent (doesn't depend on other tests running first)
+    - [ ] Test name describes what it is testing
+    - [ ] Test is independent (does not depend on other tests running first)
 
 9. Check test coverage quality:
     - [ ] Success cases are tested
@@ -165,9 +132,9 @@ Log event: `auditor_dispatched` with `task_id`, `agent_id`, `files_to_audit`, an
 - `@pytest.mark.xfail` without documented reason
 - Only testing one trivial case when multiple cases are implied
 - Tests that mock away all the interesting behavior
-- Tests that don't actually call the code being tested
+- Tests that do not actually call the code being tested
 
-11. If tests are low quality → FAIL with specific issues
+11. If tests are low quality -> FAIL with specific issues
 
 ### Phase 5: Verification Execution
 
@@ -177,21 +144,21 @@ Log event: `auditor_dispatched` with `task_id`, `agent_id`, `files_to_audit`, an
     - Commands must return the Required Exit Code specified (defaults to 0 if not specified).
     - Report pass/fail for EACH environment separately with the actual exit code.
     - **FAILURE IN ANY REQUIRED ENVIRONMENT FAILS THE ENTIRE AUDIT - NO EXCEPTIONS**
-13. If ANY verification command fails in ANY required environment → FAIL
+13. If ANY verification command fails in ANY required environment -> FAIL
 
 ### Phase 6: Final Judgment
 
-14. Only if ALL phases pass with no exceptions → PASS
-15. Any doubt about completeness → FAIL with specific concerns
+14. Only if ALL phases pass with no exceptions -> PASS
+15. Any doubt about completeness -> FAIL with specific concerns
 
 ## Audit Outcomes
 
 **PASS:**
 
-Only signal PASS when you have verified ALL of the following with no exceptions:
+Only signal PASS when you have verified ALL of the following with no exceptions. Send via mailbox to team lead:
 
 ```
-AUDIT_PASSED - [task ID]
+AUDIT_PASSED: <task_id>
 
 Quality Verification:
 - Code quality tells: NONE FOUND
@@ -218,19 +185,19 @@ Conclusion: Task requirements fully implemented with production-quality code.
 
 **Environment Verification Matrix Requirements**:
 
-- MUST include a row for EACH (check × environment) combination you executed
+- MUST include a row for EACH (check x environment) combination you executed
 - Commands with Environment="ALL" require rows for EVERY environment
 - Exit Code column MUST show the actual exit code returned (not assumed)
 - Result is PASS only if actual exit code matches Required Exit Code
 - The "Environments Verified" line lists all environments you tested in
 - The "All Required Environments: CONFIRMED" line confirms complete coverage
 
-Log event: `task_complete` with `task_id`, `agent_id`, and `evidence_summary`.
+On AUDIT_PASSED, the team lead calls `TaskUpdate({ taskId, status: "completed" })`.
 
 **FAIL (task-specific):**
 
 ```
-AUDIT_FAILED - [task ID]
+AUDIT_FAILED: <task_id>
 
 Failed:
 - [check]: [specific issue]
@@ -239,14 +206,14 @@ Required:
 - [concrete fix action]
 ```
 
-Log event: `auditor_fail` with `task_id`, `agent_id`, `failures`, and `required_fixes`.
+On AUDIT_FAILED, the team lead routes the failure details back to the developer for rework.
 
 **FAIL (pre-existing issues):**
 
 When the auditor discovers failures unrelated to the current task:
 
 ```
-AUDIT_BLOCKED - [task ID]
+AUDIT_BLOCKED: <task_id>
 
 Pre-existing failures detected (not caused by this task):
 - [N] test failures in [files]
@@ -257,6 +224,19 @@ Cannot verify task completion until codebase is clean.
 Triggering infrastructure remediation.
 ```
 
-Log event: `auditor_blocked` with `task_id`, `agent_id`, and `pre_existing_failures`.
+On AUDIT_BLOCKED, the team lead routes the issue to the `remediation` teammate via mailbox:
 
-The coordinator must treat this as an infrastructure block and spawn a remediation agent.
+```
+TeammateTool({
+    operation: "write",
+    to: "remediation",
+    content: "INFRA_BLOCKED: <pre-existing failure details>"
+})
+```
+
+---
+
+## Cross-References
+
+- [Review and Audit Flow](review-audit-flow.md) - Full Developer -> Critic -> Ripple -> Auditor pipeline
+- [Team Architecture](team-architecture.md) - Team structure and communication protocol

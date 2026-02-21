@@ -14,17 +14,15 @@
 
 - **Overview and Inputs** (this file)
 - [Identity and Authority](identity.md) - Agent identity, failure modes, decision authority
-- [Procedures and Signals](procedures.md) - Audit procedures, validation criteria, signal formats
+- [Procedures and Communication](procedures.md) - Audit procedures, validation criteria, message formats
 
 ---
 
-## Inputs Provided by Orchestrator
+## Inputs Provided by Team Lead
 
 | Input                     | Description                  | Use In                        |
 |---------------------------|------------------------------|-------------------------------|
 | `BEST_PRACTICES_RESEARCH` | Health verification research | `<health_practices>` section  |
-| `SIGNAL_SPECIFICATION`    | Exact signal formats         | `<signal_format>` section     |
-| `DELEGATION_PROTOCOL`     | How to request expert help   | `<asking_experts>` section    |
 | `AVAILABLE_EXPERTS`       | Experts for this plan        | `<expert_awareness>` section  |
 | `ENVIRONMENTS`            | Execution environments       | `<method>` section            |
 | `VERIFICATION_COMMANDS`   | Commands to execute          | `<method>` section            |
@@ -37,24 +35,24 @@ The `BEST_PRACTICES_RESEARCH` input contains research for each technology, organ
 
 ```
 BEST_PRACTICES_RESEARCH:
-├── PLAN CONTEXT
-│   ├── What this plan accomplishes
-│   ├── Key concepts and terminology
-│   └── Critical success factors
-│
-├── [Technology 1]
-│   ├── DETECTION
-│   │   ├── Health check patterns
-│   │   ├── Verification command patterns
-│   │   └── Environment validation approaches
-│   │
-│   └── ANALYSIS
-│       ├── Test output interpretation
-│       ├── Build output analysis
-│       └── Exit code conventions
-│
-└── [Technology 2]
-    └── ... (same structure)
++-- PLAN CONTEXT
+|   +-- What this plan accomplishes
+|   +-- Key concepts and terminology
+|   +-- Critical success factors
+|
++-- [Technology 1]
+|   +-- DETECTION
+|   |   +-- Health check patterns
+|   |   +-- Verification command patterns
+|   |   +-- Environment validation approaches
+|   |
+|   +-- ANALYSIS
+|       +-- Test output interpretation
+|       +-- Build output analysis
+|       +-- Exit code conventions
+|
++-- [Technology 2]
+    +-- ... (same structure)
 ```
 
 **Note**: Health Auditor uses haiku model for speed. Research is focused on output interpretation, not implementation.
@@ -64,7 +62,7 @@ BEST_PRACTICES_RESEARCH:
 ## Creation Prompt
 
 ```
-You are creating a Health Auditor agent for the Token Bonfire orchestration system.
+You are creating a Health Auditor agent for the Token Bonfire system.
 
 **REQUIRED**: Follow the guidelines in .claude/docs/agent-creation/prompt-engineering-guide.md
 
@@ -78,7 +76,7 @@ name: health-auditor
 description: Codebase health verifier. Confirms remediation was successful by running all verification commands. Use after remediation completes.
 model: haiku
 tools: Read, Bash, Grep
-version: "2024-01-17-v2"
+version: "2025-01-17-v2"
 ---
 </frontmatter>
 ```
@@ -88,7 +86,6 @@ version: "2024-01-17-v2"
 ## Cross-References
 
 - **[Documentation Index](../../index.md)** - Navigation hub for all docs
-- **[Health Auditor Home](../health-auditor.md)** - Return to health auditor navigation index
+- **[Health Auditor Home](index.md)** - Return to health auditor navigation index
 - [Identity and Authority](identity.md) - Next: Agent identity and decision authority
 - [Prompt Engineering Guide](../prompt-engineering-guide.md) - Quality standards
-- [Signal Specification](../../signal-specification.md) - Health audit signal formats

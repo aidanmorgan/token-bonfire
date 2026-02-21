@@ -1,433 +1,194 @@
-# Coordinator Fresh Start
+# Team Lead Fresh Start
 
-Fresh session initialization procedures when no state file exists.
+Fresh session initialization procedures when no tasks exist in `TaskList`.
 
 ---
 
 ## Navigation
 
-- [Startup Overview](startup-overview.md) - Overview and decision logic
 - **[Fresh Start](fresh-start.md)** - This file
 - [Resume](resume.md) - Resume session procedures
-- [Coordinator Configuration](../coordinator-configuration.md) - Configuration values
-- [State Management](../state-management.md) - State tracking
+- [Team Lead Configuration](../coordinator-configuration.md) - Configuration values
+- [Team Architecture](../team-architecture.md) - Team structure and communication
 
 ---
 
-## FRESH START (No State File)
+## FRESH START (No Existing Tasks)
 
-**CRITICAL ORDERING**: Experts are created BEFORE agents so agents have the expert list embedded.
+**CRITICAL ORDERING**: Expert prompts are created BEFORE teammates are spawned so teammates have the expert list available.
 
 ```
-Research → Gap Analysis → Create Experts → Create Agents (with expert list)
+Research -> Gap Analysis -> Create Expert Prompts -> Create Tasks -> Spawn Team
 ```
 
 ### Step 1: Derive Plan Directory and Create Structure
 
-```python
-# Derive PLAN_NAME from PLAN_FILE
-plan_file = "{{PLAN_FILE}}"
-plan_name = os.path.splitext(os.path.basename(plan_file))[0].lower().replace("_", "-")
+Derive `PLAN_NAME` from `PLAN_FILE`:
 
-# Set PLAN_DIR
-PLAN_DIR = f".claude/bonfire/{plan_name}/"
+1. Extract the plan file name (e.g., `COMPREHENSIVE_IMPLEMENTATION_PLAN.md`)
+2. Remove the `.md` extension
+3. Convert to lowercase kebab-case (e.g., `comprehensive-implementation-plan`)
+4. Set `PLAN_DIR` to `.claude/bonfire/{plan_name}/`
 
-# Create directory structure
-os.makedirs(f"{PLAN_DIR}.scratch", exist_ok=True)
-os.makedirs(f"{PLAN_DIR}.artefacts", exist_ok=True)
-os.makedirs(f"{PLAN_DIR}.trash", exist_ok=True)
-os.makedirs(".claude/agents/experts", exist_ok=True)
-```
-
-This creates:
+Create the directory structure:
 
 ```
 .claude/bonfire/{{PLAN_NAME}}/
-├── .scratch/
-├── .artefacts/
-└── .trash/
++-- .scratch/
++-- .artefacts/
 ```
 
-### Step 2: Generate Session ID
+Also ensure the expert prompts directory exists:
 
-Create a new UUID to identify this session. All events logged during this session will include this ID.
-
-```json
-{
-  "session_id": "<new UUID>",
-  "session_started_at": "<current ISO-8601 timestamp>",
-  "previous_session_id": null,
-  "session_resume_count": 0
-}
+```
+.claude/experts/{{PLAN_NAME}}/
 ```
 
-### Step 3: Check Agent AND Expert Files Existence
+### Step 2: Check Prompt AND Expert Files Existence
 
 Before doing any research or creation, check which files exist.
 
-**Required agents:**
+**Required agent definitions:**
 
-| Agent            | File Path                            |
-|------------------|--------------------------------------|
-| Developer        | `.claude/agents/developer.md`        |
-| Auditor          | `.claude/agents/auditor.md`          |
-| Business Analyst | `.claude/agents/business-analyst.md` |
-| Remediation      | `.claude/agents/remediation.md`      |
-| Health Auditor   | `.claude/agents/health-auditor.md`   |
-| Critic           | `.claude/agents/critic.md`           |
+| Teammate         | File Path                          |
+|------------------|------------------------------------|
+| Developer        | `.claude/agents/developer.md`      |
+| Critic           | `.claude/agents/critic.md`         |
+| Auditor          | `.claude/agents/auditor.md`        |
 
-```python
-REQUIRED_AGENTS = [
-    ("developer", ".claude/agents/developer.md"),
-    ("auditor", ".claude/agents/auditor.md"),
-    ("business-analyst", ".claude/agents/business-analyst.md"),
-    ("remediation", ".claude/agents/remediation.md"),
-    ("health-auditor", ".claude/agents/health-auditor.md"),
-    ("critic", ".claude/agents/critic.md"),
-]
+**Expert prompts directory:**
 
-missing_agents = []
-existing_agents = []
-
-for name, path in REQUIRED_AGENTS:
-    if os.path.exists(path):
-        existing_agents.append(name)
-    else:
-        missing_agents.append(name)
-
-# Check experts
-experts_dir = ".claude/agents/experts/"
-existing_experts = []
-if os.path.exists(experts_dir):
-    existing_experts = [f[:-3] for f in os.listdir(experts_dir) if f.endswith('.md')]
-
-# Decision logic
-needs_full_creation = len(missing_agents) > 0  # Any agent missing = regenerate ALL
+```
+.claude/experts/{{PLAN_NAME}}/
 ```
 
 **Decision Logic:**
 
-- If ANY agent is missing → Regenerate ALL (research, experts, agents)
-- If ALL agents exist AND experts exist → Use existing, skip to step 9
-- If ALL agents exist BUT no experts → Run gap analysis, create experts only
+- If ANY agent definition is missing -> Cannot proceed, create definitions
+- If ALL definitions exist AND experts exist -> Use existing, skip to step 8
+- If ALL definitions exist BUT no experts -> Run gap analysis, create experts only
 
-**Rationale:** Agents are created with plan-specific best practices AND expert list embedded. If any agent is
-missing, we need to regenerate all to ensure the expert list is properly embedded.
+### Step 3: Research Best Practices for Technologies
 
-Log the check result:
+Only if prompts need creation:
 
-```json
-{
-  "event": "existence_check",
-  "existing_agents": ["developer", "auditor", ...],
-  "missing_agents": ["critic"],
-  "existing_experts": ["crypto-expert"],
-  "decision": "regenerate_all" | "create_experts_only" | "use_existing"
-}
-```
+Use a `Task` call with `model: opus` and `subagent_type: "general-purpose"` to research best practices for the technologies used in the plan.
 
-**IF all agents AND experts exist:** Skip to step 9 (Plan Discovery).
-**IF all agents exist but no experts:** Skip to step 5 (Gap Analysis).
-**IF any agent missing:** Continue to step 4 (Research).
+The research agent should:
 
-### Step 4: Research Best Practices for Technologies
+1. Read the plan file to identify technologies
+2. Search codebase for existing patterns via `Glob` and `Grep`
+3. Read `CLAUDE.md` for project conventions
+4. Research each technology via `WebSearch` for best practices, anti-patterns, and security considerations
 
-Only if `needs_full_creation`:
+Store the research output for use in expert creation.
 
-```
-Task tool parameters:
-  model: opus
-  subagent_type: "general-purpose"
-  prompt: |
-    Research best practices for the technologies used in this implementation plan.
+### Step 4: Gap Analysis - Identify Expert Needs
 
-    PLAN: {{PLAN_FILE}}
-
-    STEP 1: Identify Technologies
-    - Read the plan file
-    - Glob("**/*.{py,rs,ts,js,go,c,cpp}") to find source files
-    - Read("CLAUDE.md") for project conventions
-    - Document: languages, frameworks, libraries, build tools
-
-    STEP 2: Research Each Technology (use WebSearch)
-    - "[language] best practices 2026" (use current year)
-    - "[language] code review checklist"
-    - "[framework] anti-patterns"
-    - "[language] common mistakes and pitfalls"
-    - "[language] security vulnerabilities OWASP"
-
-    STEP 3: Output Summary
-    BEST PRACTICES RESEARCH
-
-    Languages: [list]
-    Frameworks: [list]
-
-    [LANGUAGE 1] Best Practices:
-    - [Practice]: [Why it matters]
-    - [Anti-pattern]: [Why to avoid]
-
-    [FRAMEWORK 1] Patterns:
-    - [Pattern]: [When to use]
-    - [Anti-pattern]: [Why to avoid]
-
-    Project-Specific Conventions:
-    - [From CLAUDE.md]
-
-    Security Considerations:
-    - [Vulnerability type]: [What to check]
-    - [OWASP category]: [Prevention approach]
-```
-
-Store the research output in state as `best_practices_research`.
-
-### Step 5: Gap Analysis - Identify Expert Needs
-
-Analyze the plan to identify where default agents will need expert support.
+Analyze the plan to identify where default teammates will need expert support.
 
 **When this step runs:**
 
-- needs_full_creation = true → Always run
-- All agents exist but no experts → Run to determine if experts needed
+- Prompts need creation -> Always run
+- All prompts exist but no experts -> Run to determine if experts needed
 
-**Delete existing experts if regenerating:**
+Use a `Task` call with `model: opus` and `subagent_type: "general-purpose"` to analyze the plan for:
 
-```python
-if needs_full_creation:
-    experts_dir = ".claude/agents/experts/"
-    if os.path.exists(experts_dir):
-        for expert_file in os.listdir(experts_dir):
-            if expert_file.endswith('.md'):
-                os.remove(os.path.join(experts_dir, expert_file))
-                log_event("expert_deleted", file=expert_file, reason="full_regeneration")
-```
+1. **Expertise Gaps**: What specialized knowledge do tasks require?
+2. **Decision Points**: Where will teammates face choices needing expertise?
+3. **Verification Gaps**: What cannot be verified correctly without domain knowledge?
+4. **Risk Areas**: Where could mistakes have serious consequences?
 
-**Run gap analysis:**
+If no gaps are identified, output "NO EXPERTS REQUIRED" and skip to step 6.
 
-```
-Task tool parameters:
-  model: opus
-  subagent_type: "general-purpose"
-  prompt: |
-    Analyze this implementation plan to identify where default agents will need expert support.
+### Step 5: Create Expert Prompts to Fill Gaps
 
-    PLAN: {{PLAN_FILE}}
-    BEST PRACTICES RESEARCH: {{best_practices_research}}
+Only if gap analysis recommends experts.
 
-    DEFAULT AGENT LIMITATIONS:
+For each recommended expert, create a prompt file at `.claude/experts/{{PLAN_NAME}}/[expert-name].md`.
 
-    Developer: General implementation, follows patterns, writes tests
-      - May not know domain-specific best practices
-      - Cannot make expert judgment calls on trade-offs
+Each expert prompt should include:
+- Identity: Who they are, why they exist
+- Plan context: This specific plan's challenges
+- Expertise: Best practices, pitfalls, decision guidance
+- Boundaries: What they cannot do
+- Signal format: How they communicate results via mailbox
 
-    Critic: Code quality review, identifies issues, provides feedback
-      - May not recognize domain-specific quality issues
-      - Cannot judge domain-specific correctness
+### Step 6: Plan Discovery and Task Creation
 
-    Auditor: Verifies acceptance criteria, runs tests
-      - May not recognize domain-specific quality issues
-      - Cannot judge correctness in specialized areas
+**CRITICAL**: Tasks MUST be created BEFORE spawning the team so teammates have work available immediately.
 
-    ANALYZE THE PLAN FOR:
+Read `{{PLAN_FILE}}`, parse tasks, and create them via `TaskCreate`:
 
-    1. **Expertise Gaps**: What specialized knowledge do tasks require?
-    2. **Decision Points**: Where will agents face choices needing expertise?
-    3. **Verification Gaps**: What can't agents verify correctly alone?
-    4. **Risk Areas**: Where could mistakes have serious consequences?
-
-    OUTPUT FORMAT:
-    GAP ANALYSIS: [Plan Name]
-
-    IDENTIFIED GAPS:
-
-    Gap 1: [Name]
-    - Affected Tasks: [task IDs]
-    - Default Agent Limitation: [which agent, what they can't do]
-    - Expertise Required: [specific knowledge needed]
-    - Risk if Unsupported: [consequences]
-
-    RECOMMENDED EXPERTS:
-
-    1. [Expert Name]
-       - Fills Gap: [which gap]
-       - Supports: [Developer, Auditor, etc.]
-       - Expertise Focus: [specific to plan]
-       - Delegation Triggers: [when to ask]
-
-    If NO gaps are identified that require experts, output:
-    GAP ANALYSIS: [Plan Name]
-    NO EXPERTS REQUIRED - Default agents can handle all tasks in this plan.
-```
-
-Store the gap analysis in state as `gap_analysis`.
-
-### Step 6: Create Experts to Fill Gaps
-
-Only if gap analysis recommends experts:
-
-**Skip if:**
-
-- Gap analysis returned "NO EXPERTS REQUIRED"
-- All recommended experts already exist
-
-For each expert recommended in gap analysis, create the expert agent.
-
-See: `.claude/docs/agent-creation/expert-creation.md` for complete expert creation prompts.
+For each task in the plan:
 
 ```
-For EACH expert in gap_analysis.recommended_experts:
-
-Task tool parameters:
-  model: opus
-  subagent_type: "developer"
-  prompt: |
-    Create an expert agent for the Token Bonfire orchestration system.
-
-    **REQUIRED**: Follow guidelines in .claude/docs/agent-creation/prompt-engineering-guide.md
-
-    CONTEXT:
-    Plan: {{PLAN_FILE}}
-    Gap Being Filled: [from gap analysis]
-    Default Agents This Expert Supports: [from gap analysis]
-    Affected Tasks: [from gap analysis]
-
-    RESEARCH (MANDATORY):
-    1. Read affected tasks from plan
-    2. Search codebase for existing patterns: Glob, Grep
-    3. Research best practices: WebSearch("[expertise] best practices 2025")
-
-    Write expert to: .claude/agents/experts/[expert-name].md
-
-    Include:
-    - <expert_identity>: Who they are, why they exist
-    - <plan_context>: This specific plan's challenges
-    - <expertise>: Best practices, pitfalls, decision guidance
-    - <boundaries>: CANNOT delegate
-    - <signal_format>: EXPERT_ADVICE or EXPERT_UNSUCCESSFUL
+TaskCreate({
+    title: "Task <task-id>: <title>",
+    description: "<work description>",
+    status: "pending",
+    blockedBy: [dependency task IDs]
+})
 ```
 
-Verify each expert file exists at `.claude/agents/experts/[name].md`. Log event: `expert_created`
+### Step 7: Spawn the Team
 
-### Step 7: Create Agent Files
-
-Only if `needs_full_creation`:
-
-Now create the default agent files WITH the expert list embedded.
-
-**CRITICAL**: Agents are created AFTER experts so the expert list can be embedded.
-
-For each agent type, use the corresponding creation prompt:
-
-| Agent            | Creation Prompt                                   |
-|------------------|---------------------------------------------------|
-| Developer        | `.claude/docs/agent-creation/developer.md`        |
-| Critic           | `.claude/docs/agent-creation/critic.md`           |
-| Auditor          | `.claude/docs/agent-creation/auditor.md`          |
-| Business Analyst | `.claude/docs/agent-creation/business-analyst.md` |
-| Remediation      | `.claude/docs/agent-creation/remediation.md`      |
-| Health Auditor   | `.claude/docs/agent-creation/health-auditor.md`   |
+Spawn all named teammates at startup using `Task` with `run_in_background: true`:
 
 ```
-For EACH agent in [developer, critic, auditor, business-analyst, remediation, health-auditor]:
+# Developers (NUM_DEVELOPERS implementers)
+for i in range(1, NUM_DEVELOPERS + 1):
+    Task({ team_name: "bonfire", name: f"dev-{i}", subagent_type: "developer",
+           prompt: "<config tables>", run_in_background: true })
 
-Task tool parameters:
-  model: opus
-  subagent_type: "developer"
-  prompt: |
-    Create an agent definition for the Token Bonfire orchestration system.
+# Static roles use native agent definitions (subagent_type = agent name)
+Task({ team_name: "bonfire", name: "critic", subagent_type: "critic",
+       prompt: "<config tables>", run_in_background: true })
 
-    **REQUIRED**: Read and follow .claude/docs/agent-creation/{{agent-type}}.md
+Task({ team_name: "bonfire", name: "auditor", subagent_type: "auditor",
+       prompt: "<config tables>", run_in_background: true })
 
-    INPUTS TO PROVIDE TO THE CREATION PROMPT:
+Task({ team_name: "bonfire", name: "business-analyst", subagent_type: "business-analyst",
+       prompt: "<config tables>", run_in_background: true })
 
-    BEST_PRACTICES_RESEARCH:
-    {{best_practices_research}}
+Task({ team_name: "bonfire", name: "remediation", subagent_type: "remediation",
+       prompt: "<config tables>", run_in_background: true })
 
-    SIGNAL_SPECIFICATION:
-    [Read from .claude/docs/signal-specification.md]
+Task({ team_name: "bonfire", name: "health-auditor", subagent_type: "health-auditor",
+       prompt: "<config tables>", run_in_background: true })
 
-    DELEGATION_PROTOCOL:
-    [Read from .claude/docs/expert-delegation.md]
-
-    AVAILABLE_EXPERTS:
-    {{#each available_experts}}
-    | {{name}} | {{expertise}} | {{delegation_triggers}} |
-    {{/each}}
-
-    ENVIRONMENTS:
-    {{ENVIRONMENTS}}
-
-    VERIFICATION_COMMANDS:
-    {{VERIFICATION_COMMANDS}}
-
-    The creation prompt is a META-PROMPT that instructs you to write the actual
-    agent file. Follow its instructions completely.
-
-    Output file: .claude/agents/{{agent-type}}.md
+# Expert advisors use inline prompts (dynamically generated per plan)
+for each expert in gap_analysis.recommended_experts:
+    Task({ team_name: "bonfire", name: expert.name, subagent_type: "general-purpose",
+           prompt: Read(f".claude/experts/{{PLAN_NAME}}/{expert.name}.md") })
 ```
 
-Verify each agent file exists. Log event: `agent_definition_created` for each.
+All teammates are now persistent and running. They self-organize by reading their mailbox.
 
-### Step 8: Register Experts with Default Agents
-
-Update state so default agents know available experts.
-
-```json
-{
-  "available_experts": [
-    {
-      "name": "crypto-expert",
-      "expertise": "Cryptographic implementation for this plan",
-      "supports_agents": ["developer", "auditor", "critic"],
-      "delegation_triggers": ["crypto", "encryption", "hashing", "signing"],
-      "affected_tasks": ["1-2-1", "2-1-3"]
-    }
-  ]
-}
-```
-
-**Expert Awareness Injection**: When dispatching default agents, inject expert awareness into their prompts:
-
-```
-<expert_awareness>
-YOU HAVE LIMITATIONS. Recognize them and ask for help.
-
-YOUR LIMITATIONS AS A [AGENT_TYPE]:
-- [From gap analysis - specific to this agent]
-
-AVAILABLE EXPERTS:
-| Expert | Expertise | Ask When |
-|--------|-----------|----------|
-{{#each available_experts}}
-| {{name}} | {{expertise}} | {{delegation_triggers}} |
-{{/each}}
-
-IT IS BETTER TO ASK THAN TO GUESS WRONG.
-</expert_awareness>
-```
-
-### Step 9: Plan Discovery
-
-Read `{{PLAN_FILE}}`, parse tasks, build dependency graph, initialize state file.
-
-### Step 10: Task Quality Assessment
+### Step 8: Task Quality Assessment
 
 Assess each task for implementability per [Task Quality](../task-quality.md).
-Spawn business analyst agents for `NEEDS_EXPANSION` tasks. Use divine intervention for `NEEDS_CLARIFICATION` tasks.
-Only `IMPLEMENTABLE` tasks enter `available_tasks`. Wait for all BA expansions to complete before dispatching
-developers.
 
-### Step 11: Save Initial State
+Route `NEEDS_EXPANSION` tasks to the `business-analyst` teammate via mailbox:
 
-Persist state to `{{STATE_FILE}}` before dispatching any agents.
+```
+TeammateTool({ operation: "write", to: "business-analyst",
+               content: "Expand task <task-id>: <task description>" })
+```
 
-### Step 12: Proceed to Execution Loop
+Use `AskUserQuestion` for `NEEDS_CLARIFICATION` tasks.
+
+Only `IMPLEMENTABLE` tasks are ready for developer assignment. Wait for all business analyst expansions to complete before routing to developers.
+
+### Step 9: Proceed to Execution Loop
+
+Begin the main loop: developers claim tasks, monitor mailbox for results, route through Developer -> Critic -> Ripple -> Auditor pipeline.
 
 ---
 
 ## Related Documentation
 
-- [Startup Overview](startup-overview.md) - Overview and decision logic
 - [Resume](resume.md) - Resume session procedures
-- [Coordinator Configuration](../coordinator-configuration.md) - Configuration values
-- [State Management](../state-management.md) - State tracking
+- [Team Lead Configuration](../coordinator-configuration.md) - Configuration values
 - [Task Quality](../task-quality.md) - Task assessment
+- [Team Architecture](../team-architecture.md) - Team structure and communication

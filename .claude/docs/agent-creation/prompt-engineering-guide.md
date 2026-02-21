@@ -1,16 +1,16 @@
-# Agent Prompt Engineering Guide
+# Teammate Prompt Engineering Guide
 
-**Purpose**: Define principles for creating mission-oriented, high-quality agent prompts
+**Purpose**: Define principles for creating mission-oriented, high-quality teammate prompts
 **Version**: 2025-01-17-v2
 
 ---
 
 ## Core Philosophy
 
-Agents are not tools to be configured. They are **roles to be inhabited**.
+Teammates are not tools to be configured. They are **roles to be inhabited**.
 
-A well-crafted prompt doesn't just tell an agent what to do - it transforms how the agent thinks about their work. The
-goal is to create agents that:
+A well-crafted prompt doesn't just tell a teammate what to do - it transforms how the teammate thinks about their work. The
+goal is to create teammates that:
 
 - **Own their mission** - feel personal responsibility for outcomes
 - **Recognize their limits** - know when to ask for help vs. push through
@@ -19,11 +19,11 @@ goal is to create agents that:
 
 ---
 
-## Agent vs Expert: The Depth Distinction
+## Teammate vs Expert: The Depth Distinction
 
-**CRITICAL**: Baseline agents and experts serve different purposes and require different prompt structures.
+**CRITICAL**: Baseline teammates and experts serve different purposes and require different prompt structures.
 
-### Baseline Agents (Developer, Critic, Auditor, etc.)
+### Baseline Teammates (Developers, Critic, Ripple, Auditor)
 
 **Broad but shallow.** They handle many technologies and situations with competent general knowledge.
 
@@ -34,20 +34,20 @@ goal is to create agents that:
 | Many technologies   | Research injects breadth, not depth      |
 | Frequent delegation | Expert awareness is critical             |
 
-Baseline agents should think: "I can handle most things competently, but I know when I'm out of my depth."
+Baseline teammates should think: "I can handle most things competently, but I know when I'm out of my depth."
 
-### Expert Agents (Plan-Specific Specialists)
+### Expert Advisors (Plan-Specific Specialists)
 
-**Narrow but deep.** They provide authoritative guidance in one specific domain.
+**Narrow but deep.** They provide authoritative advisory guidance in one specific domain. Experts are advisory only -- they never write code.
 
-| Characteristic  | Implication for Prompts                           |
-|-----------------|---------------------------------------------------|
-| Single domain   | Deep expertise, not broad coverage                |
-| Authoritative   | Definitive recommendations, not suggestions       |
-| Last resort     | Cannot delegate - must solve or escalate to human |
-| Rare invocation | Each consultation matters                         |
+| Characteristic  | Implication for Prompts                                      |
+|-----------------|--------------------------------------------------------------|
+| Single domain   | Deep expertise, not broad coverage                           |
+| Authoritative   | Definitive recommendations, not suggestions                  |
+| Last resort     | Cannot delegate - must solve or escalate to team lead        |
+| Rare invocation | Each consultation matters                                    |
 
-Experts should think: "In my domain, I am the authority. I give answers, not options."
+Expert advisors should think: "In my domain, I am the authority. I give answers, not options. I advise developers, but I never write code myself."
 
 ---
 
@@ -55,7 +55,7 @@ Experts should think: "In my domain, I am the authority. I give answers, not opt
 
 ### The Stakes Are Real
 
-Every agent prompt must make consequences concrete:
+Every teammate prompt must make consequences concrete:
 
 **WRONG** (abstract):
 
@@ -108,13 +108,13 @@ You Are NOT:
 
 ## Required Sections
 
-Every agent prompt MUST include these sections:
+Every teammate prompt MUST include these sections:
 
 ### 1. Frontmatter (YAML)
 
 ```yaml
 ---
-name: [agent-name]
+name: [teammate-name]
 description: [One sentence: what + when to use]
 model: [sonnet | opus | haiku]
 tools: [comma-separated list]
@@ -128,7 +128,7 @@ version: "YYYY-MM-DD-v1"
 - `sonnet`: Implementation, moderate complexity, standard workflows
 - `haiku`: Binary verification, fast checks, simple decisions
 
-### 2. Agent Identity (CRITICAL)
+### 2. Teammate Identity (CRITICAL)
 
 This is the most important section. It shapes everything else.
 
@@ -155,11 +155,11 @@ You are [ROLE] responsible for [MISSION].
 
 ### 3. Failure Modes (REQUIRED)
 
-Anticipate how agents fail and build in countermeasures:
+Anticipate how teammates fail and build in countermeasures:
 
 ```xml
 <failure_modes>
-The most common ways agents in your role fail:
+The most common ways teammates in your role fail:
 
 | Failure | Why It Happens | Your Countermeasure |
 |---------|----------------|---------------------|
@@ -175,7 +175,7 @@ You MUST internalize these countermeasures.
 
 ### 4. Decision Authority Matrix (REQUIRED)
 
-Be explicit about what decisions the agent can make:
+Be explicit about what decisions the teammate can make:
 
 ```xml
 <decision_authority>
@@ -189,27 +189,27 @@ Be explicit about what decisions the agent can make:
 |----------|--------------|-----|
 | [Type] | [expert-name] | [Requires domain depth] |
 
-**ESCALATE TO HUMAN** (divine intervention):
-| Decision | Why Human Needed |
-|----------|------------------|
-| [Type] | [Beyond agent authority] |
+**ESCALATE TO TEAM LEAD** (requires user clarification):
+| Decision | Why Escalation Needed |
+|----------|----------------------|
+| [Type] | [Beyond teammate authority] |
 
-NEVER guess on expert or human decisions. Ask.
+NEVER guess on expert or team lead decisions. Ask.
 </decision_authority>
 ```
 
-### 5. Pre-Signal Verification (REQUIRED)
+### 5. Pre-Message Verification (REQUIRED)
 
-Force self-questioning before any signal:
+Force self-questioning before any message:
 
 ```xml
-<pre_signal_verification>
-**BEFORE ANY PASS/SUCCESS SIGNAL**, answer:
+<pre_message_verification>
+**BEFORE ANY PASS/SUCCESS MESSAGE**, answer:
 1. "What's the weakest part of this? Why am I passing it anyway?"
 2. "If this fails in production, what will I wish I had caught?"
 3. "Did I VERIFY this, or am I ASSUMING it?"
 
-**BEFORE ANY FAIL SIGNAL**, answer:
+**BEFORE ANY FAIL MESSAGE**, answer:
 1. "Is every issue I'm citing real, or am I being pedantic?"
 2. "Can they fix this without asking followup questions?"
 3. "Am I failing for the right reasons?"
@@ -218,8 +218,8 @@ Force self-questioning before any signal:
 1. "Did I genuinely try 3 different approaches?"
 2. "What SPECIFICALLY would help me?"
 
-If you cannot answer these, you are not ready to signal.
-</pre_signal_verification>
+If you cannot answer these, you are not ready to send a message.
+</pre_message_verification>
 ```
 
 ### 6. Success Criteria (Tiered)
@@ -258,9 +258,9 @@ Checkpoint: [What you should have at this point]
 PHASE 2: [NAME]
 ...
 
-FINAL PHASE: SIGNAL
-1. Complete pre-signal verification
-2. Output signal in exact format
+FINAL PHASE: COMMUNICATE
+1. Complete pre-message verification
+2. Send result via TeammateTool message in exact format
 </method>
 ```
 
@@ -280,7 +280,7 @@ Define both MUST and MUST NOT with reasons:
 </boundaries>
 ```
 
-### 9. Expert Awareness (Baseline Agents Only)
+### 9. Expert Awareness (Baseline Teammates Only)
 
 ```xml
 <expert_awareness>
@@ -302,33 +302,40 @@ not an expert in any specific domain.
 - Trade-offs requiring deep expertise
 - "Is this the RIGHT way?" not just "Does this work?"
 
+**HOW TO ASK**:
+TeammateTool({
+  operation: "write",
+  to: "[expert-name]",
+  content: "EXPERT REQUEST\nTask: [task ID]\nQuestion: [what you need]\nContext: [what you've tried]"
+})
+
 **IT IS BETTER TO ASK THAN TO GUESS WRONG.**
 </expert_awareness>
 ```
 
-### 10. Coordinator Integration
+### 10. Team Integration
 
 ```xml
-<coordinator_integration>
-SIGNAL RULES:
-- Signal MUST start at column 0 (no indentation)
-- Signal MUST appear at END of response
-- NEVER use signal keywords in prose
-- Output exactly ONE primary signal per response
-</coordinator_integration>
+<team_integration>
+MESSAGE RULES:
+- Messages are sent via TeammateTool({ operation: "write", to: "<name>", content: "..." })
+- Read your mailbox with TeammateTool({ operation: "read" })
+- Use structured message formats (AUDIT_PASSED, AUDIT_FAILED, EXPERT REQUEST, etc.)
+- Output exactly ONE primary result message per task completion
+</team_integration>
 ```
 
-### 11. Signal Format
+### 11. Message Format
 
 ```xml
-<signal_format>
-[SIGNAL_NAME]:
-\`\`\`
+<message_format>
+[MESSAGE_TYPE]:
+```
 [Exact format with placeholders]
-\`\`\`
+```
 
-CRITICAL: Use EXACT format. Malformed signals break the workflow.
-</signal_format>
+CRITICAL: Use EXACT format. Malformed messages break the workflow.
+</message_format>
 ```
 
 ---
@@ -356,11 +363,11 @@ new code paths"
 
 ## Learning from Existing Prompts
 
-Before creating an agent prompt, research existing successful prompts for similar roles.
+Before creating a teammate prompt, research existing successful prompts for similar roles.
 
 ### Why Research Existing Prompts
 
-The orchestrator researches popular, well-regarded agent prompts to:
+The team lead researches popular, well-regarded agent prompts to:
 
 - Learn identity framing techniques that create ownership
 - Discover constraint patterns that prevent common failures
@@ -374,9 +381,9 @@ When analyzing existing prompts, extract:
 
 | Element             | What to Look For                    | How to Adapt                         |
 |---------------------|-------------------------------------|--------------------------------------|
-| Identity            | How does it create agent ownership? | Apply similar framing to your domain |
-| Constraints         | What boundaries prevent failure?    | Translate to your agent's scope      |
-| Output Format       | How does it structure responses?    | Adapt signal format as needed        |
+| Identity            | How does it create ownership?       | Apply similar framing to your domain |
+| Constraints         | What boundaries prevent failure?    | Translate to your teammate's scope   |
+| Output Format       | How does it structure responses?    | Adapt message format as needed       |
 | Error Handling      | How does it handle edge cases?      | Apply similar patterns               |
 | Decision Frameworks | How does it guide choices?          | Customize for your domain            |
 
@@ -387,8 +394,8 @@ DON'T: Copy prompts verbatim - they won't fit your plan context
 
 **Good adaptation:**
 
-- "This prompt uses concrete stakes - I'll create stakes specific to MY agent"
-- "This prompt has a failure modes table - I'll add one for MY agent's failures"
+- "This prompt uses concrete stakes - I'll create stakes specific to MY teammate"
+- "This prompt has a failure modes table - I'll add one for MY teammate's failures"
 
 **Bad copying:**
 
@@ -396,9 +403,9 @@ DON'T: Copy prompts verbatim - they won't fit your plan context
 
 ---
 
-## Calibration Examples (REQUIRED for Gatekeeping Agents)
+## Calibration Examples (REQUIRED for Gatekeeping Teammates)
 
-Agents that pass/fail work need concrete examples:
+Teammates that pass/fail work need concrete examples:
 
 ```xml
 <calibration>
@@ -450,7 +457,7 @@ The structure forces actual engagement - you can't fill it out without reading.
 
 ## Quality Checklist
 
-Before finalizing ANY agent prompt:
+Before finalizing ANY teammate prompt:
 
 **Structure**:
 
@@ -458,11 +465,11 @@ Before finalizing ANY agent prompt:
 - [ ] Identity creates ownership and stakes
 - [ ] Failure modes anticipated with countermeasures
 - [ ] Decision authority explicit (decide/consult/escalate)
-- [ ] Pre-signal verification required
+- [ ] Pre-message verification required
 - [ ] Success criteria tiered (minimum/expected/excellent)
 - [ ] Method has concrete, verifiable phases
 - [ ] Boundaries explain WHY
-- [ ] Signal format exact
+- [ ] Message format exact
 
 **Language**:
 
@@ -471,16 +478,17 @@ Before finalizing ANY agent prompt:
 - [ ] Stakes are concrete, not abstract
 - [ ] Consequences explained for both directions
 
-**For Baseline Agents**:
+**For Baseline Teammates**:
 
 - [ ] Expert awareness section present
 - [ ] Limits acknowledged
 - [ ] Delegation triggers clear
 
-**For Experts**:
+**For Expert Advisors**:
 
 - [ ] Deep expertise demonstrated (not surface-level)
 - [ ] Authoritative tone (answers, not options)
+- [ ] Advisory only -- never writes code
 - [ ] Cannot delegate emphasized
 - [ ] Decision frameworks produce definitive recommendations
 
@@ -492,19 +500,19 @@ When you write a meta-prompt, remember:
 
 **You are not configuring a tool. You are defining a role that will be inhabited.**
 
-The agent you create will:
+The teammate you create will:
 
 - Review every piece of code
-- Audit every implementation
+- Verify every implementation
 - Make pass/fail decisions with real consequences
 
-If you create a weak agent:
+If you create a weak teammate:
 
 - Bugs ship
 - Quality degrades
 - The system fails
 
-If you create a strong agent:
+If you create a strong teammate:
 
 - Quality improves with every cycle
 - Issues die before they're born
@@ -517,7 +525,5 @@ If you create a strong agent:
 ## Cross-References
 
 - **[Documentation Index](../index.md)** - Navigation hub
-- [Meta-Prompting Architecture](../meta-prompting.md) - How this system works
-- [Signal Specification](../signal-specification.md) - Signal formats
-- [Escalation Specification](../escalation-specification.md) - When to escalate
-- [Agent Context Management](../agent-context-management.md) - Context handling
+- [Team Architecture](../team-architecture.md) - Team structure and communication
+- [Troubleshooting](../troubleshooting.md) - Common issues and recovery
