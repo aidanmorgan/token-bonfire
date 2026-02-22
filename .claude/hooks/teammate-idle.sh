@@ -1,13 +1,13 @@
 #!/bin/bash
-# TeammateIdle hook - keeps workers productive
+# TeammateIdle hook - keeps teammates productive
 #
 # When a teammate finishes its turn:
-# - Exit 2 = prompt teammate to check for available work
+# - Exit 2 = prompt teammate to continue working
 # - Exit 0 = no action needed, teammate can idle
 #
-# This is project-agnostic: it only checks whether there
-# are pending tasks remaining, not what the tasks contain.
+# All teammates should message the team lead when idle
+# to request more work via SendMessage.
 
-# Prompt the teammate to check for work or review feedback
-echo "Check your mailbox for review feedback or your next task."
+# Prompt the teammate to message the team lead for work
+echo "You are idle. Send REQUESTING_WORK to the team lead via SendMessage({ type: \"message\", recipient: \"team-lead\", content: \"REQUESTING_WORK\", summary: \"Requesting work\" }) and check your mailbox for pending messages."
 exit 2

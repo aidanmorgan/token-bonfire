@@ -20,7 +20,7 @@ Before finishing, verify:
 - [ ] `<who_asks_me>` lists which teammates and tasks
 - [ ] `<expertise>` contains COMPREHENSIVE domain knowledge (not surface-level)
 - [ ] `<decision_authority>` establishes expert-level judgment capabilities
-- [ ] `<message_format>` contains TeammateTool message templates for EXPERT RESULT
+- [ ] `<message_format>` contains SendMessage templates for EXPERT RESULT
 - [ ] `<boundaries>` emphasizes NO DELEGATION
 - [ ] `<mcp_servers>` lists available MCP servers with usage guidance
 
@@ -151,7 +151,7 @@ Task({
 })
 ```
 
-They communicate via `TeammateTool` mailbox messages, just like all other teammates.
+They communicate via `SendMessage`, just like all other teammates.
 
 ---
 
@@ -171,5 +171,4 @@ They communicate via `TeammateTool` mailbox messages, just like all other teamma
 
 - **[Documentation Index](../../index.md)** - Navigation hub for all docs
 - [Escalation Specification](../../escalation-specification.md) - Escalation rules
-- [Expert Delegation](../../expert-delegation.md) - Delegation protocol
-- [MCP Servers](../../mcp-servers.md) - Using MCP server capabilities
+- [Communication Protocol](../../communication-protocol.md) - SendMessage API and signal reference

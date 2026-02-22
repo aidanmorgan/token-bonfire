@@ -27,9 +27,9 @@ Every bonfire team consists of these named teammates. **ALL must be spawned for 
 
 | Name | Role | Model | Count | Agent Definition | Spawned When |
 |------|------|-------|-------|------------------|-------------|
-| `dev-1` through `dev-N` | **Developer Agent** — general-purpose implementer. Claims tasks, writes code, runs tests. Consults experts when domain knowledge is needed. | `DEVELOPER_MODEL` | `NUM_DEVELOPERS` (default 5) | `.claude/agents/developer.md` | Always |
+| `dev-1` through `dev-N` | **Developer Agent** — general-purpose implementer. Receives task assignments from the team lead, writes code, runs tests. Sends `REQUESTING_WORK` when idle. | `DEVELOPER_MODEL` | `NUM_DEVELOPERS` (default 5) | `.claude/agents/developer.md` | Always |
 | `critic` | **Critic** — code quality gatekeeper. Reviews developer code for bugs, style, error handling, dead code. Does NOT verify acceptance criteria. Signals `REVIEW_PASSED` or `REVIEW_FAILED`. | `EXPERT_MODEL` | 1 | `.claude/agents/critic.md` | Always |
-| `ripple` | **Ripple** — second-order effects analyst. Analyzes downstream impact of changes: broken consumers, altered API contracts, test coverage gaps, behavioral drift. Does NOT review first-order quality or acceptance criteria. Signals `RIPPLE_PASSED` or `RIPPLE_FAILED`. | `EXPERT_MODEL` | 1 | `.claude/agents/ripple.md` | Always |
+| `ripple` | **Ripple** — second-order effects analyst. Analyzes downstream impact of changes: broken consumers, altered API contracts, test coverage gaps, behavioral drift. Signals `RIPPLE_PASSED` or `RIPPLE_FAILED`. | `EXPERT_MODEL` | 1 | `.claude/agents/ripple.md` | Always |
 | `auditor` | **Auditor** — acceptance criteria verifier. SOLE AUTHORITY for task completion. Independently runs all verification commands, verifies every acceptance criterion with evidence. Signals `AUDIT_PASSED`, `AUDIT_FAILED`, or `AUDIT_BLOCKED`. | `AUDITOR_MODEL` | 1 | `.claude/agents/auditor.md` | Always |
 
 ### Reactive Agents (always spawned, activate on demand)
@@ -37,7 +37,7 @@ Every bonfire team consists of these named teammates. **ALL must be spawned for 
 | Name | Role | Model | Count | Agent Definition | Activates When |
 |------|------|-------|-------|------------------|----------------|
 | `<expert-name>` (e.g., `auth-expert`, `database-expert`) | **Expert Advisor** — domain-specialized knowledge source. Provides advice, patterns, pitfalls, and design guidance to developers. Does NOT write code directly. | `EXPERT_MODEL` | 2–`MAX_EXPERTS` | `.claude/experts/<plan_slug>/<expert-name>.md` (inline prompt) | Developer signals `NEED_EXPERT_ADVICE` for a task in this expert's domain |
-| `business-analyst` | **Business Analyst** — requirement expansion specialist. Expands underspecified tasks into implementable specifications with verifiable acceptance criteria. Searches codebase for patterns to ground decisions. Signals `EXPANDED_TASK_SPECIFICATION` or `SEEKING_DIVINE_CLARIFICATION`. | `EXPERT_MODEL` | 1 | `.claude/agents/business-analyst.md` | Task is underspecified or acceptance criteria are untestable |
+| `business-analyst` | **Business Analyst** — requirement expansion specialist. Expands underspecified tasks into implementable specifications with verifiable acceptance criteria. Signals `EXPANDED_TASK_SPECIFICATION` or `SEEKING_DIVINE_CLARIFICATION`. | `EXPERT_MODEL` | 1 | `.claude/agents/business-analyst.md` | Task is underspecified or acceptance criteria are untestable |
 | `remediation` | **Remediation** — infrastructure repair specialist. Diagnoses and fixes verification failures that block development. Applies minimal targeted fixes. Never disables checks. Signals `REMEDIATION_COMPLETE`. | `EXPERT_MODEL` | 1 | `.claude/agents/remediation.md` | Infrastructure verification fails and blocks development |
 | `health-auditor` | **Health Auditor** — codebase health verifier. Independently runs all verification commands after remediation to confirm fixes worked. Binary judgment only. Signals `HEALTH_AUDIT: HEALTHY` or `HEALTH_AUDIT: UNHEALTHY`. | `haiku` | 1 | `.claude/agents/health-auditor.md` | After remediation completes, to verify fixes |
 
@@ -47,6 +47,10 @@ Every bonfire team consists of these named teammates. **ALL must be spawned for 
 Task (underspecified?) ──→ business-analyst ──→ Expanded Specification
                                                        │
 Task (clear) ─────────────────────────────────────────→ │
+                                                       ▼
+                                          Team Lead assigns task
+                                          (via SendMessage with full TaskGet detail)
+                                                       │
                                                        ▼
                                                   developer agent
                                                   (implements code)
@@ -100,67 +104,10 @@ This outputs JSON to stdout containing:
 
 The `plan_slug` ensures re-running the same plan reuses the same shared task list and expert definitions.
 
-#### Step 1b: Parse tasks via sub-agent
-
-Spawn a sub-agent to read the plan file, identify all tasks and their dependencies, and create them in the shared task list. This replaces rigid regex parsing with Claude's ability to understand any plan format.
-
-```
-Task({
-  description: "Parse plan into tasks",
-  subagent_type: "general-purpose",
-  prompt: "<see below>"
-})
-```
-
-The sub-agent prompt MUST include:
-
-1. The full plan file path to read
-2. The `plan_slug` (for context, not for task list naming — the sub-agent uses TaskCreate/TaskUpdate directly)
-3. These explicit instructions:
-
-```
-You are a plan parser. Read the plan file at "<plan_file>" and extract every task into the shared task list.
-
-For EACH task you find in the plan:
-
-1. Call TaskCreate with:
-   - subject: "<task-id>: <task-title>" (e.g., "C-1: Implement PushdownEntityScope DataFusion Optimizer Rule")
-   - description: Include ALL of the following from the plan:
-     - The problem description / work to be done
-     - Unit test plan (if present)
-     - Acceptance criteria (as a checklist)
-     - Crate(s) and file(s) affected
-     - Design reference documents
-   - activeForm: A present-continuous summary (e.g., "Implementing PushdownEntityScope optimizer rule")
-
-2. Track the mapping of plan task IDs (e.g., "C-1", "H-3") to TaskCreate-assigned numeric IDs.
-
-3. After ALL tasks are created, set up dependencies using TaskUpdate:
-   - Tasks within the same execution wave/phase can run in parallel (no dependencies between them)
-   - Tasks in later waves depend on tasks from earlier waves that touch the same crate or subsystem
-   - Use the plan's "Execution Strategy" or "Phases" section to determine wave groupings
-   - Call TaskUpdate({ taskId: "<numeric-id>", addBlockedBy: ["<numeric-id>", ...] }) for each dependency
-
-4. Skip any tasks marked as "COMPLETE" or already done.
-
-5. After creating all tasks, respond with a summary:
-   - Total tasks created
-   - Number of execution waves/phases identified
-   - The ID mapping (plan-ID -> numeric-ID) so the team lead can reference tasks
-   - Any tasks that were skipped and why
-
-IMPORTANT:
-- Do NOT invent dependencies that aren't implied by the plan structure
-- Do NOT skip tasks just because they lack explicit "Blocked By" fields — infer wave membership from the plan's execution strategy section
-- Tasks within the same wave should NOT block each other
-- If the plan has no explicit execution order, create all tasks with no dependencies (flat list)
-```
-
-**Wait for the sub-agent to complete** before proceeding. The sub-agent's response provides the task ID mapping needed for expert assignment.
-
 ### Step 2: Read Team Configuration
 
 Read these files:
+- `.claude/docs/autonomy.md` — **Hard constraints on team lead behavior (read FIRST)**
 - `.claude/prompts/team-lead.md` — Team lead instructions
 - `.claude/prompts/expert.md` — Expert advisory loop (embedded in every expert advisor's spawn prompt)
 - `.claude/base_variables.md` — Project configuration
@@ -204,9 +151,7 @@ Follow the team lead instructions from `.claude/prompts/team-lead.md`. Use **Del
 
 3. **Generate expert prompt files** — write each expert's definition to `.claude/experts/<plan_slug>/<expert-name>.md` with identity, domain expertise, and applicable tasks.
 
-4. **Create tasks** in the shared task list:
-   - `TaskCreate` for each task with subject, description, activeForm
-   - `TaskUpdate({ addBlockedBy })` for dependencies
+4. **Create tasks** — spawn a sub-agent to parse the plan file and create tasks in the shared task list. See [Task Parsing Sub-Agent](#task-parsing-sub-agent) below for the full sub-agent prompt. Wait for the sub-agent to complete before proceeding.
 
 5. **Spawn the team** (see Spawn Procedure below)
 
@@ -221,7 +166,7 @@ Follow the team lead instructions from `.claude/prompts/team-lead.md`. Use **Del
 
 1. **Load expert definitions** from disk
 2. **Skip research**
-3. **Create tasks** in the shared task list
+3. **Create tasks** — spawn a sub-agent to parse the plan file (same as Fresh Start step 4)
 4. **Spawn the team**
 
 #### Orphaned Tasks (no experts, tasks exist):
@@ -262,7 +207,7 @@ The agent definition (`.claude/agents/developer.md`) provides the role instructi
 4. Agent reference documents table (from `base_variables.md`)
 5. Environments table (from `base_variables.md`)
 6. MCP servers table (from `base_variables.md`)
-7. **Expert roster** — list of available expert advisors and their domains, so the developer knows who to ask for help:
+7. **Expert roster** — list of available expert advisors and their domains:
    ```
    Available Expert Advisors:
    - <expert-name-1>: <domain description> (tasks: <task-ids>)
@@ -272,7 +217,7 @@ The agent definition (`.claude/agents/developer.md`) provides the role instructi
    specifying which expert and your question.
    ```
 
-**Developers are generalists.** They can claim ANY task from the task list. They do not have task affinity — any developer can work on any task. When a task requires deep domain knowledge, the developer signals `NEED_EXPERT_ADVICE` and the team lead routes the question to the appropriate expert advisor.
+**Developers receive task assignments from the team lead.** They do NOT claim tasks themselves. On startup, each developer sends `REQUESTING_WORK` to the team lead and waits for an assignment.
 
 **Step 5.3: Spawn ALL named expert advisors** — one `Task` call per expert, all in parallel:
 
@@ -291,20 +236,7 @@ Task({
 
 Each expert advisor's spawn prompt MUST include (in this order):
 1. Expert definition file (from `.claude/experts/<plan_slug>/<expert-name>.md`)
-2. **Advisor role instructions** (NOT developer.md — experts do NOT implement):
-   ```
-   You are an expert advisor on a parallel implementation team. You do NOT write code or claim tasks.
-   Your role is to provide domain-specific guidance when developer agents ask for help.
-
-   When you receive a question from the team lead (routed from a developer):
-   1. Read the relevant code/files to understand the current state
-   2. Provide specific, actionable advice grounded in your domain expertise
-   3. Include code examples, patterns, or references from your knowledge base
-   4. Signal EXPERT_ADVICE_PROVIDED with your response
-
-   When not answering questions, you are idle. Do not claim tasks or write code.
-   Wait for the team lead to route questions to you.
-   ```
+2. Advisor role instructions (from `.claude/prompts/expert.md`)
 3. Agent reference documents table (from `base_variables.md`)
 4. Environments table (from `base_variables.md`)
 
@@ -320,7 +252,7 @@ Task({
 })
 ```
 
-The agent definition (`.claude/agents/critic.md`) provides role instructions, model, memory, and tool restrictions automatically. The `prompt` parameter carries only:
+Critic `prompt` parameter includes:
 1. Agent reference documents table (from `base_variables.md`)
 2. Environments table (from `base_variables.md`)
 3. MCP servers table (from `base_variables.md`)
@@ -337,7 +269,7 @@ Task({
 })
 ```
 
-The agent definition (`.claude/agents/ripple.md`) provides role instructions, model, memory, and tool restrictions automatically. The `prompt` parameter carries only:
+Ripple `prompt` parameter includes:
 1. Agent reference documents table (from `base_variables.md`)
 2. Environments table (from `base_variables.md`)
 3. MCP servers table (from `base_variables.md`)
@@ -354,7 +286,7 @@ Task({
 })
 ```
 
-The agent definition (`.claude/agents/auditor.md`) provides role instructions, model, memory, and tool restrictions automatically. The `prompt` parameter carries only:
+Auditor `prompt` parameter includes:
 1. Verification commands table (from `base_variables.md`)
 2. Agent reference documents table (from `base_variables.md`)
 3. Environments table (from `base_variables.md`)
@@ -372,7 +304,7 @@ Task({
 })
 ```
 
-The agent definition (`.claude/agents/business-analyst.md`) provides role instructions, model, and tool restrictions automatically. The `prompt` parameter carries only:
+Business analyst `prompt` parameter includes:
 1. Agent reference documents table (from `base_variables.md`)
 2. MCP servers table (from `base_variables.md`)
 
@@ -388,7 +320,7 @@ Task({
 })
 ```
 
-The agent definition (`.claude/agents/remediation.md`) provides role instructions, model, and permissions automatically. The `prompt` parameter carries only:
+Remediation `prompt` parameter includes:
 1. Developer commands table (from `base_variables.md`)
 2. Verification commands table (from `base_variables.md`)
 3. Environments table (from `base_variables.md`)
@@ -406,7 +338,7 @@ Task({
 })
 ```
 
-The agent definition (`.claude/agents/health-auditor.md`) provides role instructions, model, and tool restrictions automatically. The `prompt` parameter carries only:
+Health auditor `prompt` parameter includes:
 1. Verification commands table (from `base_variables.md`)
 2. Environments table (from `base_variables.md`)
 3. MCP servers table (from `base_variables.md`)
@@ -416,58 +348,142 @@ The agent definition (`.claude/agents/health-auditor.md`) provides role instruct
 ```
 TEAM SPAWNED for <plan_slug>:
   Developers:       dev-1, dev-2, dev-3, dev-4, dev-5
-  Expert Advisors:  <expert-1>, <expert-2>, ..., <expert-N>
+  Expert Advisors:  <expert-1>, <expert-2>, ..., <expert-M>
   Critic:           critic
   Ripple:           ripple
   Auditor:          auditor
   Business Analyst: business-analyst
   Remediation:      remediation
   Health Auditor:   health-auditor
-  Total teammates:  <5+N+6>
+  Total teammates:  <N+M+6>
 ```
+
+### Task Parsing Sub-Agent
+
+When creating tasks (Fresh Start step 4, Expert Reuse step 3), spawn a sub-agent:
+
+```
+Task({
+  description: "Parse plan into tasks",
+  subagent_type: "general-purpose",
+  prompt: "<see below>"
+})
+```
+
+The sub-agent prompt MUST include:
+
+1. The full plan file path to read
+2. The `plan_slug` (for context)
+3. These explicit instructions:
+
+```
+You are a plan parser. Read the plan file at "<plan_file>" and extract every task into the shared task list.
+
+For EACH task you find in the plan:
+
+1. Call TaskCreate with:
+   - subject: "<task-id>: <task-title>" (e.g., "C-1: Implement PushdownEntityScope DataFusion Optimizer Rule")
+   - description: Include ALL of the following from the plan:
+     - The problem description / work to be done
+     - Unit test plan (if present)
+     - Acceptance criteria (as a checklist)
+     - Crate(s) and file(s) affected
+     - Design reference documents
+   - activeForm: A present-continuous summary (e.g., "Implementing PushdownEntityScope optimizer rule")
+
+2. Track the mapping of plan task IDs (e.g., "C-1", "H-3") to TaskCreate-assigned numeric IDs.
+
+3. After ALL tasks are created, set up dependencies using TaskUpdate:
+   - Tasks within the same execution wave/phase can run in parallel (no dependencies between them)
+   - Tasks in later waves depend on tasks from earlier waves that touch the same crate or subsystem
+   - Use the plan's "Execution Strategy" or "Phases" section to determine wave groupings
+   - Call TaskUpdate({ taskId: "<numeric-id>", addBlockedBy: ["<numeric-id>", ...] }) for each dependency
+
+4. Skip any tasks marked as "COMPLETE" or already done.
+
+5. After creating all tasks, respond with a summary:
+   - Total tasks created
+   - Number of execution waves/phases identified
+   - The ID mapping (plan-ID -> numeric-ID) so the team lead can reference tasks
+   - Any tasks that were skipped and why
+
+IMPORTANT:
+- Do NOT invent dependencies that aren't implied by the plan structure
+- Do NOT skip tasks just because they lack explicit "Blocked By" fields
+- Tasks within the same wave should NOT block each other
+- If the plan has no explicit execution order, create all tasks with no dependencies (flat list)
+```
+
+**Wait for the sub-agent to complete** before proceeding to team spawn.
 
 ### Step 6: Execution Phase
 
-Monitor mailbox continuously. Route messages through the staged pipeline:
+**You are the sole task assigner.** Developers do NOT claim tasks themselves.
+
+#### Task Assignment Loop
+
+When a developer sends `REQUESTING_WORK`:
+
+1. Call `TaskList` to find pending, unblocked tasks
+2. Select the best task (prefer lowest ID / earliest phase / most dependents)
+3. Call `TaskGet({ taskId: "<id>" })` to retrieve full task detail
+4. Call `TaskUpdate({ taskId: "<id>", status: "in_progress", owner: "<dev-name>" })` to mark it assigned
+5. Send the full task detail to the developer:
+
+```
+SendMessage({
+  type: "message",
+  recipient: "<dev-name>",
+  content: "TASK_ASSIGNMENT: <task-id>\n\nSubject: <subject>\n\n<full description from TaskGet>",
+  summary: "Assigned task <task-id>"
+})
+```
+
+If no tasks are available, inform the developer to stand by.
+
+#### Message Routing
+
+All messages use `SendMessage`. **Never use `broadcast`** — it scales with team size and is expensive.
 
 **From developer agents:**
-- `READY_FOR_REVIEW: <task-id>` → `write` review request to `critic`
-- `NEED_EXPERT_ADVICE: <expert-name> <question>` → `write` question to the named expert advisor
-- `NEED_CLARIFICATION: <question>` → route to `business-analyst` or escalate via `AskUserQuestion`
-- `INFRA_BLOCKED: <details>` → `write` to `remediation`
-- `FILE_CONFLICT: <details>` → coordinate ownership between developers
+- `REQUESTING_WORK` → Assign next available task via `TaskGet` + `TaskUpdate` + `SendMessage`
+- `READY_FOR_REVIEW: <task-id>` → Forward to `critic` via `SendMessage`
+- `NEED_EXPERT_ADVICE: <expert-name> <question>` → Forward to named expert via `SendMessage`
+- `NEED_CLARIFICATION: <question>` → Route to `business-analyst` via `SendMessage` or escalate via `AskUserQuestion`
+- `INFRA_BLOCKED: <details>` → Forward to `remediation` via `SendMessage`
+- `FILE_CONFLICT: <details>` → Coordinate ownership between developers via `SendMessage`
 
 **From expert advisors:**
-- `EXPERT_ADVICE_PROVIDED: <task-id> [advice]` → `write` advice back to the requesting developer
+- `EXPERT_ADVICE_PROVIDED: <task-id> [advice]` → Forward to requesting developer via `SendMessage`
 
 **From `critic`:**
-- `REVIEW_PASSED: <task-id>` → `write` ripple request to `ripple`
-- `REVIEW_FAILED: <task-id> [feedback]` → `write` feedback to owning developer for rework
+- `REVIEW_PASSED: <task-id>` → Forward to `ripple` via `SendMessage`
+- `REVIEW_FAILED: <task-id> [feedback]` → Forward to owning developer via `SendMessage`
 
 **From `ripple`:**
-- `RIPPLE_PASSED: <task-id>` → `write` audit request to `auditor`
-- `RIPPLE_FAILED: <task-id> [feedback]` → `write` feedback to owning developer for rework
+- `RIPPLE_PASSED: <task-id>` → Forward to `auditor` via `SendMessage`
+- `RIPPLE_FAILED: <task-id> [feedback]` → Forward to owning developer via `SendMessage`
 
 **From `auditor`:**
 - `AUDIT_PASSED: <task-id>` → `TaskUpdate({ status: "completed" })` — **ONLY the auditor's pass triggers completion**
-- `AUDIT_FAILED: <task-id> [feedback]` → `write` feedback to owning developer for rework
-- `AUDIT_BLOCKED: <task-id> [details]` → `write` to `remediation`
+- `AUDIT_FAILED: <task-id> [feedback]` → Forward to owning developer via `SendMessage`
+- `AUDIT_BLOCKED: <task-id> [details]` → Forward to `remediation` via `SendMessage`
 
 **From `business-analyst`:**
-- `EXPANDED_TASK_SPECIFICATION: <task-id>` → update task description, route to developer
-- `SEEKING_DIVINE_CLARIFICATION: <question>` → escalate to user via `AskUserQuestion`
+- `EXPANDED_TASK_SPECIFICATION: <task-id>` → Update task description via `TaskUpdate`, notify developer via `SendMessage`
+- `SEEKING_DIVINE_CLARIFICATION: <question>` → Escalate to user via `AskUserQuestion`
 
 **From `remediation`:**
-- `REMEDIATION_COMPLETE` → `write` to `health-auditor` to verify fixes
+- `REMEDIATION_COMPLETE` → Forward to `health-auditor` via `SendMessage`
 
 **From `health-auditor`:**
-- `HEALTH_AUDIT: HEALTHY` → resume normal development flow
-- `HEALTH_AUDIT: UNHEALTHY [details]` → `write` details back to `remediation` for retry
+- `HEALTH_AUDIT: HEALTHY` → Resume normal development flow
+- `HEALTH_AUDIT: UNHEALTHY [details]` → Forward to `remediation` via `SendMessage` for retry
 
 ### Step 7: Completion
 
 When ALL tasks are `completed` (via `AUDIT_PASSED`):
-- Send `shutdown_request` to EACH teammate
+- Send shutdown request to EACH teammate via `SendMessage({ type: "shutdown_request", recipient: "<name>", content: "..." })`
 - Wait for shutdown responses from each
 - `TeamDelete` to remove team resources
 - Report final status to user
@@ -481,21 +497,33 @@ When ALL tasks are `completed` (via `AUDIT_PASSED`):
 | Plan file missing          | Output: "Plan file not found: $plan_file"                        |
 | Task parser sub-agent fails | Review error, retry once, then escalate to user                  |
 | Cycle detected in tasks    | Sub-agent reports cycle details; stop and escalate                |
-| Developer crash            | Heartbeat timeout releases task; respawn with `subagent_type: "developer"` |
-| Expert advisor crash       | Respawn from disk prompt with `subagent_type: "general-purpose"`; queued advice requests resume |
-| Critic/Ripple/Auditor crash | Respawn by name (`subagent_type: "<agent-name>"`); queued reviews resume |
-| Business-analyst crash     | Respawn with `subagent_type: "business-analyst"`; queued requests resume |
-| Remediation crash          | Respawn with `subagent_type: "remediation"`; queued requests resume |
-| Health-auditor crash       | Respawn with `subagent_type: "health-auditor"`; queued requests resume |
+| Developer crash            | Heartbeat timeout releases task; respawn with `subagent_type: "developer"`, `team_name: "<plan_slug>"` |
+| Expert advisor crash       | Respawn from disk prompt with `subagent_type: "general-purpose"`, `team_name: "<plan_slug>"` |
+| Critic/Ripple/Auditor crash | Respawn by name with `subagent_type: "<agent-name>"`, `team_name: "<plan_slug>"` |
+| Business-analyst crash     | Respawn with `subagent_type: "business-analyst"`, `team_name: "<plan_slug>"` |
+| Remediation crash          | Respawn with `subagent_type: "remediation"`, `team_name: "<plan_slug>"` |
+| Health-auditor crash       | Respawn with `subagent_type: "health-auditor"`, `team_name: "<plan_slug>"` |
 | Remediation stuck          | Escalate to user via `AskUserQuestion`                           |
 | Auditor rejects 3+ times   | Investigate root cause, escalate if needed                       |
 | Any teammate fails to spawn | HALT — do not proceed without the full team                      |
+
+## Autonomy Constraints
+
+**Read `.claude/docs/autonomy.md` before entering the execution phase.** This document defines hard invariants that the team lead MUST NOT violate:
+
+1. Every task passes the full pipeline (Developer → Critic → Ripple → Auditor) — no exceptions
+2. Only `AUDIT_PASSED` triggers task completion — never mark complete for any other reason
+3. The team lead does not implement code or spawn standalone Task agents as pipeline substitutes
+4. Experts are advisory only — never assign implementation work to experts
+5. Pipeline state is persisted to task metadata — survives crashes and resume
+6. When the team fails, fix it or escalate — do not work around it
 
 ## Prerequisites
 
 | Requirement            | Location                                   |
 |------------------------|--------------------------------------------|
 | Agent definitions      | `.claude/agents/` (developer, critic, ripple, auditor, business-analyst, remediation, health-auditor) |
+| Autonomy constraints   | `.claude/docs/autonomy.md`                 |
 | Base variables         | `.claude/base_variables.md`                |
 | Team lead prompt       | `.claude/prompts/team-lead.md`             |
 | Expert advisory loop   | `.claude/prompts/expert.md`                |
@@ -508,4 +536,4 @@ When ALL tasks are `completed` (via `AUDIT_PASSED`):
 |-----------|---------|
 | `.claude/agents/` | Native agent definitions (YAML frontmatter + role instructions) |
 | `.claude/experts/<plan_slug>/` | Persisted expert knowledge bases (survive resume) |
-| `.claude/prompts/` | Team lead prompt and expert advisory loop (static roles deprecated — see `.claude/agents/`) |
+| `.claude/prompts/` | Team lead prompt and expert advisory loop |

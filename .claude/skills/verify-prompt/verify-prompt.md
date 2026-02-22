@@ -44,7 +44,7 @@ Verify the prompt has ALL required sections:
 | `<boundaries>`              | YES               | MUST and MUST NOT rules                    |
 | `<expert_awareness>`        | If static agent | Limitations and available experts          |
 | `<context_management>`      | Recommended       | Checkpoint triggers and format             |
-| `<coordinator_integration>` | YES               | Signal rules                               |
+| `<team_lead_integration>` | YES               | Signal rules                               |
 | `<signal_format>`           | YES               | Exact output formats                       |
 | `<framing>`                 | Optional          | Context that shapes interpretation         |
 | `<best_practices>`          | For Dev/Critic    | Technology-specific guidance               |
@@ -134,7 +134,7 @@ PROMPT QUALITY REVIEW
 | boundaries | ✓/✗ | [assessment] |
 | expert_awareness | ✓/✗/N/A | [assessment] |
 | context_management | ✓/✗ | [assessment] |
-| coordinator_integration | ✓/✗ | [assessment] |
+| team_lead_integration | ✓/✗ | [assessment] |
 | signal_format | ✓/✗ | [assessment] |
 
 ═══════════════════════════════════════════════════════════════
@@ -178,7 +178,7 @@ When used during agent/expert creation:
 3. This skill reviews and outputs recommendations
 4. The creating agent MUST apply all CRITICAL and HIGH recommendations
 5. The creating agent writes the revised prompt to the agent file
-6. Log event: `prompt_quality_verified` with verdict and recommendations applied
+6. Send verdict and applied recommendations to team lead via `SendMessage`
 
 ## Example
 

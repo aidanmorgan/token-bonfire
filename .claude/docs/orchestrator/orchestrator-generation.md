@@ -45,7 +45,7 @@ This means a Python project gets Python-specific best practices, not generic adv
 
 ## Overview
 
-The team lead is the central coordinator that:
+The team lead is the central orchestrator that:
 
 1. Analyzes a plan to understand requirements
 2. **Generates ALL agent prompts** - both role prompts and plan-specific experts
@@ -63,10 +63,10 @@ The team lead is the central coordinator that:
 |--------------------------------|--------------------------------------------------------|
 | Research & knowledge synthesis | [research-synthesis.md](research-synthesis.md)         |
 | Gap analysis for experts       | [gap-analysis-procedure.md](gap-analysis-procedure.md) |
-| Agent prompt generation        | [agent-generation/index.md](agent-generation/index.md) |
+| Agent prompt generation        | [agent-generation/research.md](agent-generation/research.md) |
 | Task quality assessment        | [../task-quality.md](../task-quality.md)               |
-| Task list schema               | [../state/index.md](../state/index.md)                 |
-| Communication messages         | [../signals/index.md](../signals/index.md)             |
+| Task list schema               | [../state/task-tracking.md](../state/task-tracking.md) |
+| Communication messages         | [../communication-protocol.md](../communication-protocol.md) |
 
 ---
 
@@ -138,9 +138,9 @@ Experts are persisted to `.claude/experts/<plan_slug>/`.
 3. **GAP ANALYSIS** - Identify where developers need expert advisory support
    -> See [gap-analysis-procedure.md](gap-analysis-procedure.md)
 4. **AGENT GENERATION PHASE (CRITICAL)** - Generate expert advisor prompts, compose agent-specific research, verify all created
-   -> See [agent-generation/index.md](agent-generation/index.md)
+   -> See [agent-generation/research.md](agent-generation/research.md)
 5. **ASSESS TASK QUALITY** - Classify tasks, spawn BA for underspecified ones
-   -> See [task-quality.md](task-quality.md)
+   -> See [../task-quality.md](../task-quality.md)
 6. **CREATE TASKS** - Use `TaskCreate` for each task from the plan, set dependencies via `TaskUpdate({ addBlockedBy })`
 7. **SPAWN TEAMMATES** - Spawn developers, critic, auditor, and expert advisors as named teammates via `Task({ team_name, name, run_in_background: true })`
 8. **BEGIN TASK DELIVERY LOOP**
@@ -152,7 +152,7 @@ Experts are persisted to `.claude/experts/<plan_slug>/`.
 
 **RESUME SESSION FLOW**:
 
-1. **CHECK TASK LIST** - `TaskList` returns all existing tasks with current status
+1. **CHECK TASK LIST** - `TaskList` returns task summaries (`id`, `subject`, `status`, `owner`, `blockedBy`) — use `TaskGet` for full detail
 2. **PRE-FLIGHT VALIDATION** - Verify environment is ready
 3. **RE-PARSE PLAN** - Plan may have changed since last session
 4. **SKIP RESEARCH** - Do NOT re-run research synthesis (per team-lead.md: prompts are pre-existing)
@@ -237,14 +237,14 @@ These essays serve as:
 
 - [research-synthesis.md](research-synthesis.md) - Knowledge gathering and synthesis
 - [gap-analysis-procedure.md](gap-analysis-procedure.md) - Expert identification
-- [agent-generation/index.md](agent-generation/index.md) - Agent prompt creation
+- [agent-generation/research.md](agent-generation/research.md) - Agent prompt creation
 - [../task-quality.md](../task-quality.md) - Task assessment
-- [../state/index.md](../state/index.md) - Task list schema
-- [../signals/index.md](../signals/index.md) - Communication message reference
+- [../state/task-tracking.md](../state/task-tracking.md) - Task list schema
+- [../communication-protocol.md](../communication-protocol.md) - Communication message reference
 
 ### External References
 
 - [Task Delivery Loop](../task-delivery-loop.md) - Main execution loop
 - [Expert Creation](../agent-creation/expert-creation/index.md) - Creating expert agents
-- [Team Architecture](../team-architecture.md) - Team structure and communication
+- [Communication Protocol](../communication-protocol.md) - Team structure and communication
 - [Environment Verification](../environment-verification.md) - Environment checks

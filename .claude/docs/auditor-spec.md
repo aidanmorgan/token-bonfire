@@ -28,9 +28,10 @@ the auditor cannot verify requirements were implemented correctly.
 The team lead routes audit requests via:
 
 ```
-TeammateTool({
-    operation: "write",
-    to: "auditor",
+SendMessage({
+    type: "message",
+    recipient: "auditor",
+    summary: "Audit task <task-id>",
     content: "Audit task <task-id>:
 
 TASK SPECIFICATION (from plan - the source of truth):
@@ -227,9 +228,10 @@ Triggering infrastructure remediation.
 On AUDIT_BLOCKED, the team lead routes the issue to the `remediation` teammate via mailbox:
 
 ```
-TeammateTool({
-    operation: "write",
-    to: "remediation",
+SendMessage({
+    type: "message",
+    recipient: "remediation",
+    summary: "Infrastructure blocked, pre-existing failures",
     content: "INFRA_BLOCKED: <pre-existing failure details>"
 })
 ```
@@ -239,4 +241,4 @@ TeammateTool({
 ## Cross-References
 
 - [Review and Audit Flow](review-audit-flow.md) - Full Developer -> Critic -> Ripple -> Auditor pipeline
-- [Team Architecture](team-architecture.md) - Team structure and communication protocol
+- [Communication Protocol](communication-protocol.md) - Team structure and communication protocol

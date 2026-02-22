@@ -354,9 +354,9 @@ SEPARATION PLANNING:
 │       → Cross-references for related concepts
 │
 └── Separation output format:
-    SEPARATE: "state/index.md"
+    SEPARATE: "state/task-tracking.md"
     INTO:
-      - state/fields.md: "What state fields exist" (lines 10-200)
+      - state/task-tracking.md: "Task selection and tracking" (lines 10-200)
       - state/updates.md: "When state changes" (lines 201-400)
       - state/recovery.md: "How to recover state" (lines 401-500)
     REASON: Three distinct topics serving different needs
@@ -384,7 +384,7 @@ MOVEMENT PLANNING:
 └── Movement output format:
     MOVE: "Signal parsing implementation"
     FROM: task-dispatch.md (lines 200-350)
-    TO: signals/index.md
+    TO: communication-protocol.md
     REASON: Parsing details don't belong in dispatch workflow
     ACTION: Move prose, leave brief reference in source
 ```

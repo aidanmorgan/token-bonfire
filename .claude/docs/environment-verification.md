@@ -140,9 +140,10 @@ If validation fails, the team lead does NOT route to the critic:
 2. Message the developer with the rejection reason:
 
 ```
-TeammateTool({
-  operation: "write",
-  to: "<developer-name>",
+SendMessage({
+  type: "message",
+  recipient: "<developer-name>",
+  summary: "Signal rejected: incomplete environment verification matrix",
   content: "SIGNAL REJECTED: [task_id]\n\nReason: [validation error]\n\nRequired Action:\n1. Re-run the missing/failed verification in the required environment(s)\n2. Ensure ALL (check, environment) pairs are executed\n3. Re-submit READY_FOR_REVIEW with complete Environment Verification Matrix\n\nThe message will be rejected until the matrix shows PASS for all required combinations."
 })
 ```
@@ -192,4 +193,4 @@ The `ripple` teammate is **read-only** and does not run verification commands or
 ## Cross-References
 
 - Task delivery loop: [task-delivery-loop.md](task-delivery-loop.md)
-- Team architecture: [team-architecture.md](team-architecture.md)
+- Team architecture: [communication-protocol.md](communication-protocol.md)

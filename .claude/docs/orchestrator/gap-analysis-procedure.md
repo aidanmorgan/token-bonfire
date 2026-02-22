@@ -29,7 +29,7 @@ Reference experts are created when:
 
 1. A document is complex enough to warrant deep expertise
 2. Multiple teammates need authoritative interpretation
-3. The document contains nuanced rules that workers might misapply
+3. The document contains nuanced rules that developers might misapply
 
 The team lead analyzes each reference document and determines whether a dedicated expert is needed.
 If so, the expert is persisted to `.claude/experts/<plan_slug>/[doc-name]-expert.md`.
@@ -164,6 +164,6 @@ All experts are persisted to `.claude/experts/<plan_slug>/` after prompt generat
 ## Related Documentation
 
 - [Research Synthesis](research-synthesis.md) - Knowledge gathering
-- [Agent Generation](agent-generation/index.md) - Creating agent prompts
+- [Agent Generation](agent-generation/research.md) - Creating agent prompts
 - [Expert Creation](../agent-creation/expert-creation/index.md) - Expert templates
-- [Experts](../experts/index.md) - Expert framework
+- [Expert Creation](../agent-creation/expert-creation/index.md) - Expert creation framework

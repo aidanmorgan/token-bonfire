@@ -2,10 +2,6 @@
 
 Clear rules for when and how teammates escalate issues, including user clarification procedures.
 
-**Related Documents:**
-
-- [expert-delegation.md](expert-delegation.md) - Developer-to-expert advisor consultation
-
 ---
 
 ## Escalation Hierarchy
@@ -141,13 +137,14 @@ When a teammate messages the team lead seeking clarification, the team lead acts
 3. **Request User Input**: Ask the user directly
 
 4. **Receive Response**: Get user answer
-5. **Deliver Response**: Message teammate via `TeammateTool write` with guidance
+5. **Deliver Response**: Message teammate via `SendMessage` with guidance
 
 ```
-TeammateTool({
-  operation: "write",
-  to: "<teammate-name>",
-  content: "USER GUIDANCE\n\nTask: [task ID]\n\nQuestion: [original question]\nGuidance: [user response]\n\nResume work incorporating this guidance."
+SendMessage({
+  type: "message",
+  recipient: "<teammate-name>",
+  content: "USER GUIDANCE\n\nTask: [task ID]\n\nQuestion: [original question]\nGuidance: [user response]\n\nResume work incorporating this guidance.",
+  summary: "User guidance for task [task ID]"
 })
 ```
 
@@ -234,5 +231,5 @@ the task remains in a blocked state until guidance is delivered.
 
 ## Cross-References
 
-- [expert-delegation.md](expert-delegation.md) - Developer-to-expert advisor consultation process
-- [team-architecture.md](team-architecture.md) - Team structure
+- [communication-protocol.md](communication-protocol.md) - SendMessage API and signal reference
+- [troubleshooting.md](troubleshooting.md) - Common issues and recovery

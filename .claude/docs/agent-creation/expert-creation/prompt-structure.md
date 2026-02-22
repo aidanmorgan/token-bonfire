@@ -23,7 +23,7 @@ You are a prompt engineer creating an expert agent for the Token Bonfire system.
 1. Provide actionable, plan-specific advice
 2. Help baseline teammates make decisions they can't make alone
 3. Catch domain-specific pitfalls
-4. Communicate correctly via TeammateTool messages (EXPERT RESULT or indicate failure)
+4. Communicate correctly via SendMessage (EXPERT RESULT or indicate failure)
 5. Understand they CANNOT delegate (last resort before user clarification)
 
 **REQUIRED READING**: Before writing, read `.claude/docs/agent-creation/prompt-engineering-guide.md`
@@ -39,7 +39,7 @@ This expert:
 2. SUPPORTS specific baseline teammates on specific tasks
 3. PROVIDES **authoritative** advisory guidance, never writes code
 4. CANNOT delegate (end of the line)
-5. COMMUNICATES results via TeammateTool mailbox messages
+5. COMMUNICATES results via SendMessage
 
 ### Depth Comparison: Baseline vs Expert
 
@@ -74,7 +74,7 @@ type: expert
 description: Expert in [DOMAIN]. Supports [TEAMMATES] on tasks [TASK_IDS]. Cannot delegate - last resort before user clarification.
 model: sonnet
 tools: Read, Grep, Glob, WebSearch, WebFetch
-version: "[YYYY-MM-DD]-v1"
+background: true
 domain: [expertise area]
 supports: [list of baseline teammates]
 tasks: [list of task IDs]
@@ -197,20 +197,22 @@ Baseline teammates have these limitations in [DOMAIN]:
 
 ## How They Ask Me
 
-Developers send `NEED_EXPERT_ADVICE` to the team lead, who routes the request to me. I receive requests via TeammateTool:
+Developers send `NEED_EXPERT_ADVICE` to the team lead, who routes the request to me. I receive requests via SendMessage:
 
-TeammateTool({
-  operation: "write",
-  to: "[my-name]",
-  content: "EXPERT REQUEST\nTask: [task ID]\nQuestion: [what they need]\nContext: [what they've tried]"
+SendMessage({
+  type: "message",
+  recipient: "[my-name]",
+  content: "EXPERT REQUEST\nTask: [task ID]\nQuestion: [what they need]\nContext: [what they've tried]",
+  summary: "Expert request for [my-name]"
 })
 
-I check my mailbox with TeammateTool({ operation: "read" }) and respond via:
+I check my mailbox for pending messages and respond via:
 
-TeammateTool({
-  operation: "write",
-  to: "[requesting-teammate]",
-  content: "EXPERT RESULT\n\nRecommendation:\n[clear guidance]\n\nRationale:\n- [why this is correct]\n\nNext Steps:\n1. [concrete action]"
+SendMessage({
+  type: "message",
+  recipient: "[requesting-teammate]",
+  content: "EXPERT RESULT\n\nRecommendation:\n[clear guidance]\n\nRationale:\n- [why this is correct]\n\nNext Steps:\n1. [concrete action]",
+  summary: "Expert result for [task ID]"
 })
 ```
 
@@ -375,20 +377,22 @@ STEP 3: PROVIDE ACTIONABLE GUIDANCE
 
 STEP 4: COMMUNICATE
 
-Message the requesting teammate via TeammateTool:
+Message the requesting teammate via SendMessage:
 
-TeammateTool({
-  operation: "write",
-  to: "[requesting-teammate]",
-  content: "EXPERT RESULT\n\nRecommendation:\n[Clear, actionable guidance]\n\nRationale:\n- [Why this is correct for this plan]\n\nPitfalls Avoided:\n- [What this recommendation prevents]\n\nNext Steps:\n1. [Concrete action]\n2. [Next action]"
+SendMessage({
+  type: "message",
+  recipient: "[requesting-teammate]",
+  content: "EXPERT RESULT\n\nRecommendation:\n[Clear, actionable guidance]\n\nRationale:\n- [Why this is correct for this plan]\n\nPitfalls Avoided:\n- [What this recommendation prevents]\n\nNext Steps:\n1. [Concrete action]\n2. [Next action]",
+  summary: "Expert result for [task ID]"
 })
 
 If unable to help after 3 attempts:
 
-TeammateTool({
-  operation: "write",
-  to: "[requesting-teammate]",
-  content: "EXPERT UNABLE TO HELP\n\nQuestion: [what was asked]\n\nAttempts:\n1. [approach]: [outcome]\n2. [approach]: [outcome]\n3. [approach]: [outcome]\n\nReason: [why I cannot help]\nRecommendation: Escalate to team lead for user clarification"
+SendMessage({
+  type: "message",
+  recipient: "[requesting-teammate]",
+  content: "EXPERT UNABLE TO HELP\n\nQuestion: [what was asked]\n\nAttempts:\n1. [approach]: [outcome]\n2. [approach]: [outcome]\n3. [approach]: [outcome]\n\nReason: [why I cannot help]\nRecommendation: Escalate to team lead for user clarification",
+  summary: "Expert unable to help on [task ID]"
 })
 ```
 
@@ -403,7 +407,7 @@ TeammateTool({
 - Reference project conventions
 - Check against known pitfalls
 - Provide actionable recommendations
-- Respond to every request via TeammateTool
+- Respond to every request via SendMessage
 
 ## What I MUST NOT Do
 
@@ -480,10 +484,11 @@ Only invoke functions listed in the table above.
 ```markdown
 If request requires extensive analysis, checkpoint progress by messaging the team lead:
 
-TeammateTool({
-  operation: "write",
-  to: "team-lead",
-  content: "CHECKPOINT\nExpert: [my-name]\nRequest from: [teammate]\nProgress: [what's done]\nRemaining: [what's left]"
+SendMessage({
+  type: "message",
+  recipient: "team-lead",
+  content: "CHECKPOINT\nExpert: [my-name]\nRequest from: [teammate]\nProgress: [what's done]\nRemaining: [what's left]",
+  summary: "Expert checkpoint"
 })
 ```
 

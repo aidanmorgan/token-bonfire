@@ -7,32 +7,28 @@ agent prompt files.
 
 ## Quick Reference
 
-| Agent Type       | Meta-Prompt                                        | Purpose                     |
-|------------------|----------------------------------------------------|-----------------------------|
-| Developer        | [developer/index.md](developer/index.md)           | Implementation and coding   |
-| Critic           | [critic/index.md](critic/index.md)                 | Code quality review         |
-| Ripple           | *(no meta-prompt — static definition at `.claude/agents/ripple.md`)* | Second-order effects analysis |
-| Auditor          | [auditor/index.md](auditor/index.md)               | Acceptance verification     |
-| Business Analyst | [business-analyst/index.md](business-analyst/index.md) | Requirements expansion  |
-| Remediation      | [remediation/index.md](remediation/index.md)       | Infrastructure repair       |
-| Health Auditor   | [health-auditor/index.md](health-auditor/index.md) | Health verification         |
-| Expert Advisors  | [expert-creation/index.md](expert-creation/index.md) | Domain-specific advisory  |
+Baseline teammate definitions live in `.claude/agents/*.md` (source of truth). Expert advisor creation uses meta-prompts:
+
+| Agent Type       | Definition / Meta-Prompt                                   | Purpose                       |
+|------------------|------------------------------------------------------------|-------------------------------|
+| Developer        | `.claude/agents/developer.md`                              | Implementation and coding     |
+| Critic           | `.claude/agents/critic.md`                                 | Code quality review           |
+| Ripple           | `.claude/agents/ripple.md`                                 | Second-order effects analysis |
+| Auditor          | `.claude/agents/auditor.md`                                | Acceptance verification       |
+| Business Analyst | `.claude/agents/business-analyst.md`                       | Requirements expansion        |
+| Remediation      | `.claude/agents/remediation.md`                            | Infrastructure repair         |
+| Health Auditor   | `.claude/agents/health-auditor.md`                         | Health verification           |
+| Expert Advisors  | [expert-creation/index.md](expert-creation/index.md)       | Domain-specific advisory      |
 
 ---
 
-## Agent Subdirectories
+## Expert Creation Subdirectory
 
-Each agent type has a subdirectory with detailed sections:
+Expert advisor prompts are generated per-plan via meta-prompts:
 
-| Agent            | Subdirectory                           | Contents                                      |
-|------------------|----------------------------------------|-----------------------------------------------|
-| Developer        | [developer/](developer/)               | identity, practices, workflow, signals        |
-| Critic           | [critic/](critic/)                     | identity, review-criteria, signals            |
-| Auditor          | [auditor/](auditor/)                   | identity, verification, signals               |
-| Business Analyst | [business-analyst/](business-analyst/) | identity, expansion                           |
-| Remediation      | [remediation/](remediation/)           | identity, practices, signals                  |
-| Health Auditor   | [health-auditor/](health-auditor/)     | identity, procedures                          |
-| Expert Creation  | [expert-creation/](expert-creation/)   | types, gap-analysis, inputs, prompt-structure |
+| Subdirectory                                         | Contents                                      |
+|------------------------------------------------------|-----------------------------------------------|
+| [expert-creation/](expert-creation/)                 | types, gap-analysis, inputs, prompt-structure |
 
 ---
 
@@ -61,4 +57,4 @@ See [meta-prompting.md](../meta-prompting.md) for the full architecture explanat
 
 - **[Documentation Index](../index.md)** - Navigation hub for all docs
 - [Meta-Prompting](../meta-prompting.md) - Two-tier prompt generation system
-- [Team Architecture](../team-architecture.md) - Team structure and communication
+- [Communication Protocol](../communication-protocol.md) - SendMessage API and signal reference

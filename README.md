@@ -90,7 +90,7 @@ flowchart TB
 ### Flow Summary
 
 1. **Bootstrap**: The team lead parses your plan, researches best practices for the technologies involved, identifies knowledge gaps, and creates specialized expert advisor agents
-2. **Implementation**: Developers claim tasks from the shared task list and implement them. Named expert advisors provide domain guidance via mailbox when developers need help.
+2. **Implementation**: Developers receive task assignments from the team lead and implement them. Named expert advisors provide domain guidance via mailbox when developers need help.
 3. **Review**: Completed work goes through the Critic (code quality), then the Ripple (second-order effects), then the Auditor (acceptance criteria verification)
 4. **Routing**: Passed work is marked complete; failed work returns for rework; blocked work triggers remediation
 5. **Resume**: All state lives in the shared task list (named by plan slug) — re-running the same plan automatically resumes
@@ -140,7 +140,7 @@ The team lead will:
 - Parse your plan via `generate-orchestrator.py` and create tasks via `TaskCreate`
 - Research technologies and generate named expert prompts in `.claude/experts/<plan_slug>/`
 - Spawn teammates using native agent definitions in `.claude/agents/`
-- Spawn all teammates via `TeammateTool` and begin parallel execution
+- Spawn all teammates via `Task` with `team_name` and begin parallel execution
 - Route completed work through the critic, ripple, and auditor
 - Handle infrastructure issues automatically
 - Resume automatically from crashes (slug-based task list persists progress)
@@ -194,7 +194,7 @@ Native agent definitions with YAML frontmatter (model, tools, memory, permission
 
 | Agent | File | Role |
 |-------|------|------|
-| Developer | [`.claude/agents/developer.md`](.claude/agents/developer.md) | Implementation loop — claims tasks, writes code, self-verifies |
+| Developer | [`.claude/agents/developer.md`](.claude/agents/developer.md) | Implementation loop — receives assignments, writes code, self-verifies |
 | Critic | [`.claude/agents/critic.md`](.claude/agents/critic.md) | Code quality review — bugs, style, error handling, dead code |
 | Ripple | [`.claude/agents/ripple.md`](.claude/agents/ripple.md) | Second-order effects — downstream breakage, API contract drift |
 | Auditor | [`.claude/agents/auditor.md`](.claude/agents/auditor.md) | Acceptance criteria verification — sole completion authority |
@@ -221,12 +221,11 @@ Core documentation for the orchestration system:
 | Document                      | Purpose                                                      |
 |-------------------------------|--------------------------------------------------------------|
 | `index.md`                    | Documentation hub with navigation to all other docs          |
-| `team-architecture.md`        | Team structure, communication, task lifecycle                |
+| `communication-protocol.md`   | SendMessage API, signal reference, message routing           |
 | `plan-format.md`              | Plan file format specification                               |
 | `troubleshooting.md`          | Common issues and recovery procedures                        |
-| `signal-specification.md`     | Signal format reference (mailbox messages)                   |
 | `task-delivery-loop.md`       | The core dispatch -> review -> route cycle                   |
-| `state-management.md`         | Task state via native TaskList/TaskUpdate/TaskGet            |
+| `task-dispatch.md`            | Push-based task assignment from team lead to developers      |
 | `error-classification.md`     | Error categories and recovery strategies                     |
 | `escalation-specification.md` | When and how teammates escalate                              |
 | `expert-delegation.md`        | Protocol for teammates requesting expert help                |
@@ -238,14 +237,13 @@ Meta-prompts that instruct the team lead how to create teammate prompts:
 | Document                      | Purpose                                                      |
 |-------------------------------|--------------------------------------------------------------|
 | `prompt-engineering-guide.md` | Guidelines for writing effective teammate prompts            |
-| `developer.md`                | Meta-prompt to create developer agent prompts                |
-| `critic.md`                   | Meta-prompt to create critic prompts (code review)           |
-| `ripple.md`                   | Ripple role instructions (second-order effects analysis)     |
-| `auditor.md`                  | Meta-prompt to create auditor prompts (acceptance criteria)  |
-| `business-analyst.md`         | Meta-prompt to create BA prompts (task expansion)            |
-| `remediation.md`              | Meta-prompt to create remediation prompts (infra repair)     |
-| `health-auditor.md`           | Meta-prompt to create health auditor prompts (verification)  |
-| `expert-creation.md`          | Meta-prompt to create plan-specific expert prompts           |
+| `developer/`                  | Meta-prompt to create developer agent prompts                |
+| `critic/`                     | Meta-prompt to create critic prompts (code review)           |
+| `auditor/`                    | Meta-prompt to create auditor prompts (acceptance criteria)  |
+| `business-analyst/`           | Meta-prompt to create BA prompts (task expansion)            |
+| `remediation/`                | Meta-prompt to create remediation prompts (infra repair)     |
+| `health-auditor/`             | Meta-prompt to create health auditor prompts (verification)  |
+| `expert-creation/`            | Meta-prompt to create plan-specific expert prompts           |
 
 ### Scripts
 
@@ -325,11 +323,11 @@ If tasks are underspecified, the team lead will automatically spawn a Business A
 
 ## Team Structure
 
-The team lead spawns named teammates via Claude's native Agent Teams (`TeammateTool`). Each teammate has a specific role:
+The team lead spawns named teammates via Claude's native Agent Teams (`TeamCreate` + `Task`). Each teammate has a specific role:
 
 | Teammate               | Model  | Role                                                                |
 |------------------------|--------|---------------------------------------------------------------------|
-| **Developer** (`dev-N`)| sonnet | Claims tasks, implements code, writes tests, self-verifies          |
+| **Developer** (`dev-N`)| sonnet | Receives task assignments, implements code, writes tests, self-verifies |
 | **Expert** (named)     | sonnet | Domain advisor — answers questions, provides guidance, never writes code |
 | **Critic**             | sonnet | Reviews code quality — bugs, style, error handling, dead code       |
 | **Ripple**             | sonnet | Analyzes second-order effects — downstream breakage, API drift      |
@@ -340,11 +338,11 @@ The team lead spawns named teammates via Claude's native Agent Teams (`TeammateT
 
 The flow is: Developer implements -> Critic reviews code quality -> Ripple analyzes second-order effects -> Auditor verifies acceptance criteria -> Complete
 
-Developers are generic — any developer can claim any task. Named expert advisors are generated from plan research and gap analysis. If the plan involves cryptography, the team lead creates a `crypto-expert` advisor. Developers consult experts when they need domain-specific guidance.
+Developers are generic — any developer can be assigned any task. Named expert advisors are generated from plan research and gap analysis. If the plan involves cryptography, the team lead creates a `crypto-expert` advisor. Developers consult experts when they need domain-specific guidance.
 
 ### Communication Protocol
 
-Teammates communicate with the team lead via mailbox messages (`TeammateTool write`):
+Teammates communicate with the team lead via mailbox messages (`SendMessage`):
 
 ```
 READY_FOR_REVIEW: task-1-1-1     # Developer finished implementing
@@ -368,7 +366,7 @@ SEEKING_DIVINE_CLARIFICATION     # Teammate needs human input
 All state is managed through Claude Code's native shared task list, named using the plan slug:
 
 - **Task tracking**: `TaskCreate` / `TaskUpdate` / `TaskList` / `TaskGet`
-- **Communication**: `TeammateTool write` (mailbox messages between teammates)
+- **Communication**: `SendMessage` (mailbox messages between teammates)
 - **Expert prompts**: Persisted to `.claude/experts/<plan_slug>/` for reuse across sessions
 
 ### Recovery

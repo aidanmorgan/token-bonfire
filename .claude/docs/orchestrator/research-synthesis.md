@@ -226,7 +226,7 @@ WebSearch calls should be retried up to 3 times with a 2-second delay between at
 
 ### Structured Data (JSON)
 
-Store aggregated research in `{{ARTEFACTS_DIR}}/best-practices-research.json`:
+Store aggregated research in `.claude/bonfire/<plan_slug>/best-practices-research.json`:
 
 ```json
 {
@@ -277,10 +277,10 @@ Store aggregated research in `{{ARTEFACTS_DIR}}/best-practices-research.json`:
 
 | Essay Location                                  | Content                                              |
 |-------------------------------------------------|------------------------------------------------------|
-| `{{ARTEFACTS_DIR}}/agent-research/[agent].md`   | Comprehensive research essay for each static agent |
-| `{{ARTEFACTS_DIR}}/expert-research/[expert].md` | Comprehensive research essay for each expert         |
+| `.claude/bonfire/<plan_slug>/agent-research/[agent].md`   | Comprehensive research essay for each static agent |
+| `.claude/bonfire/<plan_slug>/expert-research/[expert].md` | Comprehensive research essay for each expert         |
 
-See [agent-generation/index.md](agent-generation/index.md) for the essay format and generation process.
+See [agent-generation/research.md](agent-generation/research.md) for the essay format and generation process.
 
 ---
 
@@ -299,7 +299,7 @@ The formatting function produces agent-tailored content from three sources:
 
 ## Caching and Reuse
 
-Research is cached in `{{ARTEFACTS_DIR}}/best-practices-research.json`:
+Research is cached in `.claude/bonfire/<plan_slug>/best-practices-research.json`:
 
 | Session Type | Research Behavior                                              |
 |--------------|----------------------------------------------------------------|
@@ -311,6 +311,6 @@ Research is cached in `{{ARTEFACTS_DIR}}/best-practices-research.json`:
 ## Related Documentation
 
 - [Gap Analysis Procedure](gap-analysis-procedure.md) - Identifying expert needs
-- [Agent Generation](agent-generation.md) - Creating agent prompts
+- [Agent Generation](agent-generation/research.md) - Creating agent prompts
 - [Team Lead Generation](orchestrator-generation.md) - Main bootstrap doc
 - [Expert Creation](../agent-creation/expert-creation/index.md) - Expert templates

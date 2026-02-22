@@ -27,7 +27,7 @@ Check that the prompt contains these required sections (per prompt-engineering-g
 
 | Section                 | Required    | Check For                                |
 |-------------------------|-------------|------------------------------------------|
-| Frontmatter (YAML)      | YES         | name, description, model, tools, version |
+| Frontmatter (YAML)      | YES         | name, description, model, background, maxTurns |
 | Agent Identity          | YES         | Role, mission, authority, mindset        |
 | Success Criteria        | YES         | Binary conditions, failure conditions    |
 | Method                  | YES         | Phased approach, concrete actions        |
@@ -39,7 +39,7 @@ Check that the prompt contains these required sections (per prompt-engineering-g
 
 #### 2. Signal Consistency
 
-Cross-reference all signals mentioned in the prompt against `.claude/docs/signals/index.md`:
+Cross-reference all signals mentioned in the prompt against `.claude/docs/communication-protocol.md`:
 
 - [ ] All signal names match exactly (case-sensitive, underscores)
 - [ ] Signal formats match the specification
@@ -48,12 +48,12 @@ Cross-reference all signals mentioned in the prompt against `.claude/docs/signal
 
 #### 3. State Field Consistency
 
-Cross-reference state field references against `.claude/docs/state/fields.md`:
+Cross-reference state field references against `.claude/docs/state/task-tracking.md`:
 
 - [ ] Field names use snake_case
 - [ ] Field types match the schema
 - [ ] No fields are used that don't exist in the schema
-- [ ] Only valid TaskUpdate statuses used: `pending`, `in_progress`, `completed`
+- [ ] Only valid TaskUpdate statuses used: `pending`, `in_progress`, `completed`, `deleted`
 
 #### 5. Cross-Reference Validation
 
@@ -84,7 +84,7 @@ STRUCTURE CHECK
 
 SIGNAL CHECK
 ------------
-[x] READY_FOR_REVIEW - Valid (matches signals/index.md)
+[x] READY_FOR_REVIEW - Valid (matches communication-protocol.md)
 [ ] TASK_DONE - INVALID (should be AUDIT_PASSED)
 ...
 
@@ -102,7 +102,7 @@ STATE FIELD CHECK
 
 CROSS-REFERENCE CHECK
 ---------------------
-[x] signals/index.md - Exists
+[x] communication-protocol.md - Exists
 [ ] old-doc.md - NOT FOUND
 ...
 
@@ -126,9 +126,8 @@ ISSUES TO FIX:
 Read these documents to perform validation:
 
 1. `.claude/docs/agent-creation/prompt-engineering-guide.md` - Required sections
-2. `.claude/docs/signals/index.md` - Valid signals and message formats
-3. `.claude/docs/state/fields.md` - Valid state fields
-4. `.claude/docs/communication-protocol.md` - Inter-agent messaging conventions
+2. `.claude/docs/communication-protocol.md` - Valid signals, message formats, and inter-agent messaging conventions
+3. `.claude/docs/state/task-tracking.md` - Task state tracking and valid statuses
 
 ### Important Notes
 

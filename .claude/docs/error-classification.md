@@ -47,7 +47,7 @@ Teammate did not produce valid output.
 ### Recovery Strategy
 
 The team lead returns the task to `pending` status via `TaskUpdate({ status: "pending" })` so another developer
-can claim it. Track failure count per task. After reaching `TASK_FAILURE_LIMIT`, escalate to unrecoverable.
+can be assigned it. Track failure count per task. After reaching `TASK_FAILURE_LIMIT`, escalate to unrecoverable.
 
 ---
 
@@ -66,7 +66,7 @@ Systemic issues blocking all development.
 ### Recovery Strategy
 
 The team lead sets `infrastructure_blocked = true` in its context and enters the remediation loop.
-See [remediation-loop.md](remediation-loop.md) for details.
+The team lead sends a remediation request to the `remediation` teammate via SendMessage.
 
 ### Remediation Escalation
 

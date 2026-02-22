@@ -34,7 +34,7 @@ Meta-prompting solves these by generating agents dynamically with:
 
 ### Tier 1: Meta-Prompts (Templates)
 
-Meta-prompts are stored in `.claude/docs/agent-creation/` and define:
+Meta-prompts are stored in `.claude/docs/agent-creation/<agent-type>/` subdirectories and define:
 
 - **Structure**: What sections an agent prompt must contain
 - **Variables**: Placeholders for dynamic content (e.g., `{{BEST_PRACTICES_RESEARCH}}`)
@@ -333,7 +333,7 @@ Variables available in meta-prompts:
 |-------------------------------|---------------------------|------------------------|
 | `{{BEST_PRACTICES_RESEARCH}}` | WebSearch + formatting    | All agents             |
 | `{{AVAILABLE_EXPERTS}}`       | Gap analysis              | Developers, Critic, Ripple, Auditor |
-| `{{DELEGATION_PROTOCOL}}`     | expert-delegation.md      | Developers, Critic, Ripple, Auditor |
+| `{{DELEGATION_PROTOCOL}}`     | Communication protocol    | Developers, Critic, Ripple, Auditor |
 | `{{ENVIRONMENTS}}`            | Plan parsing              | Remediation, Health    |
 | `{{VERIFICATION_COMMANDS}}`   | Plan parsing              | Remediation, Health    |
 | `{{MCP_SERVERS}}`             | Configuration             | All agents             |
@@ -362,7 +362,7 @@ Include in the static agent list or expert generation as appropriate.
 
 ### 4. Update Team Architecture
 
-Add the new teammate to team-architecture.md documentation.
+Add the new teammate to the CLAUDE.md documentation and docs/index.md.
 
 ### 5. Update Index
 
@@ -434,10 +434,10 @@ The system can create specialists for any domain by researching deeply and gener
 
 | Purpose            | Location                                                  |
 |--------------------|-----------------------------------------------------------|
-| Meta-prompts       | `.claude/docs/agent-creation/*.md`                        |
+| Meta-prompts       | `.claude/docs/agent-creation/<agent-type>/*.md`           |
 | Agent definitions  | `.claude/agents/*.md`                                     |
 | Generated experts  | `.claude/experts/<plan_slug>/*.md`                        |
-| Team lead logic    | `.claude/docs/orchestrator/orchestrator-generation.md`    |
+| Team lead logic    | `.claude/prompts/team-lead.md`                            |
 | Prompt standards   | `.claude/docs/agent-creation/prompt-engineering-guide.md` |
 
 ---
@@ -445,7 +445,6 @@ The system can create specialists for any domain by researching deeply and gener
 ## Cross-References
 
 - **[Documentation Index](index.md)** - Navigation hub for all docs
-- [Team Lead Generation](orchestrator/orchestrator-generation.md) - Full generation implementation
 - [Prompt Engineering Guide](agent-creation/prompt-engineering-guide.md) - Quality standards
 - [Expert Creation](agent-creation/expert-creation/index.md) - Expert meta-prompt
-- [Team Architecture](team-architecture.md) - Team structure and communication
+- [Communication Protocol](communication-protocol.md) - SendMessage API and signal reference

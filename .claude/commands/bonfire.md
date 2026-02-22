@@ -39,16 +39,15 @@ The team lead will:
 
 All documentation is accessible from the index:
 
-- **[Documentation Index](.claude/docs/index.md)** - Navigation hub for all docs
+- **[Documentation Index](../docs/index.md)** - Navigation hub for all docs
 
 Key references for the team lead:
 
 | Document                                                        | Purpose                                   |
 |-----------------------------------------------------------------|-------------------------------------------|
-| [task-delivery-loop.md](.claude/docs/task-delivery-loop.md)     | Core dispatch -> review -> audit cycle    |
-| [signals/index.md](.claude/docs/signals/index.md)               | All signal formats (mailbox messages)     |
-| [state/index.md](.claude/docs/state/index.md)                   | Task state via native TaskList/TaskUpdate |
-| [agent-definitions.md](.claude/docs/agent-definitions.md)       | Teammate types and responsibilities       |
+| [task-delivery-loop.md](../docs/task-delivery-loop.md)          | Core dispatch -> review -> audit cycle    |
+| [communication-protocol.md](../docs/communication-protocol.md)  | Signal reference and message routing      |
+| [state/task-tracking.md](../docs/state/task-tracking.md)        | Task state via native TaskList/TaskUpdate |
 
 ## Example
 

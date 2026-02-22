@@ -9,21 +9,20 @@ How named teammates and native Agent Teams primitives prevent race conditions in
 Named teammates and native Agent Teams primitives eliminate most race conditions through:
 
 1. **Named teammates**: Each developer is a persistent, named agent. No two agents race for the same identity.
-2. **Native atomic task claiming**: `TaskUpdate({ status: "in_progress" })` uses native atomic operations. If two developers try to claim the same task, only one succeeds.
-3. **Single team lead**: All routing decisions go through the team lead (the main session). No parallel coordinators competing for state.
+2. **Push-based assignment**: The team lead assigns tasks sequentially via `TaskUpdate({ status: "in_progress", owner })`, eliminating race conditions.
+3. **Single team lead**: All routing decisions go through the team lead (the main session). No parallel team leads competing for state.
 4. **Native dependency management**: `addBlockedBy` and automatic unblocking are handled atomically by the framework.
 
-## Task Claiming Safety
+## Task Assignment Safety
 
-When multiple developers check `TaskList` and try to claim the same task:
+The team lead assigns tasks to developers via push-based assignment. Since the team lead is a single session, it processes assignment requests sequentially:
 
 ```
-Developer A: TaskUpdate({ taskId: "task-3", status: "in_progress" })  --> succeeds (task claimed)
-Developer B: TaskUpdate({ taskId: "task-3", status: "in_progress" })  --> fails (task already owned by A)
-Developer B: TaskList --> find next available task --> claim it instead
+Developer A: SendMessage(REQUESTING_WORK) --> team lead assigns task-3 to A
+Developer B: SendMessage(REQUESTING_WORK) --> team lead assigns task-4 to B (task-3 already assigned)
 ```
 
-This is handled by the native atomic task claiming mechanism. No custom lock management needed.
+The team lead calls `TaskUpdate({ status: "in_progress", owner: "<dev-name>" })` before sending the assignment. Since the team lead processes requests sequentially, no race condition is possible.
 
 ## Concurrent Completion Safety
 
@@ -51,10 +50,10 @@ Because the team lead processes messages sequentially, there is no risk of a tas
 
 ## Shared File Safety
 
-For files that multiple experts might touch (e.g., `__init__.py`, config files):
+For files that multiple developers might touch (e.g., `__init__.py`, config files):
 
-1. **Additive-only rule**: Experts append imports/exports, never restructure shared files
-2. **Read-before-write**: Experts read the current state of shared files before modifying
+1. **Additive-only rule**: Developers append imports/exports, never restructure shared files
+2. **Read-before-write**: Developers read the current state of shared files before modifying
 3. **Team lead coordination**: If restructuring is needed, the team lead assigns a single owner via mailbox
 
 ---

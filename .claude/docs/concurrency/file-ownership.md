@@ -46,7 +46,7 @@ When multiple tasks share types or API contracts:
 Developers enforce file ownership during implementation:
 
 1. **Only modify files listed in your task's ownership section**
-2. **If you discover you need a file outside your scope**: Signal `FILE_CONFLICT` to the team lead via `write` and wait for guidance
+2. **If you discover you need a file outside your scope**: Signal `FILE_CONFLICT` to the team lead via `SendMessage` and wait for guidance
 3. **For shared files** (e.g., `__init__.py`, config, type exports): Read the current state first, make only additive changes (append imports, add exports), never restructure
 
 ## Ownership Release
@@ -70,7 +70,12 @@ If a task fails repeatedly (3+ audit failures) or its developer crashes:
 When the team lead detects potential file overlap between concurrent tasks, it sends coordination instructions via mailbox:
 
 ```
-TeammateTool({ operation: "write", to: "<expert-name>", message: "FILE COORDINATION NOTICE:\n\nTask [other-task-id] is concurrently modifying related code.\nFiles: [list]\n\nTo avoid conflicts:\n1. Do NOT modify: [specific files to avoid]\n2. Focus changes on: [your designated files]\n3. If you discover you need a locked file, signal FILE_CONFLICT and wait for guidance\n4. Prefer additive changes over modifications to shared modules" })
+SendMessage({
+  type: "message",
+  recipient: "<dev-name>",
+  content: "FILE COORDINATION NOTICE:\n\nTask [other-task-id] is concurrently modifying related code.\nFiles: [list]\n\nTo avoid conflicts:\n1. Do NOT modify: [specific files to avoid]\n2. Focus changes on: [your designated files]\n3. If you discover you need a locked file, signal FILE_CONFLICT and wait for guidance\n4. Prefer additive changes over modifications to shared modules",
+  summary: "File coordination for [files]"
+})
 ```
 
 ---

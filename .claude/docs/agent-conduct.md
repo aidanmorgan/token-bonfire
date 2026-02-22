@@ -4,10 +4,10 @@ These rules apply to all teammates (developers, experts, critic, auditor, busine
 
 ## Working Directory
 
-All temporary files, scratch content, debug output, and intermediate artifacts must be created under `{{SCRATCH_DIR}}`.
+All temporary files, scratch content, debug output, and intermediate artifacts must be created under `.claude/scratch`.
 Teammates must never create temporary files in the project root or source directories.
 
-Examples of content that belongs in `{{SCRATCH_DIR}}`:
+Examples of content that belongs in `.claude/scratch`:
 
 - Debug logs and trace output
 - Test data files generated during development
@@ -23,8 +23,8 @@ Examples of content that belongs in `{{SCRATCH_DIR}}`:
 |------------------------------|-----------------------------------------------------|
 | Isolated context windows     | Each teammate has its own 1M token context           |
 | No shared context            | Teammates cannot see each other's work or conversation |
-| No persistent memory         | Respawned teammates start with fresh context         |
-| Mailbox-only communication   | Teammates communicate only via `write` to team lead  |
+| Limited persistent memory     | Some agents have `memory: project`; respawned teammates start with fresh context but may access project memory |
+| Message-only communication   | Teammates communicate only via `SendMessage` to team lead |
 | No implicit knowledge        | Teammate knows only what's in its spawn prompt       |
 
 ### Implications for the Team Lead
@@ -81,7 +81,7 @@ commands run:
 Developers working in parallel MUST respect file ownership boundaries:
 
 1. **Only modify files listed in your task's ownership section**
-2. **If you need a file outside your scope**: Signal `FILE_CONFLICT` to the team lead via `write` and wait for guidance
+2. **If you need a file outside your scope**: Signal `FILE_CONFLICT` to the team lead via `SendMessage` and wait for guidance
 3. **For shared files** (e.g., `__init__.py`, config, type exports): Read the current state first, make only additive changes (append imports, add exports), never restructure
 4. **Interfaces first**: If your task defines contracts others depend on, implement those before your own logic
 
@@ -136,4 +136,4 @@ Options:
 Awaiting guidance...
 ```
 
-This is sent via `TeammateTool({ operation: "write", to: "team-lead" })`. The team lead escalates to the user via `AskUserQuestion`.
+This is sent via `SendMessage({ type: "message", recipient: "team-lead", content: "...", summary: "..." })`. The team lead escalates to the user via `AskUserQuestion`.

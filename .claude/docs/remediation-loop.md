@@ -37,10 +37,10 @@ The team lead iterates:
 
 1. Increment `remediation_attempt_count`
 2. If attempt count exceeds limit, escalate to user and halt
-3. Message the remediation teammate via `TeammateTool({ operation: "write", to: "remediation", content: "..." })` with the infrastructure issues
+3. Message the remediation teammate via `SendMessage({ type: "message", recipient: "remediation", content: "...", summary: "Infrastructure issues for remediation" })` with the infrastructure issues
 4. Check mailbox for `REMEDIATION_COMPLETE` message from remediation teammate
 5. If no completion message received (crash/timeout), check attempt limit and retry or escalate
-6. If completion received, message the health auditor via `TeammateTool({ operation: "write", to: "health-auditor", content: "..." })`
+6. If completion received, message the health auditor via `SendMessage({ type: "message", recipient: "health-auditor", content: "...", summary: "Request health audit" })`
 7. Check mailbox for health audit result:
    - `HEALTH_AUDIT: HEALTHY` -> Clear blocked flag, reset attempt counter, resume normal operation
    - `HEALTH_AUDIT: UNHEALTHY` -> Loop continues to next iteration
@@ -53,7 +53,7 @@ After `HEALTH_AUDIT: HEALTHY`:
 - Clear `infrastructure_blocked` flag
 - Clear infrastructure issues list
 - Reset `remediation_attempt_count` to 0
-- Resume task assignments - developers can claim new tasks from the shared task list
+- Resume task assignments - team lead can assign new tasks to requesting developers
 
 ### Step R4: User Response Handler (Remediation Context)
 
@@ -84,5 +84,5 @@ The team lead tracks remediation state in its context:
 ## Cross-References
 
 - Error classification and routing: [error-classification.md](error-classification.md)
-- Team architecture: [team-architecture.md](team-architecture.md)
-- Communication messages: [signals/index.md](signals/index.md)
+- Team architecture: [communication-protocol.md](communication-protocol.md)
+- Communication messages: [communication-protocol.md](communication-protocol.md)

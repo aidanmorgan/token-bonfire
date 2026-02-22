@@ -298,7 +298,7 @@ Available MCP servers that extend expert capabilities beyond native tools.
 MCP_SERVERS:
 {{MCP_SERVERS}}
 
-See: `.claude/docs/mcp-servers.md` for detailed usage guidance.
+Available MCP server functions are listed in the plan's configuration.
 ```
 
 ---

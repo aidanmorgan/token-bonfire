@@ -30,9 +30,12 @@ Configuration variables for the whole project, consistent between creating teams
 | Must Read   | If `Y`, agent must read file fully without summarization before starting work. If empty, file path is added to context as reference only. |
 | Purpose     | Why this document is provided                                                                                                             |
 
+<!-- TEMPLATE: Customize the rows below to match your project's actual documentation files. -->
+<!-- Remove or replace these example entries with paths to files that exist in your repo. -->
+
 | Pattern                   | Agent      | Environment | Must Read | Purpose                                                                            |
 |---------------------------|------------|-------------|-----------|------------------------------------------------------------------------------------|
-| `design/rules.md`         |            |             | Y         | Python development standards and compliance requirements that all code must follow |
+| `design/rules.md`         |            |             | Y         | Development standards and compliance requirements that all code must follow        |
 | `design/architecture.md`  |            |             |           | System architecture showing component relationships and boundaries                 |
 | `ARCHITECTURE.md`         |            |             |           | High-level component overview and module structure                                 |
 | `design/testing-guide.md` | developer  |             | Y         | Test writing standards and patterns                                                |

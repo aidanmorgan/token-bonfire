@@ -152,30 +152,28 @@ A good consultation request includes:
 Developers send consultation requests to the team lead, who routes them to the appropriate expert advisor:
 
 ```
-TeammateTool({
-  operation: "write",
-  to: "team-lead",
-  content: "NEED_EXPERT_ADVICE: [task_id]\nExpert: [expert-name]\nRequest Type: [decision | interpretation | ambiguity | options | validation]\n\n[Full description of what you need help with, including context, what you've considered, and why you're uncertain]"
+SendMessage({
+  type: "message",
+  recipient: "team-lead",
+  content: "NEED_EXPERT_ADVICE: [task_id]\nExpert: [expert-name]\nRequest Type: [decision | interpretation | ambiguity | options | validation]\n\n[Full description of what you need help with, including context, what you've considered, and why you're uncertain]",
+  summary: "Need expert advice on [topic] for task [task_id]"
 })
 ```
 
 **Example:**
 
 ```
-TeammateTool({
-  operation: "write",
-  to: "team-lead",
-  content: "NEED_EXPERT_ADVICE: task-2-3\nExpert: crypto-expert\nRequest Type: decision\n\nI need guidance on key derivation function selection.\n\nContext:\n- I've implemented both HKDF-SHA256 and HKDF-SHA512 options\n- The protocol uses AES-256 for encryption\n- The spec doesn't specify which hash to use\n\nQuestion: Should I use HKDF-SHA256 or HKDF-SHA512 for key derivation in this protocol?\n\nWhat I've considered:\n- SHA-512 provides larger security margin but may be overkill for AES-256\n- SHA-256 is more common and matches the AES key size\n\nPlease advise which option is correct for this use case."
+SendMessage({
+  type: "message",
+  recipient: "team-lead",
+  content: "NEED_EXPERT_ADVICE: task-2-3\nExpert: crypto-expert\nRequest Type: decision\n\nI need guidance on key derivation function selection.\n\nContext:\n- I've implemented both HKDF-SHA256 and HKDF-SHA512 options\n- The protocol uses AES-256 for encryption\n- The spec doesn't specify which hash to use\n\nQuestion: Should I use HKDF-SHA256 or HKDF-SHA512 for key derivation in this protocol?\n\nWhat I've considered:\n- SHA-512 provides larger security margin but may be overkill for AES-256\n- SHA-256 is more common and matches the AES key size\n\nPlease advise which option is correct for this use case.",
+  summary: "Need crypto-expert advice on key derivation function selection"
 })
 ```
 
 ### Step 3: Check for Response
 
-Check your mailbox for the team lead's relay of the expert advisor's reply:
-
-```
-TeammateTool({ operation: "read" })
-```
+Check your mailbox for the team lead's relay of the expert advisor's reply. The team lead will deliver the response via a message to your mailbox.
 
 You will receive one of:
 

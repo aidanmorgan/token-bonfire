@@ -6,7 +6,7 @@ This document covers how the team lead routes rework assignments to developer ag
 
 - [review-audit-flow.md](review-audit-flow.md) - Review and audit flow
 - [task-delivery-loop.md](task-delivery-loop.md) - Full delivery loop
-- [team-architecture.md](team-architecture.md) - Team structure and communication
+- [communication-protocol.md](communication-protocol.md) - Team structure and communication
 
 ---
 
@@ -39,9 +39,10 @@ When the critic signals `REVIEW_FAILED`, the team lead routes the issues back to
 ### Route Rework via Mailbox
 
 ```
-TeammateTool({
-    operation: "write",
-    to: "<developer-name>",
+SendMessage({
+    type: "message",
+    recipient: "<developer-name>",
+    summary: "Critic review failed, rework required",
     content: "REWORK: <task-id>
 
 CRITIC REVIEW FAILED
@@ -87,9 +88,10 @@ When the auditor signals `AUDIT_FAILED`, the team lead routes the issues back to
 ### Route Rework via Mailbox
 
 ```
-TeammateTool({
-    operation: "write",
-    to: "<developer-name>",
+SendMessage({
+    type: "message",
+    recipient: "<developer-name>",
+    summary: "Audit failed, rework required",
     content: "REWORK: <task-id>
 
 AUDIT_FAILED
@@ -145,9 +147,10 @@ DEVELOPER -> (READY_FOR_REVIEW) -> CRITIC
 When audit fails in specific environments, include environment details in the rework message:
 
 ```
-TeammateTool({
-    operation: "write",
-    to: "<developer-name>",
+SendMessage({
+    type: "message",
+    recipient: "<developer-name>",
+    summary: "Environment-specific failure, rework required",
     content: "REWORK: <task-id>
 
 ENVIRONMENT-SPECIFIC FAILURE
@@ -215,5 +218,5 @@ On reaching the failure limit for a task:
 - [review-audit-flow.md](review-audit-flow.md) - Review and audit flow
 - [task-dispatch.md](task-dispatch.md) - Task dispatch and developer routing
 - [task-delivery-loop.md](task-delivery-loop.md) - Full delivery loop
-- [team-architecture.md](team-architecture.md) - Team structure and communication
-- [coordinator-configuration.md](coordinator-configuration.md) - Configuration values
+- [communication-protocol.md](communication-protocol.md) - Team structure and communication
+- [base_variables.md](../base_variables.md) - Configuration values

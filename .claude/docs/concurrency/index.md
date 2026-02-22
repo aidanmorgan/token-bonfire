@@ -23,7 +23,7 @@ The concurrency system relies on three mechanisms:
 
 ### File Ownership States
 
-1. **Owned** - File is actively being modified by a named developer as part of their claimed task
+1. **Owned** - File is actively being modified by a named developer as part of their assigned task
 2. **Released** - Developer's task completed, file available for other tasks
 3. **Shared** - File is a common resource (e.g., `__init__.py`, config) — additive-only changes allowed
 

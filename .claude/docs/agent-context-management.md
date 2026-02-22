@@ -26,7 +26,7 @@ Teammates MAY send CHECKPOINT signals to the team lead for progress visibility o
 
 ### Checkpoint Format
 
-Sent via `TeammateTool({ operation: "write", to: "team-lead" })`:
+Sent via `SendMessage({ type: "message", recipient: "team-lead", content: "...", summary: "..." })`:
 
 ```
 CHECKPOINT: [task ID]
@@ -51,7 +51,7 @@ If a teammate detects it is running low on context (very long conversation, many
 
 ### Context Pause Signal
 
-Sent via `TeammateTool({ operation: "write", to: "team-lead" })`:
+Sent via `SendMessage({ type: "message", recipient: "team-lead", content: "...", summary: "..." })`:
 
 ```
 CONTEXT PAUSE: [task ID]
@@ -81,7 +81,7 @@ On receiving this signal, the team lead can:
 
 When context is limited or work is complex, teammates should use the scratch directory:
 
-- **Location**: `{{SCRATCH_DIR}}/[task_id]/`
+- **Location**: `.claude/scratch/[task_id]/`
 - **Purpose**: Store intermediate work, analysis results, notes
 - **Files to create**:
     - `analysis.md`: Understanding of the task and codebase
@@ -103,7 +103,7 @@ The team lead includes resume context in the respawn prompt:
 ```
 Resume Context: [last checkpoint summary]
 Previous Progress: Review existing work before continuing.
-Scratch Directory: {{SCRATCH_DIR}}/[task_id]/
+Scratch Directory: .claude/scratch/[task_id]/
 ```
 
 ## Best Practices
@@ -163,7 +163,7 @@ The team lead monitors developer progress through the shared task list and mailb
 
 The team lead calls `TaskList` periodically to see:
 - Which tasks are `pending`, `in_progress`, `completed`, etc.
-- Which tasks have been claimed by developers
+- Which tasks have been assigned to developers
 - Which tasks are blocked on dependencies
 
 ### Via Mailbox Messages
@@ -183,7 +183,7 @@ Each teammate has a native heartbeat. If a teammate stops responding:
 
 ### Stalled Developer Detection
 
-If a developer has claimed a task (`in_progress`) but has not signaled `READY_FOR_REVIEW` or any other message for an extended period:
+If a developer has been assigned a task (`in_progress`) but has not signaled `READY_FOR_REVIEW` or any other message for an extended period:
 
 1. Team lead can send a message via `write` asking for a status update
 2. If the developer responds: continue monitoring
@@ -216,7 +216,7 @@ Blocked: [N] tasks waiting on dependencies
 ```
 
 The native Agent Teams system eliminates the need for custom checkpoint protocols because:
-- Teammates are self-organizing (claim tasks, implement, signal when done)
+- Teammates receive assignments from the team lead (implement, signal when done)
 - The shared task list provides real-time visibility into task state
 - Heartbeat timeouts handle unresponsive teammates automatically
 - The `TeammateIdle` hook prevents developers from going idle unnecessarily
@@ -225,8 +225,5 @@ The native Agent Teams system eliminates the need for custom checkpoint protocol
 
 ## Cross-References
 
-- Signal formats: [signals/index.md](signals/index.md)
-- Timeout values: [timeout-specification.md](timeout-specification.md)
-- Task state tracking: [state/index.md](state/index.md)
-- Team architecture: [team-architecture.md](team-architecture.md)
+- Communication protocol: [communication-protocol.md](communication-protocol.md)
 - Troubleshooting: [troubleshooting.md](troubleshooting.md)

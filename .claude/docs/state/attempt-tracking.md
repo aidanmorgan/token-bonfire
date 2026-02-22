@@ -1,6 +1,6 @@
 # Attempt Tracking
 
-[← Back to State Management](index.md)
+[← Back to Documentation Index](../index.md)
 
 Track attempts across expert crashes and session restarts to enforce escalation paths. The team lead maintains attempt counts in its context, and they can be reconstructed from task list state and mailbox history on resume.
 
@@ -12,7 +12,7 @@ The team lead tracks per-task attempt counts:
 
 | Field | Type | Description |
 |---|---|---|
-| `self_solve_attempts` | Integer | Times an expert attempted this task |
+| `self_solve_attempts` | Integer | Times a developer attempted this task |
 | `audit_failures` | Integer | Times auditor rejected this task |
 | `critic_failures` | Integer | Times critic rejected this task |
 | `critic_timeouts` | Integer | Times critic timed out on this task |
@@ -22,7 +22,7 @@ The team lead tracks per-task attempt counts:
 
 | Attempt Type | Threshold | Escalation Action |
 |---|---|---|
-| `self_solve_attempts` | 3 | Team lead investigates, considers reassigning to different expert |
+| `self_solve_attempts` | 3 | Team lead investigates, considers reassigning to different developer |
 | `audit_failures` | 3 | Team lead investigates root cause, escalates via `AskUserQuestion` |
 | `critic_failures` | 3 | Team lead investigates root cause, escalates via `AskUserQuestion` |
 | `critic_timeouts` | 3 | Bypass critic, send directly to auditor |
@@ -41,6 +41,6 @@ The team lead should note repeated `needs_rework` cycles as a signal that escala
 
 ## Related Documentation
 
-- [State Fields](fields.md) - All state field definitions
 - [Update Triggers](update-triggers.md) - When attempt counts are incremented
-- [Team Architecture](../team-architecture.md) - Failure handling
+- [Task Tracking](task-tracking.md) - Task selection, rollback, and failure patterns
+- [Communication Protocol](../communication-protocol.md) - Failure handling

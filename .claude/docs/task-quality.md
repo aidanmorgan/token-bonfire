@@ -19,7 +19,7 @@ A task is **implementable** when ALL criteria are present:
 
 | Classification        | Definition                                   | Action                                                     |
 |-----------------------|----------------------------------------------|------------------------------------------------------------|
-| `IMPLEMENTABLE`       | All criteria met                             | Create task via `TaskCreate`, ready for developer to claim     |
+| `IMPLEMENTABLE`       | All criteria met                             | Create task via `TaskCreate`, ready for team lead to assign     |
 | `NEEDS_EXPANSION`     | Missing 1-2 criteria inferable from codebase | Message business analyst teammate                          |
 | `NEEDS_CLARIFICATION` | Missing criteria requiring user input        | Ask user via team lead                                     |
 
@@ -59,10 +59,11 @@ Message the business analyst when a task is classified as `NEEDS_EXPANSION`.
 ### Communication
 
 ```
-TeammateTool({
-  operation: "write",
-  to: "business-analyst",
-  content: "TASK EXPANSION REQUEST\n\nTask ID: [task_id]\nDescription: [task_description]\nAcceptance Criteria: [acceptance_criteria or 'None specified']\n\nPlan Context:\n[relevant plan context]\n\nPlease expand this task into an implementable specification."
+SendMessage({
+  type: "message",
+  recipient: "business-analyst",
+  content: "TASK EXPANSION REQUEST\n\nTask ID: [task_id]\nDescription: [task_description]\nAcceptance Criteria: [acceptance_criteria or 'None specified']\n\nPlan Context:\n[relevant plan context]\n\nPlease expand this task into an implementable specification.",
+  summary: "Task expansion request for [task_id]"
 })
 ```
 
@@ -81,7 +82,7 @@ The BA replies via mailbox with an `EXPANDED_TASK_SPECIFICATION` containing:
 
 1. Update task description via `TaskUpdate` with the expanded specification
 2. Mark task as `IMPLEMENTABLE`
-3. Task becomes available for developers to claim
+3. Task becomes available for team lead to assign
 
 ### LOW Confidence
 
@@ -97,5 +98,5 @@ Task quality assessment runs at:
 2. **Full plan reload**: Re-assess tasks not yet started
 3. **New task discovery**: Assess dynamically added tasks
 
-**Critical Rule:** The team lead must NOT allow developers to claim tasks classified as `NEEDS_EXPANSION` or
-`NEEDS_CLARIFICATION`. Only `IMPLEMENTABLE` tasks are created via `TaskCreate` and available for claiming.
+**Critical Rule:** The team lead must NOT assign tasks classified as `NEEDS_EXPANSION` or
+`NEEDS_CLARIFICATION`. Only `IMPLEMENTABLE` tasks are created via `TaskCreate` and available for assignment.

@@ -4,8 +4,8 @@ This document covers timeout handling, crash recovery, and disagreement detectio
 
 **Related Documents:**
 
-- [Team Architecture](team-architecture.md) - Team structure and failure handling
-- [State Management](state/index.md) - Task state tracking
+- [Communication Protocol](communication-protocol.md) - Team structure and failure handling
+- [Task Tracking](state/task-tracking.md) - Task state tracking
 
 ---
 
@@ -15,7 +15,7 @@ This document covers timeout handling, crash recovery, and disagreement detectio
 
 Each teammate has a native heartbeat. When a teammate stops responding:
 - Heartbeat timeout (~5 min) detects the issue
-- The teammate's claimed tasks auto-release and become available for others
+- The teammate's assigned tasks auto-release and become available for reassignment
 - The team lead can respawn the teammate from its persisted prompt (experts) or agent definition (support teammates)
 
 ### Timeout by Teammate Type
@@ -38,7 +38,7 @@ Each teammate has a native heartbeat. When a teammate stops responding:
 When a named expert stops responding:
 
 1. Heartbeat timeout (~5 min) detects the unresponsive expert
-2. Expert's claimed task auto-releases (becomes available for other experts)
+2. The assigned task auto-releases (becomes available for reassignment)
 3. Team lead respawns the expert from its persisted prompt file:
    ```
    Task({
@@ -50,7 +50,7 @@ When a named expert stops responding:
      run_in_background: true
    })
    ```
-4. Fresh expert claims available tasks (may reclaim the same task)
+4. Fresh teammate sends `REQUESTING_WORK` to team lead (may be assigned the same task)
 5. Partial work from the crashed expert remains in the file system
 
 ### Repeated Expert Failures
@@ -66,9 +66,9 @@ If the same expert crashes repeatedly on the same task:
 
 When the critic stops responding:
 
-1. Team lead detects timeout (no `REVIEW_PASS`/`REVIEW_FAIL` response)
+1. Team lead detects timeout (no `REVIEW_PASSED`/`REVIEW_FAILED` response)
 2. Team lead tracks critic timeout count per task
-3. If timeout count < 3: respawn critic, re-send review request via `write`
+3. If timeout count < 3: respawn critic, re-send review request via `SendMessage`
 4. If timeout count >= 3: bypass critic, send directly to auditor (see [update-triggers.md](state/update-triggers.md))
 
 ---
@@ -79,7 +79,7 @@ When the auditor stops responding:
 
 1. Team lead detects timeout (no `AUDIT_PASSED`/`AUDIT_FAILED`/`AUDIT_BLOCKED` response)
 2. Team lead respawns auditor from documentation
-3. Re-sends audit request via `write`
+3. Re-sends audit request via `SendMessage`
 4. After 3 timeouts on the same task: escalate via `AskUserQuestion`
 
 ---
@@ -89,8 +89,8 @@ When the auditor stops responding:
 For any crashed teammate:
 
 1. Heartbeat timeout detects the unresponsive teammate
-2. Team lead calls `requestShutdown` (in case the teammate is still running but stuck)
-3. Team lead respawns the teammate using `Task({ team_name, name, run_in_background: true })`
+2. Team lead sends `SendMessage({ type: "shutdown_request", recipient: "<name>", content: "Crash recovery — shutting down stuck teammate" })` (in case the teammate is still running but stuck)
+3. Team lead respawns the teammate using `Task({ team_name: "<plan_slug>", name: "<name>", subagent_type: "<agent-type>", run_in_background: true })`
 4. For experts: use persisted prompt file from disk
 5. For support teammates: use documentation-based prompt
 
@@ -107,7 +107,7 @@ When a critic passes code that the auditor subsequently fails, this may indicate
 ### Detection
 
 The team lead tracks the review pipeline. If a task goes through:
-`REVIEW_PASS` from critic, then `AUDIT_FAILED` from auditor — this is a disagreement.
+`REVIEW_PASSED` from critic, then `AUDIT_FAILED` from auditor — this is a disagreement.
 
 ### On Disagreement Detected
 
@@ -139,9 +139,9 @@ Pay extra attention to: <specific area>
 When verification passes in some environments but fails in others:
 
 1. Team lead identifies which environments pass and which fail
-2. Team lead sends the expert environment-specific feedback via `write`:
+2. Team lead sends the developer environment-specific feedback via `SendMessage`:
    ```
-   REVIEW_FAIL: <task-id>
+   REVIEW_FAILED: <task-id>
 
    Environment-specific failure:
    - PASS in: <env-1>
@@ -152,7 +152,7 @@ When verification passes in some environments but fails in others:
 
    Common causes: missing dependencies, hardcoded paths, version mismatches, platform-specific code
    ```
-3. Expert fixes the environment-specific issue and re-signals `READY_FOR_REVIEW`
+3. Developer fixes the environment-specific issue and re-signals `READY_FOR_REVIEW`
 
 ---
 
@@ -165,12 +165,12 @@ When verification passes in some environments but fails in others:
 | Auditor timeout | No response to audit request | Retry up to 3x, then escalate |
 | Support teammate crash | Heartbeat timeout | Respawn from documentation |
 | Review/audit disagreement | Critic passed, auditor failed | Log pattern, normal rework flow |
-| Environment disagreement | Pass in some envs, fail in others | Expert rework with environment context |
+| Environment disagreement | Pass in some envs, fail in others | Developer rework with environment context |
 
 ---
 
 ## Cross-References
 
-- [Team Architecture](team-architecture.md) - Failure handling table
-- [State Management](state/index.md) - Task state tracking
-- [Recovery Procedures](recovery/index.md) - General recovery
+- [Communication Protocol](communication-protocol.md) - Failure handling table
+- [Task Tracking](state/task-tracking.md) - Task state tracking
+- [Baseline Failures](recovery/baseline-failures.md) - Pre-session failure baseline capture

@@ -1,6 +1,6 @@
 # Research Infrastructure and Essay Generation
 
-[<- Back to Agent Generation](./index.md)
+[<- Back to Orchestrator Generation](../orchestrator-generation.md)
 
 How research is gathered, persisted, and synthesized for agent creation.
 
@@ -12,8 +12,8 @@ How research is gathered, persisted, and synthesized for agent creation.
 
 | Agent Type          | Research Output Location                             |
 |---------------------|------------------------------------------------------|
-| **Static Agents** | `{{ARTEFACTS_DIR}}/agent-research/[agent-name].md`   |
-| **Experts**         | `{{ARTEFACTS_DIR}}/expert-research/[expert-name].md` |
+| **Static Agents** | `.claude/bonfire/<plan_slug>/agent-research/[agent-name].md`   |
+| **Experts**         | `.claude/bonfire/<plan_slug>/expert-research/[expert-name].md` |
 
 These research essays serve as:
 
@@ -231,6 +231,6 @@ See [prompt-engineering-guide.md](../../agent-creation/prompt-engineering-guide.
 
 ## Related Documentation
 
-- [Expert Generation](./expert-generation.md) - How experts receive deep research
-- [Baseline Generation](./baseline-generation.md) - How static agents receive broad research
+- [Orchestrator Generation](../orchestrator-generation.md) - Bootstrap protocol and research essay format
+- [Gap Analysis Procedure](../gap-analysis-procedure.md) - Expert identification and prioritization
 - [Prompt Engineering Guide](../../agent-creation/prompt-engineering-guide.md) - Quality standards

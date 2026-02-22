@@ -13,8 +13,7 @@ For error classification and routing, see [error-classification.md](../error-cla
 
 See also:
 
-- [Session Recovery](session-recovery.md) - Complete recovery procedures including baseline
-- [Recovery Index](index.md) - Overview of all recovery procedures
+- [Resume Procedure](../team-lead/resume.md) - Session resume including baseline verification
 
 ---
 
@@ -42,7 +41,7 @@ For each check:
 
 On session start, the team lead:
 
-1. Runs standard recovery checks (see [session-recovery.md](session-recovery.md))
+1. Runs standard recovery checks (see [resume.md](../team-lead/resume.md))
 2. Checks if a baseline was already established (resume case — baseline in context may be lost)
 3. If no baseline exists, captures a fresh baseline before dispatching work
 4. If many pre-existing failures exist (>10), warns the user:
@@ -71,5 +70,5 @@ Summary: <N> total failures across <N> environments
 ## Cross-References
 
 - [Error Classification](../error-classification.md) - Error types and routing logic
-- [Session Recovery](session-recovery.md) - Complete session recovery including baseline
-- [Team Architecture](../team-architecture.md) - Verification protocol
+- [Resume Procedure](../team-lead/resume.md) - Session resume including baseline verification
+- [Communication Protocol](../communication-protocol.md) - Verification protocol

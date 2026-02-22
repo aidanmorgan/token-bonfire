@@ -11,7 +11,7 @@ The task delivery loop has two phases, each detailed in separate documents:
 
 1. SELECT TASK - Choose from available, unblocked tasks via `TaskList`
 2. PREPARE ASSIGNMENT - Expand templates, include references
-3. ROUTE TO DEVELOPER - Send assignment via `TeammateTool({ operation: "write" })`
+3. ROUTE TO DEVELOPER - Send assignment via `SendMessage`
 4. RECEIVE DEVELOPER RESULT - Monitor mailbox for `READY_FOR_REVIEW`
 
 **Phase B: Review, Ripple Analysis & Audit** ([review-audit-flow.md](review-audit-flow.md)):
@@ -28,71 +28,9 @@ After routing, fill developer slots and loop.
 
 ---
 
-## Step 1: Select Task
+## Steps 1-4: Task Dispatch (Developer Assignment)
 
-**Input**: Tasks from `TaskList`
-
-**Procedure**:
-
-1. Call `TaskList` to get all tasks
-2. Filter tasks where status is "pending" and all `blockedBy` have status "completed"
-3. Sort by priority (phase order, then dependency count)
-4. Select top N tasks where N = `MAX_DEVELOPERS` - active developer count
-
-**Output**: List of task IDs to route
-
----
-
-## Step 2: Prepare Assignment
-
-**Input**: Task ID, plan content, developer name
-
-**The team lead builds the assignment by combining:**
-
-1. **Task-Specific Context** (from plan and configuration)
-2. **Developer Agent Definition** (`.claude/agents/developer.md`, loaded automatically via `subagent_type: "developer"`)
-
-See [task-dispatch.md](task-dispatch.md) for the detailed assignment construction procedure.
-
-**Key Elements**:
-
-- Task work description and acceptance criteria
-- Required reading files (MUST READ + REFERENCE)
-- Verification commands and environments
-
-**Output**: Complete assignment message
-
----
-
-## Step 3: Route to Developer
-
-**Input**: Prepared assignment, task ID, developer name
-
-**Procedure**:
-
-1. Update task status: `TaskUpdate({ taskId, status: "in_progress" })`
-2. Send via mailbox: `TeammateTool({ operation: "write", to: "<developer>", content: "<assignment>" })`
-
-See [task-dispatch.md](task-dispatch.md) for routing details.
-
-**Output**: Developer is now working on the task
-
----
-
-## Step 4: Receive Developer Result
-
-**Input**: Developer's mailbox message
-
-**Signal Detection**: Read mailbox messages for these patterns:
-
-- `READY_FOR_REVIEW: <task_id>` -> Validate environment matrix, route to critic
-- `NEED_EXPERT_ADVICE: <task_id>` -> Route question to appropriate expert advisor, relay response back
-- `SEEKING_DIVINE_CLARIFICATION` -> Ask user for clarification
-- `INFRA_BLOCKED: <task_id>` -> Route to remediation teammate
-
-**Environment Verification**: Before routing to critic, validate the environment matrix is complete.
-
-**Output**: Parsed result or blocker information
+See [task-dispatch.md](task-dispatch.md) for the full procedure: select task, retrieve details via `TaskGet`, assign to developer via `TaskUpdate` + `SendMessage`, and receive developer results.
 
 ---
 
@@ -161,8 +99,8 @@ On `AUDIT_BLOCKED` (infrastructure issues):
 
 1. Route to `remediation` teammate via mailbox:
    ```
-   TeammateTool({ operation: "write", to: "remediation",
-                  content: "INFRA_BLOCKED: <issue description>" })
+   SendMessage({ type: "message", recipient: "remediation",
+                 summary: "Infrastructure blocked", content: "INFRA_BLOCKED: <issue description>" })
    ```
 2. Hold task assignments until remediation completes
 
@@ -196,7 +134,7 @@ Priority order:
 **From AWAIT_DEVELOPER**:
 
 - READY_FOR_REVIEW -> ROUTE_CRITIC -> AWAIT_CRITIC
-- DIVINE_QUESTION -> AWAIT_USER -> back to loop
+- SEEKING_DIVINE_CLARIFICATION -> AWAIT_USER -> back to loop
 
 **From AWAIT_CRITIC**:
 
@@ -216,13 +154,16 @@ Priority order:
 
 ### Task States (via TaskUpdate)
 
-The shared task list supports only three status values via `TaskUpdate`:
+The shared task list supports these status values via `TaskUpdate`:
 
 | Status       | Meaning                                                     |
 |--------------|-------------------------------------------------------------|
 | `pending`    | Available for developer assignment (created or reset)       |
-| `in_progress`| Developer claimed and working                               |
-| `completed`  | Auditor PASSED — only terminal state                        |
+| `in_progress`| Developer assigned and working                               |
+| `completed`  | Auditor PASSED — terminal state                             |
+| `deleted`    | Permanently removed from the task list                      |
+
+Bonfire uses `pending`, `in_progress`, and `completed` in its normal workflow. The `deleted` status exists as an escape hatch for removing tasks that are no longer relevant.
 
 **Pipeline stages are NOT task statuses.** The team lead tracks the review pipeline (critic review, ripple analysis, audit) in its own context as routing state — these do NOT map to `TaskUpdate` status values.
 
@@ -250,7 +191,7 @@ The team lead's internal routing states (tracked in team lead context only):
 | Ready for review | `READY_FOR_REVIEW: <id>`     | -> route to critic   |
 | Expert advice    | `NEED_EXPERT_ADVICE: <id>`   | -> route to expert advisor |
 | Advice provided  | `EXPERT_ADVICE_PROVIDED: <id>`| -> relay to developer|
-| Task incomplete  | `TASK_INCOMPLETE: <id>`      | -> log, fill slots   |
+| Infra blocked    | `INFRA_BLOCKED: <id>`        | -> route remediation |
 | Review passed    | `REVIEW_PASSED: <id>`        | -> route to ripple   |
 | Review failed    | `REVIEW_FAILED: <id>`        | -> developer rework  |
 | Ripple passed    | `RIPPLE_PASSED: <id>`        | -> route to auditor  |
@@ -258,7 +199,6 @@ The team lead's internal routing states (tracked in team lead context only):
 | Audit pass       | `AUDIT_PASSED: <id>`         | -> **TASK COMPLETE** |
 | Audit fail       | `AUDIT_FAILED: <id>`         | -> developer rework  |
 | Audit blocked    | `AUDIT_BLOCKED: <id>`        | -> route remediation |
-| Infra blocked    | `INFRA_BLOCKED: <id>`        | -> route remediation |
 
 ### Remediation Signals
 
@@ -291,5 +231,4 @@ The team lead's internal routing states (tracked in team lead context only):
 - [task-dispatch.md](task-dispatch.md) - Assignment construction and routing details
 - [review-audit-flow.md](review-audit-flow.md) - Critic and Auditor routing
 - [developer-rework.md](developer-rework.md) - Rework routing after failures
-- [team-architecture.md](team-architecture.md) - Team structure and communication
-- [coordinator-configuration.md](coordinator-configuration.md) - Configuration values
+- [communication-protocol.md](communication-protocol.md) - Team structure and communication

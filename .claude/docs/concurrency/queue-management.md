@@ -22,21 +22,21 @@ When a blocking task is marked `completed` via `TaskUpdate({ status: "completed"
 
 ### Dependency Source
 
-The bootstrapper script (`generate-orchestrator.py`) parses `Blocked By` fields from the plan file and includes them in the task manifest. The team lead uses these during `TaskCreate` to set up the initial dependency graph.
+The bootstrapper script (`generate-orchestrator.py`) parses `Blocked By` fields from the plan file and includes them in the task manifest. The team lead creates tasks via `TaskCreate`, then sets up the initial dependency graph via `TaskUpdate({ addBlockedBy })` — dependencies cannot be set at creation time.
 
-## How Experts See Dependencies
+## How the Team Lead Uses Dependencies
 
-When an expert calls `TaskList`, tasks with unresolved dependencies appear with their blocked status. Experts:
+The team lead calls `TaskList` to check task status. Tasks with unresolved dependencies remain blocked. The team lead:
 
-1. **Skip blocked tasks** when claiming work
-2. **Prefer their applicable tasks** that are pending and unblocked
-3. **Claim via** `TaskUpdate({ status: "in_progress" })` which uses file locking to prevent race conditions
+1. **Skips blocked tasks** when assigning work to developers
+2. **Assigns unblocked tasks** to requesting developers via SendMessage
+3. **Claims on behalf of developers** via `TaskUpdate({ status: "in_progress", owner: "<dev-name>" })`
 
-If all of an expert's applicable tasks are blocked, they may claim other unblocked tasks where their expertise is relevant, or check their mailbox for review feedback on previously submitted work.
+If all remaining tasks are blocked, the team lead responds with `NO_TASKS_AVAILABLE` when developers request work.
 
 ## File Conflict as Implicit Dependency
 
-When an expert signals `FILE_CONFLICT` and the team lead determines the expert should wait:
+When a developer signals `FILE_CONFLICT` and the team lead determines the developer should wait:
 
 1. The team lead can add a dependency: `TaskUpdate({ taskId: "<waiting-task>", addBlockedBy: ["<owning-task>"] })`
 2. The waiting task is automatically unblocked when the owning task completes

@@ -118,7 +118,8 @@ name: [teammate-name]
 description: [One sentence: what + when to use]
 model: [sonnet | opus | haiku]
 tools: [comma-separated list]
-version: "YYYY-MM-DD-v1"
+background: true
+maxTurns: [100-200 depending on role]
 ---
 ```
 
@@ -260,7 +261,7 @@ PHASE 2: [NAME]
 
 FINAL PHASE: COMMUNICATE
 1. Complete pre-message verification
-2. Send result via TeammateTool message in exact format
+2. Send result via SendMessage in exact format
 </method>
 ```
 
@@ -303,10 +304,11 @@ not an expert in any specific domain.
 - "Is this the RIGHT way?" not just "Does this work?"
 
 **HOW TO ASK**:
-TeammateTool({
-  operation: "write",
-  to: "[expert-name]",
-  content: "EXPERT REQUEST\nTask: [task ID]\nQuestion: [what you need]\nContext: [what you've tried]"
+SendMessage({
+  type: "message",
+  recipient: "team-lead",
+  content: "NEED_EXPERT_ADVICE\nExpert: [expert-name]\nTask: [task ID]\nQuestion: [what you need]\nContext: [what you've tried]",
+  summary: "Need expert advice from [expert-name]"
 })
 
 **IT IS BETTER TO ASK THAN TO GUESS WRONG.**
@@ -318,8 +320,8 @@ TeammateTool({
 ```xml
 <team_integration>
 MESSAGE RULES:
-- Messages are sent via TeammateTool({ operation: "write", to: "<name>", content: "..." })
-- Read your mailbox with TeammateTool({ operation: "read" })
+- Messages are sent via SendMessage({ type: "message", recipient: "<name>", content: "...", summary: "..." })
+- Check your mailbox for pending messages from teammates
 - Use structured message formats (AUDIT_PASSED, AUDIT_FAILED, EXPERT REQUEST, etc.)
 - Output exactly ONE primary result message per task completion
 </team_integration>
@@ -525,5 +527,5 @@ If you create a strong teammate:
 ## Cross-References
 
 - **[Documentation Index](../index.md)** - Navigation hub
-- [Team Architecture](../team-architecture.md) - Team structure and communication
+- [Communication Protocol](../communication-protocol.md) - SendMessage API and signal reference
 - [Troubleshooting](../troubleshooting.md) - Common issues and recovery

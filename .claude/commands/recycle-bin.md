@@ -96,4 +96,4 @@ The hook is configured in `.claude/settings.json`:
 
 ## Documentation
 
-- [Hook README](.claude/hooks/README.md) - Full hook documentation
+- [Hook README](../hooks/README.md) - Full hook documentation

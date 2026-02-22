@@ -90,5 +90,4 @@ This expert creation guide is organized into focused documents:
 
 - **[Documentation Index](../../index.md)** - Navigation hub for all docs
 - [Escalation Specification](../../escalation-specification.md) - Escalation rules
-- [Expert Delegation](../../expert-delegation.md) - Delegation protocol
-- [MCP Servers](../../mcp-servers.md) - Using MCP server capabilities
+- [Communication Protocol](../../communication-protocol.md) - SendMessage API and signal reference
